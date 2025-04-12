@@ -1,5 +1,4 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nuotti", "Nuotti\Nuotti.csproj", "{2A4B753A-6077-4182-8F25-2A180A5BC25B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nuotti.Backend", "Nuotti.Backend\Nuotti.Backend.csproj", "{3CAA8F81-0798-48CE-9008-E9DA8A250FD2}"
@@ -36,5 +35,9 @@ Global
 		{0A14BA43-7CB3-47AE-B6F5-AA0AAC0E7323}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0A14BA43-7CB3-47AE-B6F5-AA0AAC0E7323}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0A14BA43-7CB3-47AE-B6F5-AA0AAC0E7323}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B8D27B4-9FC2-4DEF-8C81-A9108EFDEC98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B8D27B4-9FC2-4DEF-8C81-A9108EFDEC98}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B8D27B4-9FC2-4DEF-8C81-A9108EFDEC98}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B8D27B4-9FC2-4DEF-8C81-A9108EFDEC98}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
