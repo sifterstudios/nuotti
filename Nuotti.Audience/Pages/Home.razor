@@ -56,6 +56,8 @@
         try
         {
             await Hub.CreateOrJoinAsync(session.Trim(), string.IsNullOrWhiteSpace(name) ? null : name!.Trim());
+            // Navigate to the question page (which also serves as a waiting room) once connected/joined
+            Nav.NavigateTo("/question");
         }
         catch (Exception ex)
         {

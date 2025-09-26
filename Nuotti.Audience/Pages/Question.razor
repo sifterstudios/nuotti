@@ -2,6 +2,7 @@
 @using Nuotti.Audience.Services
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
+@implements IDisposable
 
 <PageTitle>Question</PageTitle>
 
@@ -33,6 +34,21 @@ else
 }
 
 @code {
+    protected override void OnInitialized()
+    {
+        Hub.QuestionPushed += OnQuestionPushed;
+    }
+
+    private async void OnQuestionPushed(Nuotti.Contracts.QuestionPushed _)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Hub.QuestionPushed -= OnQuestionPushed;
+    }
+
     private async Task Submit(int index)
     {
         await Hub.SubmitAnswerAsync(index);
