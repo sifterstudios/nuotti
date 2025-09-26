@@ -2,12 +2,49 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="Nuotti.Projector.MainWindow"
-        Title="Nuotti.Projector">
-    <StackPanel>
-        <TextBlock Name="ConnectionStatus" Text="Disconnected"/>
-        <TextBlock Name="SongText" Text="No song playing..."/>
-        <Button Name="TestButton" Content="Send Test Message" Click="TestButton_Click"/>
-    </StackPanel>
+        Title="Nuotti Projector">
+    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
+        <Border Background="#111" Padding="16">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock x:Name="SessionCodeText" Text="SESSION" FontSize="48" Foreground="#fff" FontWeight="Bold" Grid.Column="0"/>
+                <TextBlock x:Name="ConnectionStatus" Text="Connecting..." Foreground="#bbb" Margin="16,0,0,0" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.Column="1"/>
+            </Grid>
+        </Border>
+        <Border Grid.Row="1" Padding="32">
+            <StackPanel Spacing="24">
+                <TextBlock x:Name="QuestionText" Text="Waiting for question..." FontSize="36" TextWrapping="Wrap"/>
+                <StackPanel Spacing="12">
+                    <Border x:Name="Row0" Padding="12" CornerRadius="8" Background="#222">
+                        <DockPanel>
+                            <TextBlock x:Name="Choice0Text" Text="Choice A" FontSize="28" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="Choice0Count" Text="0" FontSize="28" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                    </Border>
+                    <Border x:Name="Row1" Padding="12" CornerRadius="8" Background="#222">
+                        <DockPanel>
+                            <TextBlock x:Name="Choice1Text" Text="Choice B" FontSize="28" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="Choice1Count" Text="0" FontSize="28" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                    </Border>
+                    <Border x:Name="Row2" Padding="12" CornerRadius="8" Background="#222">
+                        <DockPanel>
+                            <TextBlock x:Name="Choice2Text" Text="Choice C" FontSize="28" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="Choice2Count" Text="0" FontSize="28" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                    </Border>
+                    <Border x:Name="Row3" Padding="12" CornerRadius="8" Background="#222">
+                        <DockPanel>
+                            <TextBlock x:Name="Choice3Text" Text="Choice D" FontSize="28" DockPanel.Dock="Left"/>
+                            <TextBlock x:Name="Choice3Count" Text="0" FontSize="28" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <Border Grid.Row="2" Background="#111" Padding="8">
+            <TextBlock Text="Nuotti Projector" Foreground="#888" HorizontalAlignment="Center"/>
+        </Border>
+    </Grid>
 </Window>

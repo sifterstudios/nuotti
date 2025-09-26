@@ -10,4 +10,8 @@
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.2"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
+    </ItemGroup>
+
 </Project>

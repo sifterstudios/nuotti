@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Nuotti.Contracts;
 
-namespace Nuotti.Backend;
+namespace Backend;
 
 public class QuizHub : Hub
 {

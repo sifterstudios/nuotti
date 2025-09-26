@@ -1,30 +1,72 @@
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
+using Nuotti.Contracts;
 using System;
-using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 namespace Nuotti.Projector;
 
 public partial class MainWindow : Window
 {
     readonly HubConnection _connection;
-    readonly TextBlock? _connectionTextBlock;
+    readonly TextBlock _connectionTextBlock;
+    readonly TextBlock _sessionCodeText;
+    readonly TextBlock _questionText;
+    readonly TextBlock[] _choiceTexts;
+    readonly TextBlock[] _choiceCounts;
+    readonly Border[] _rows;
+
+    readonly string _backend = "http://localhost:5240";
+    readonly string _sessionCode = "DEMO";
+
+    int[] _tally = new int[4];
+
     public MainWindow()
     {
-        var songTextBlock = this.FindControl<TextBlock>("SongText");
-        _connectionTextBlock = this.FindControl<TextBlock>("ConnectionStatus");
-        Debug.Assert(_connectionTextBlock != null, nameof(_connectionTextBlock) + " != null");
-        
         InitializeComponent();
+
+        _connectionTextBlock = this.FindControl<TextBlock>("ConnectionStatus")!;
+        _sessionCodeText = this.FindControl<TextBlock>("SessionCodeText")!;
+        _questionText = this.FindControl<TextBlock>("QuestionText")!;
+        _choiceTexts = new[]
+        {
+            this.FindControl<TextBlock>("Choice0Text")!,
+            this.FindControl<TextBlock>("Choice1Text")!,
+            this.FindControl<TextBlock>("Choice2Text")!,
+            this.FindControl<TextBlock>("Choice3Text")!,
+        };
+        _choiceCounts = new[]
+        {
+            this.FindControl<TextBlock>("Choice0Count")!,
+            this.FindControl<TextBlock>("Choice1Count")!,
+            this.FindControl<TextBlock>("Choice2Count")!,
+            this.FindControl<TextBlock>("Choice3Count")!,
+        };
+        _rows = new[]
+        {
+            this.FindControl<Border>("Row0")!,
+            this.FindControl<Border>("Row1")!,
+            this.FindControl<Border>("Row2")!,
+            this.FindControl<Border>("Row3")!,
+        };
+
+        _sessionCodeText.Text = _sessionCode;
+
         _connection = new HubConnectionBuilder()
-            .WithUrl("http://localhost:5240/gameHub")
+            .WithUrl($"{_backend}/hub")
             .WithAutomaticReconnect()
             .Build();
-        _connection.On<string>("ReceiveSongUpdate", song =>
+
+        _connection.On<QuestionPushed>("QuestionPushed", q =>
         {
-            if (songTextBlock != null) songTextBlock.Text = song;
+            Dispatcher.UIThread.Post(() => SetQuestion(q));
+        });
+        _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
+        {
+            Dispatcher.UIThread.Post(() => Tally(a.ChoiceIndex));
         });
 
         Loaded += async (_, _) =>
@@ -50,6 +92,7 @@ public partial class MainWindow : Window
     async Task StartConnection()
     {
         await _connection.StartAsync();
+        await _connection.InvokeAsync("CreateOrJoin", _sessionCode);
     }
 
     public async Task StopConnection()
@@ -62,15 +105,45 @@ public partial class MainWindow : Window
         AvaloniaXamlLoader.Load(this);
     }
 
-    async void TestButton_Click(object? sender, RoutedEventArgs e)
+    void SetQuestion(QuestionPushed q)
     {
-        try
+        _questionText.Text = q.Text;
+        _tally = new int[4];
+        for (int i = 0; i < 4; i++)
         {
-            await _connection.InvokeAsync("SendSongUpdate", "Test Song Title");
+            if (q.Options != null && i < q.Options.Length)
+            {
+                _choiceTexts[i].Text = q.Options[i];
+                _rows[i].IsVisible = true;
+            }
+            else
+            {
+                _choiceTexts[i].Text = string.Empty;
+                _rows[i].IsVisible = false;
+            }
+            _choiceCounts[i].Text = "0";
+            _rows[i].Background = new SolidColorBrush(Color.Parse("#222"));
         }
-        catch (Exception ex)
+    }
+
+    void Tally(int choiceIndex)
+    {
+        if (choiceIndex < 0 || choiceIndex >= _tally.Length) return;
+        _tally[choiceIndex]++;
+        for (int i = 0; i < _tally.Length; i++)
         {
-            if (_connectionTextBlock != null) _connectionTextBlock.Text = $"Error: {ex.Message}";
+            _choiceCounts[i].Text = _tally[i].ToString();
+        }
+        HighlightLeaders();
+    }
+
+    void HighlightLeaders()
+    {
+        int max = _tally.Max();
+        for (int i = 0; i < _tally.Length; i++)
+        {
+            var color = _tally[i] == max && max > 0 ? "#2e7d32" : "#222"; // green for leaders
+            _rows[i].Background = new SolidColorBrush(Color.Parse(color));
         }
     }
 }

@@ -1,0 +1,46 @@
+﻿@page "/question"
+@using Nuotti.Audience.Services
+@inject AudienceHubClient Hub
+@inject NavigationManager Nav
+
+<PageTitle>Question</PageTitle>
+
+@if (Hub.CurrentQuestion is not Nuotti.Contracts.QuestionPushed q)
+{
+    <div class="container py-5 text-center">
+        <p class="text-muted">Waiting for a question...</p>
+    </div>
+}
+else
+{
+    <div class="container py-4" style="max-width: 720px;">
+        <h1 class="h4 mb-4">@q.Text</h1>
+
+        <div class="d-grid gap-3">
+            @for (var i = 0; i < q.Options.Length; i++)
+            {
+                var idx = i;
+                <button class="btn btn-outline-primary btn-lg text-start" style="min-height: 64px;" @onclick="(() => Submit(idx))">
+                    <span class="fw-semibold me-2">@(idx + 1).</span> @q.Options[idx]
+                </button>
+            }
+        </div>
+
+        <div class="mt-4">
+            <button class="btn btn-link" @onclick="GoHome">Change session</button>
+        </div>
+    </div>
+}
+
+@code {
+    private async Task Submit(int index)
+    {
+        await Hub.SubmitAnswerAsync(index);
+    }
+
+    private void GoHome()
+    {
+        // Navigate back to join page
+        Nav.NavigateTo("/");
+    }
+}
