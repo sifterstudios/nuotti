@@ -108,6 +108,14 @@ public class AudienceHubClient : IAsyncDisposable
         await _connection!.InvokeAsync("SubmitAnswer", SessionCode!, choiceIndex);
     }
 
+    public async Task RequestPlayAsync(string fileUrl)
+    {
+        if (string.IsNullOrWhiteSpace(SessionCode)) return;
+        if (string.IsNullOrWhiteSpace(fileUrl)) return;
+        await EnsureConnectedAsync();
+        await _connection!.InvokeAsync("RequestPlay", SessionCode!, new PlayTrack(fileUrl));
+    }
+
     public ValueTask DisposeAsync()
     {
         return _connection?.DisposeAsync() ?? ValueTask.CompletedTask;

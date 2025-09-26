@@ -7,6 +7,8 @@ using Nuotti.Contracts;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Net.Http;
+using System.Net.Http.Json;
 namespace Nuotti.Projector;
 
 public partial class MainWindow : Window
@@ -20,7 +22,7 @@ public partial class MainWindow : Window
     readonly Border[] _rows;
 
     readonly string _backend = "http://localhost:5240";
-    readonly string _sessionCode = "DEMO";
+    readonly string _sessionCode = "dev";
 
     int[] _tally = new int[4];
 
@@ -67,6 +69,10 @@ public partial class MainWindow : Window
         _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
         {
             Dispatcher.UIThread.Post(() => Tally(a.ChoiceIndex));
+        });
+        _connection.On<PlayTrack>("RequestPlay", p =>
+        {
+            _ = ForwardPlayToBackend(p);
         });
 
         Loaded += async (_, _) =>
@@ -144,6 +150,23 @@ public partial class MainWindow : Window
         {
             var color = _tally[i] == max && max > 0 ? "#2e7d32" : "#222"; // green for leaders
             _rows[i].Background = new SolidColorBrush(Color.Parse(color));
+        }
+    }
+
+    private async Task ForwardPlayToBackend(PlayTrack p)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            var resp = await client.PostAsJsonAsync($"{_backend}/api/play/{_sessionCode}", p);
+            if (!resp.IsSuccessStatusCode)
+            {
+                Dispatcher.UIThread.Post(() => _connectionTextBlock.Text = $"Play POST failed: {(int)resp.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Dispatcher.UIThread.Post(() => _connectionTextBlock.Text = $"Play POST error: {ex.Message}");
         }
     }
 }

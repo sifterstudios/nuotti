@@ -6,15 +6,9 @@
 
 <PageTitle>Question</PageTitle>
 
-@if (Hub.CurrentQuestion is not Nuotti.Contracts.QuestionPushed q)
-{
-    <div class="container py-5 text-center">
-        <p class="text-muted">Waiting for a question...</p>
-    </div>
-}
-else
-{
-    <div class="container py-4" style="max-width: 720px;">
+<div class="container py-4" style="max-width: 720px;">
+    @if (Hub.CurrentQuestion is Nuotti.Contracts.QuestionPushed q)
+    {
         <h1 class="h4 mb-4">@q.Text</h1>
 
         <div class="d-grid gap-3">
@@ -26,14 +20,31 @@ else
                 </button>
             }
         </div>
-
-        <div class="mt-4">
-            <button class="btn btn-link" @onclick="GoHome">Change session</button>
+    }
+    else
+    {
+        <div class="py-5 text-center">
+            <p class="text-muted">Waiting for a question...</p>
         </div>
+    }
+
+    <div class="mt-4">
+        <button class="btn btn-link" @onclick="GoHome">Change session</button>
     </div>
-}
+
+    <div class="mt-5 p-3 border rounded bg-light">
+        <div class="mb-2 fw-semibold">Test audio (asks projector to play)</div>
+        <div class="input-group">
+            <input class="form-control" @bind="fileUrl" />
+            <button class="btn btn-success" @onclick="RequestPlay">Play on projector</button>
+        </div>
+        <div class="form-text">Projector will call backend /api/play. AudioEngine in same session should play.</div>
+    </div>
+</div>
 
 @code {
+    private string fileUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+
     protected override void OnInitialized()
     {
         Hub.QuestionPushed += OnQuestionPushed;
@@ -52,6 +63,11 @@ else
     private async Task Submit(int index)
     {
         await Hub.SubmitAnswerAsync(index);
+    }
+
+    private async Task RequestPlay()
+    {
+        await Hub.RequestPlayAsync(fileUrl);
     }
 
     private void GoHome()

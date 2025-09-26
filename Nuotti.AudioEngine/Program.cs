@@ -78,8 +78,8 @@ static bool CanStart(string fileName)
     }
 }
 
-var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5192");
-var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "SESSION123");
+var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5240");
+var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "dev");
 
 Log($"AudioEngine starting. Backend={backend}, Session={session}");
 

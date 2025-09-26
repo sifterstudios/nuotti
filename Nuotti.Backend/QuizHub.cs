@@ -20,4 +20,8 @@ public class QuizHub : Hub
 
     public Task SubmitAnswer(string session, int choiceIndex) =>
         Clients.Group(session).SendAsync("AnswerSubmitted", new AnswerSubmitted(Context.ConnectionId, choiceIndex));
+
+    // Audience can ask the projector to play a track. Projector will then call the REST API to actually play.
+    public Task RequestPlay(string session, PlayTrack cmd) =>
+        Clients.Group(session).SendAsync("RequestPlay", cmd);
 }
