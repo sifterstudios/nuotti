@@ -6,41 +6,56 @@
 
 <PageTitle>Question</PageTitle>
 
-<div class="container py-4" style="max-width: 720px;">
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
     @if (Hub.CurrentQuestion is Nuotti.Contracts.QuestionPushed q)
     {
-        <h1 class="h4 mb-4">@q.Text</h1>
+        <MudText Typo="Typo.h4" GutterBottom="true">@q.Text</MudText>
 
-        <div class="d-grid gap-3">
+        <MudStack Spacing="3">
             @for (var i = 0; i < q.Options.Length; i++)
             {
                 var idx = i;
-                <button class="btn btn-outline-primary btn-lg text-start" style="min-height: 64px;" @onclick="(() => Submit(idx))">
-                    <span class="fw-semibold me-2">@(idx + 1).</span> @q.Options[idx]
-                </button>
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Primary" 
+                           Size="Size.Large"
+                           FullWidth="true"
+                           StartIcon="@($"{idx + 1}")"
+                           OnClick="(() => Submit(idx))"
+                           Class="text-start justify-start"
+                           Style="min-height: 64px;">
+                    @q.Options[idx]
+                </MudButton>
             }
-        </div>
+        </MudStack>
     }
     else
     {
-        <div class="py-5 text-center">
-            <p class="text-muted">Waiting for a question...</p>
-        </div>
+        <MudContainer Class="py-5 text-center">
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Waiting for a question...</MudText>
+        </MudContainer>
     }
 
-    <div class="mt-4">
-        <button class="btn btn-link" @onclick="GoHome">Change session</button>
-    </div>
+    <MudStack Row="true" Class="mt-4">
+        <MudButton Variant="Variant.Text" OnClick="GoHome">Change session</MudButton>
+    </MudStack>
 
-    <div class="mt-5 p-3 border rounded bg-light">
-        <div class="mb-2 fw-semibold">Test audio (asks projector to play)</div>
-        <div class="input-group">
-            <input class="form-control" @bind="fileUrl" />
-            <button class="btn btn-success" @onclick="RequestPlay">Play on projector</button>
-        </div>
-        <div class="form-text">Projector will call backend /api/play. AudioEngine in same session should play.</div>
-    </div>
-</div>
+    <MudPaper Class="mt-5 pa-4" Elevation="1">
+        <MudText Typo="Typo.subtitle1" GutterBottom="true">Test audio (asks projector to play)</MudText>
+        <MudStack Row="true" Spacing="2" Justify="Justify.Center">
+            <MudTextField @bind-Value="fileUrl" 
+                          Variant="Variant.Outlined" 
+                          FullWidth="true" />
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Success" 
+                       OnClick="RequestPlay">
+                Play on projector
+            </MudButton>
+        </MudStack>
+        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+            Projector will call backend /api/play. AudioEngine in same session should play.
+        </MudText>
+    </MudPaper>
+</MudContainer>
 
 @code {
     private string fileUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";

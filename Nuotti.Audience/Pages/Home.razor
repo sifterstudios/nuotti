@@ -5,32 +5,42 @@
 
 <PageTitle>Join session</PageTitle>
 
-<div class="container py-4" style="max-width: 520px;">
-    <h1 class="h3 mb-3">Join a session</h1>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Join a session</MudText>
 
-    <div class="mb-3">
-        <label class="form-label" for="sessionInput">Session code</label>
-        <input id="sessionInput" class="form-control form-control-lg" @bind="session" placeholder="e.g. ABC123" />
-    </div>
+    <MudTextField @bind-Value="session" 
+                  Label="Session code" 
+                  Placeholder="e.g. ABC123symotion-prefix)"
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Normal"
+                  FullWidth="true" />
 
-    <div class="mb-4">
-        <label class="form-label" for="nameInput">Your name (optional)</label>
-        <input id="nameInput" class="form-control form-control-lg" @bind="name" placeholder="Jane" />
-    </div>
+    <MudTextField @bind-Value="name" 
+                  Label="Your name (optional)"
+                  Placeholder="Jane"
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Normal"
+                  FullWidth="true" />
 
-    <button class="btn btn-primary btn-lg w-100" @onclick="JoinAsync" disabled="@(isBusy || string.IsNullOrWhiteSpace(session))">
+    <MudButton Variant="Variant.Filled" 
+               Color="Color.Primary" 
+               Size="Size.Large"
+               FullWidth="true"
+               OnClick="JoinAsync" 
+               Disabled="@(isBusy || string.IsNullOrWhiteSpace(session))"
+               Class="mt-4">
         @(isBusy ? "Joining..." : "Join")
-    </button>
+    </MudButton>
 
     @if (!string.IsNullOrWhiteSpace(error))
     {
-        <div class="alert alert-danger mt-3" role="alert">@error</div>
+        <MudAlert Severity="Severity.Error" Class="mt-4">@error</MudAlert>
     }
 
-    <div class="text-muted small mt-4">
+    <MudText Typo="Typo.caption" Class="mt-4" Color="Color.Secondary">
         Backend: @Hub.BackendBaseUrl
-    </div>
-</div>
+    </MudText>
+</MudContainer>
 
 @code {
     private string session = string.Empty;
