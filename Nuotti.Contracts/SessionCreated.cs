@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts;
+﻿namespace Nuotti.Contracts.V1;
 
 /// <summary>
 /// Emitted by Backend when a new session (room) is created and ready.
