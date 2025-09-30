@@ -6,4 +6,4 @@
 /// <param name="Index">Zero-based ordering of the hint relative to other hints for the question</param>
 /// <param name="Text">Optional hint text shown to participants</param>
 /// <param name="PerformerInstructions">Optional instructions for performer</param>
-public sealed record Hint(int Index, string? Text, string? PerformerInstructions);
+public sealed record Hint(int Index, string? Text, string? PerformerInstructions, SongId SongId);

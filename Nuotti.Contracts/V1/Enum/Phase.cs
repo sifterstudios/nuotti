@@ -8,17 +8,17 @@ namespace Nuotti.Contracts.V1.Enum;
 public enum Phase
 {
     /// <summary>
+    /// Session not started, waiting.
+    /// </summary>
+    Idle,
+    /// <summary>
     /// Waiting room before the quiz starts
     /// </summary>
     Lobby,
     /// <summary>
-    /// All clients are ready; about to start
+    /// Start of the game or round.
     /// </summary>
-    Ready,
-    /// <summary>
-    /// Short lead-in before the question appears or audio begins.
-    /// </summary>
-    SongIntro,
+    Start,
     /// <summary>
     /// Optional hint is being shown or played.
     /// </summary>
@@ -28,15 +28,23 @@ public enum Phase
     /// </summary>
     Guessing,
     /// <summary>
+    /// No longer able to guess
+    /// </summary>
+    Lock,
+    /// <summary>
     /// The correct answer is displayed/revealed.
     /// </summary>
     Reveal,
     /// <summary>
-    /// Between questions/rounds.
+    /// The current song is being played.
+    /// </summary>
+    Play,
+    /// <summary>
+    /// Between rounds.
     /// </summary>
     Intermission,
     /// <summary>
-    ///  Session/round is complete.
+    ///  Session/round is complete, shows winners.
     /// </summary>
     Finished,
     

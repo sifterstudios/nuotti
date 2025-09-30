@@ -20,9 +20,11 @@ namespace Nuotti.Contracts.V1.Message;
 /// <param name="IssuedAtUtc">
 /// UTC timestamp when the command was created. Always in UTC.
 /// </param>
-public record CommandBase(
-    Guid CommandId,
-    string SessionCode,
-    Role IssuedByRole,
-    string IssuedById,
-    DateTime IssuedAtUtc);
+public abstract record CommandBase
+{
+    public Guid CommandId { get; init; } = Guid.NewGuid();
+    public required string SessionCode { get; init; }
+    public required Role IssuedByRole { get; init; }
+    public required string IssuedById { get; init; }
+    public DateTime IssuedAtUtc { get; init; } = DateTime.UtcNow;
+}
