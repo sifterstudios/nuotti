@@ -1,0 +1,6 @@
+﻿[
+  None,
+  InvalidStateTransition,
+  UnauthorizedRole,
+  DuplicateCommand
+]

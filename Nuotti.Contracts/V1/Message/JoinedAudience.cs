@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1;
+﻿namespace Nuotti.Contracts.V1.Message;
 
 /// <summary>
 /// Sent by Audience client when joining a session.

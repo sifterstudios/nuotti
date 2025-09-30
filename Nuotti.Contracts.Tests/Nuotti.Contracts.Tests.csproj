@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.2"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/>
+        <PackageReference Include="NUnit" Version="4.2.2"/>
+        <PackageReference Include="NUnit.Analyzers" Version="4.4.0"/>
+        <PackageReference Include="NUnit3TestAdapter" Version="4.6.0"/>
+        <PackageReference Include="Verify" Version="31.0.0-beta.1" />
+        <PackageReference Include="Verify.Xunit" Version="31.0.0-beta.1" />
+        <PackageReference Include="xunit" Version="2.9.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="NUnit.Framework"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="V1\Enum\Snapshots\" />
+      <Folder Include="V1\Message\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
+    </ItemGroup>
+
+</Project>

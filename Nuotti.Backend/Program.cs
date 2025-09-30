@@ -1,6 +1,7 @@
 using Nuotti.Backend;
 using Microsoft.AspNetCore.SignalR;
-using Nuotti.Contracts;
+using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Message;
 
 var builder = WebApplication.CreateBuilder(args);
 

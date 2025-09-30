@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Message;
 
 static string GetArg(string[] args, string name, string? envVar = null, string? fallback = null)
 {

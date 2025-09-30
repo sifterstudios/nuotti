@@ -1,0 +1,6 @@
+﻿{
+  Audience: "Audience",
+  Engine: "Engine",
+  Performer: "Performer",
+  Projector: "Projector"
+}

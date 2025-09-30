@@ -1,0 +1,10 @@
+﻿{
+  Finished: "Finished",
+  Guessing: "Guessing",
+  Hint: "Hint",
+  Intermission: "Intermission",
+  Lobby: "Lobby",
+  Ready: "Ready",
+  Reveal: "Reveal",
+  SongIntro: "SongIntro"
+}

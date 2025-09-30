@@ -1,0 +1,12 @@
+﻿[
+  {},
+  {
+    role: Projector
+  },
+  {
+    role: Audience
+  },
+  {
+    role: Engine
+  }
+]

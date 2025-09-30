@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1;
+﻿namespace Nuotti.Contracts.V1.Message;
 
 /// <summary>
 /// Command to the AudioEngine to play a single audio track from a URL (MVP).

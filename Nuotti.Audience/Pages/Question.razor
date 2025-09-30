@@ -1,5 +1,6 @@
 ﻿@page "/question"
 @using Nuotti.Audience.Services
+@using Nuotti.Contracts.V1.Message
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
 @implements IDisposable
@@ -7,7 +8,7 @@
 <PageTitle>Question</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
-    @if (Hub.CurrentQuestion is Nuotti.Contracts.QuestionPushed q)
+    @if (Hub.CurrentQuestion is QuestionPushed q)
     {
         <MudText Typo="Typo.h4" GutterBottom="true">@q.Text</MudText>
 
@@ -65,7 +66,7 @@
         Hub.QuestionPushed += OnQuestionPushed;
     }
 
-    private async void OnQuestionPushed(Nuotti.Contracts.QuestionPushed _)
+    private async void OnQuestionPushed(QuestionPushed _)
     {
         await InvokeAsync(StateHasChanged);
     }

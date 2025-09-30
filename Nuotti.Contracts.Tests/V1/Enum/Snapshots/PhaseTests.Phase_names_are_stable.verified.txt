@@ -1,0 +1,10 @@
+﻿[
+  Lobby,
+  Ready,
+  SongIntro,
+  Hint,
+  Guessing,
+  Reveal,
+  Intermission,
+  Finished
+]

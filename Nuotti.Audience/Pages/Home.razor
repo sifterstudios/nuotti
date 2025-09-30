@@ -1,5 +1,6 @@
 ﻿@page "/"
 @using Nuotti.Audience.Services
+@using Nuotti.Contracts.V1.Message
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
 
@@ -53,7 +54,7 @@
         Hub.QuestionPushed += OnQuestion;
     }
 
-    private void OnQuestion(Nuotti.Contracts.QuestionPushed q)
+    private void OnQuestion(QuestionPushed q)
     {
         // Navigate to question screen when a question is pushed
         Nav.NavigateTo("/question");

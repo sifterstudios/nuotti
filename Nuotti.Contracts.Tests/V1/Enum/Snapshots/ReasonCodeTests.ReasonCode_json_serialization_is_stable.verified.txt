@@ -1,0 +1,6 @@
+﻿{
+  DuplicateCommand: "DuplicateCommand",
+  InvalidStateTransition: "InvalidStateTransition",
+  None: "None",
+  UnauthorizedRole: "UnauthorizedRole"
+}
