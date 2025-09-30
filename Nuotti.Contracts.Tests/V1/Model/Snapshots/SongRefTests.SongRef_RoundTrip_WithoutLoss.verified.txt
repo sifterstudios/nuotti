@@ -1,0 +1,7 @@
+﻿{
+  id: {
+    value: song-abc
+  },
+  title: Song Title,
+  artist: Artist Name
+}

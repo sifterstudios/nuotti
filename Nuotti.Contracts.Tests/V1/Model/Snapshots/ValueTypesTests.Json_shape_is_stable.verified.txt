@@ -1,0 +1,8 @@
+﻿{
+  Choice: {"id":"A","text":"Text"},
+  Hint: {"index":0,"text":null,"performerInstructions":"Text"},
+  SongId: {"value":"song-123"},
+  SongRef: {"id":{"value":"id-1"},"title":"Song","artist":"Artist"},
+  SongRef_nullArtist: {"id":{"value":"id-2"},"title":"Song","artist":null},
+  Tally: {"choiceId":"A","count":3}
+}

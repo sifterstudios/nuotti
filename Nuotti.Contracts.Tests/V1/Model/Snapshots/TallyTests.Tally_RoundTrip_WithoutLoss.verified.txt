@@ -1,0 +1,4 @@
+﻿{
+  choiceId: B,
+  count: 42
+}
