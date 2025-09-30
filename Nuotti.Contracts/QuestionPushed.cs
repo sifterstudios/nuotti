@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts;
+﻿namespace Nuotti.Contracts.V1;
 
 /// <summary>
 /// Broadcast by Backend to Projector and Audience when a new multiple-choice question is pushed.

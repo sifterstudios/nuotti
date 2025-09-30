@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts;
+﻿namespace Nuotti.Contracts.V1;
 
 /// <summary>
 /// Sent by Audience to Backend when an answer is submitted.

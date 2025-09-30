@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Nuotti.Contracts;
+using Nuotti.Contracts.V1;
 
 namespace Nuotti.Backend;
 

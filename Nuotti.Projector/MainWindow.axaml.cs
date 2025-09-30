@@ -3,7 +3,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
-using Nuotti.Contracts;
+using Nuotti.Contracts.V1;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
