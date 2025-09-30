@@ -1,31 +1,14 @@
-﻿using Nuotti.Contracts.V1.Enum;
+﻿using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Enum;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Assert = Xunit.Assert;
 namespace Nuotti.Contracts.Tests.V1.Enum;
 
 public class RoleTests
 {
-
-    static readonly JsonSerializerOptions jsonOptions = new JsonSerializerOptions
-    {
-        Converters =
-        {
-            new JsonStringEnumConverter()
-        },
-        WriteIndented = true
-    };
-
-    static VerifySettings Snap()
-    {
-        var snap = new VerifySettings();
-        snap.UseDirectory("Snapshots");
-        return snap;
-    }
-
     [Fact]
     public Task Role_names_are_stable()
-        => Verify(System.Enum.GetNames(typeof(Role)), Snap());
+    => Verify(System.Enum.GetNames(typeof(Role)), VerifyDefaults.Settings());
 
     [Fact]
     public Task Role_json_serialization_is_stable()
@@ -33,11 +16,11 @@ public class RoleTests
         Role[] values = System.Enum.GetValues<Role>();
         Dictionary<string, string> map = values.ToDictionary(v => v.ToString(), v =>
         {
-            string json = JsonSerializer.Serialize(v, jsonOptions);
+            string json = JsonSerializer.Serialize(v, JsonDefaults.Options);
             return json;
         });
 
-        return Verify(map, Snap());
+        return Verify(map, VerifyDefaults.Settings());
     }
 
     [Fact]
@@ -45,8 +28,8 @@ public class RoleTests
     {
         foreach (var v in System.Enum.GetValues<Role>())
         {
-            var json = JsonSerializer.Serialize(v, jsonOptions);
-            var back = JsonSerializer.Deserialize<Role>(json, jsonOptions);
+            var json = JsonSerializer.Serialize(v, JsonDefaults.Options);
+            var back = JsonSerializer.Deserialize<Role>(json, JsonDefaults.Options);
             Assert.Equal(v, back);
         }
     }
@@ -61,6 +44,6 @@ public class RoleTests
             })
             .ToArray();
 
-        return Verify(payloads, Snap());
+        return Verify(payloads, VerifyDefaults.Settings());
     }
 }

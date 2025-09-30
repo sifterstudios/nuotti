@@ -1,0 +1,7 @@
+﻿{
+  eventId: Guid_1,
+  correlationId: Guid_2,
+  causedByCommandId: Guid_2,
+  sessionCode: SESS-42,
+  emittedAtUtc: DateTimeOffset_1
+}

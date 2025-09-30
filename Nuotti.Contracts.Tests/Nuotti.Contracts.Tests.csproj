@@ -25,7 +25,6 @@
 
     <ItemGroup>
       <Folder Include="V1\Enum\Snapshots\" />
-      <Folder Include="V1\Message\" />
     </ItemGroup>
 
     <ItemGroup>
