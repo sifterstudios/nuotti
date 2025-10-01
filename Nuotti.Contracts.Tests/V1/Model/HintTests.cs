@@ -8,7 +8,7 @@ public class HintTests
     [Fact]
     public Task Hint_RoundTrip_WithoutLoss()
     {
-        var original = new Hint(0, "Instrument Family", null);
+        var original = new Hint(0, "Instrument Family", null, new SongId("song-abc"));
         var json = JsonSerializer.Serialize(original, JsonDefaults.Options);
         return VerifyJson(json, VerifyDefaults.Settings());
     }

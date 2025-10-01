@@ -7,7 +7,7 @@ namespace Nuotti.Contracts.Tests.V1.Message.Phase;
 
 public class StartGameTests
 {
-    private static StartGame CreateSample()
+    static StartGame CreateSample()
         => new StartGame
         {
             CommandId = Guid.Parse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
