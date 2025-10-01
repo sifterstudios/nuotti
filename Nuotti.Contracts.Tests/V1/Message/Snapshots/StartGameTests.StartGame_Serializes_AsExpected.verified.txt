@@ -1,0 +1,11 @@
+﻿{
+  commandId: Guid_1,
+  sessionCode: SESS-42,
+  issuedByRole: Audience,
+  issuedById: user-abc,
+  issuedAtUtc: DateTimeOffset_1,
+  allowedPhases: [
+    Lobby,
+    Finished
+  ]
+}
