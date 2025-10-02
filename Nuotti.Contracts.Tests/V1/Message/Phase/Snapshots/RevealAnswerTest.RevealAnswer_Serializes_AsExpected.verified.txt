@@ -1,0 +1,17 @@
+﻿{
+  songRef: {
+    id: {
+      value: song-123
+    },
+    title: Sample Title,
+    artist: Sample Artist
+  },
+  allowedPhases: [
+    Lock
+  ],
+  commandId: Guid_1,
+  sessionCode: SESSION-123,
+  issuedByRole: Performer,
+  issuedById: performer-123,
+  issuedAtUtc: DateTimeOffset_1
+}

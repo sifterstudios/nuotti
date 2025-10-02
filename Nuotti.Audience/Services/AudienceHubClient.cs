@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 
 namespace Nuotti.Audience.Services;

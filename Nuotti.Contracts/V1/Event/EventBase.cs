@@ -19,9 +19,11 @@
 /// <param name="EmittedAtUtc">
 /// UTC timestamp when the event was emitted/persisted. Always in UTC.
 /// </param>
-public record EventBase(
-    Guid EventId,
-    Guid CorrelationId,
-    Guid CausedByCommandId,
-    string SessionCode,
-    DateTime EmittedAtUtc);
+public abstract record EventBase
+{
+    public Guid EventId { get; init; } = Guid.NewGuid();
+    public required Guid CorrelationId { get; init; }
+    public required Guid CausedByCommandId { get; init; }
+    public required string SessionCode { get; init; }
+    public DateTime EmittedAtUtc { get; init; } = DateTime.UtcNow;
+};

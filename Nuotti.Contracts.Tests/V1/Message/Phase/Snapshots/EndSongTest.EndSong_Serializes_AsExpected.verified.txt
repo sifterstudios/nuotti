@@ -1,0 +1,13 @@
+﻿{
+  songId: {
+    value: song-123
+  },
+  allowedPhases: [
+    Play
+  ],
+  commandId: Guid_1,
+  sessionCode: SESSION-99,
+  issuedByRole: Performer,
+  issuedById: user-xyz,
+  issuedAtUtc: DateTimeOffset_1
+}

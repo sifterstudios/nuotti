@@ -1,0 +1,11 @@
+﻿{
+  sessionId: SESSION-123,
+  allowedPhases: [
+    Idle
+  ],
+  commandId: Guid_1,
+  sessionCode: CODE-456,
+  issuedByRole: Performer,
+  issuedById: user-456,
+  issuedAtUtc: DateTimeOffset_1
+}

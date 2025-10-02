@@ -1,5 +1,8 @@
 ﻿{
   index: 0,
   text: Instrument Family,
-  performerInstructions: null
+  performerInstructions: null,
+  songId: {
+    value: song-abc
+  }
 }

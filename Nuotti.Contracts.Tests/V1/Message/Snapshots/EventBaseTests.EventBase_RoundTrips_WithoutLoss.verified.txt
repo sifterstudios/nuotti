@@ -1,4 +1,5 @@
 ﻿{
+  payload: hello,
   eventId: Guid_1,
   correlationId: Guid_2,
   causedByCommandId: Guid_2,

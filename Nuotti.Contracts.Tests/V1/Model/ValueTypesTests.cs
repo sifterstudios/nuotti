@@ -22,8 +22,8 @@ public class ValueTypesTests
         yield return [new SongRef(new SongId("song-xyz"), "Untitled", null)];
         yield return [new Choice("A", "Piano")];
         yield return [new Choice("B", "Guitar")];
-        yield return [new Hint(0, "Instrument family", null)];
-        yield return [new Hint(1, null, "Play lead melody without rhythm")];
+        yield return [new Hint(0, "Instrument family", null, new SongId("song1"))];
+        yield return [new Hint(1, null, "Play lead melody without rhythm", new SongId("song2"))];
         yield return [new Tally("A", 0)];
         yield return [new Tally("B", 42)];
     }
@@ -37,7 +37,7 @@ public class ValueTypesTests
             ["SongRef"] = JsonSerializer.Serialize(new SongRef(new SongId("id-1"), "Song", "Artist"), JsonDefaults.Options),
             ["SongRef_nullArtist"] = JsonSerializer.Serialize(new SongRef(new SongId("id-2"), "Song", null), JsonDefaults.Options),
             ["Choice"] = JsonSerializer.Serialize(new Choice("A", "Text"), JsonDefaults.Options),
-            ["Hint"] = JsonSerializer.Serialize(new Hint(0, null, "Text"), JsonDefaults.Options),
+            ["Hint"] = JsonSerializer.Serialize(new Hint(0, null, "Text", new SongId("song3")), JsonDefaults.Options),
             ["Tally"] = JsonSerializer.Serialize(new Tally("A", 3), JsonDefaults.Options),
         };
         return Verify(samples, VerifyDefaults.Settings());

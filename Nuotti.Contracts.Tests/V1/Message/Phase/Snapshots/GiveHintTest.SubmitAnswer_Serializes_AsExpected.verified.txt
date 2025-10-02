@@ -1,0 +1,18 @@
+﻿{
+  hint: {
+    index: 0,
+    text: null,
+    performerInstructions: null,
+    songId: {
+      value: song-123
+    }
+  },
+  allowedPhases: [
+    Guessing
+  ],
+  commandId: Guid_1,
+  sessionCode: SESSION-101,
+  issuedByRole: Audience,
+  issuedById: user-789,
+  issuedAtUtc: DateTimeOffset_1
+}

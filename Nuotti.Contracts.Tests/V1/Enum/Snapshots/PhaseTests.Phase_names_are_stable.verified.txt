@@ -1,10 +1,12 @@
 ﻿[
+  Idle,
   Lobby,
-  Ready,
-  SongIntro,
+  Start,
   Hint,
   Guessing,
+  Lock,
   Reveal,
+  Play,
   Intermission,
   Finished
 ]

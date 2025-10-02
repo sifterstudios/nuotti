@@ -1,6 +1,6 @@
 ﻿{
   Choice: {"id":"A","text":"Text"},
-  Hint: {"index":0,"text":null,"performerInstructions":"Text"},
+  Hint: {"index":0,"text":null,"performerInstructions":"Text","songId":{"value":"song3"}},
   SongId: {"value":"song-123"},
   SongRef: {"id":{"value":"id-1"},"title":"Song","artist":"Artist"},
   SongRef_nullArtist: {"id":{"value":"id-2"},"title":"Song","artist":null},

@@ -2,9 +2,11 @@
   Finished: "Finished",
   Guessing: "Guessing",
   Hint: "Hint",
+  Idle: "Idle",
   Intermission: "Intermission",
   Lobby: "Lobby",
-  Ready: "Ready",
+  Lock: "Lock",
+  Play: "Play",
   Reveal: "Reveal",
-  SongIntro: "SongIntro"
+  Start: "Start"
 }

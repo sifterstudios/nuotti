@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using System;
 using System.Linq;
