@@ -1,0 +1,28 @@
+﻿{
+  sessionCode: ABCD,
+  phase: Guessing,
+  songIndex: 2,
+  currentSong: {
+    id: {
+      value: song-42
+    },
+    title: Song Title,
+    artist: Artist
+  },
+  choices: [
+    A,
+    B,
+    C
+  ],
+  hintIndex: 1,
+  tallies: [
+    1,
+    2,
+    3
+  ],
+  scores: {
+    p1: 10,
+    p2: 5
+  },
+  songStartedAtUtc: DateTimeOffset_1
+}
