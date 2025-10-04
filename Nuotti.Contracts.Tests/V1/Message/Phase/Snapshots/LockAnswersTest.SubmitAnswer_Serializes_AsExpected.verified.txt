@@ -2,6 +2,10 @@
   allowedPhases: [
     Guessing
   ],
+  targetPhase: Lock,
+  allowedSourcePhases: [
+    Guessing
+  ],
   commandId: Guid_1,
   sessionCode: SESSION-101,
   issuedByRole: Audience,

@@ -3,6 +3,11 @@
     Lobby,
     Finished
   ],
+  targetPhase: Start,
+  allowedSourcePhases: [
+    Lobby,
+    Finished
+  ],
   commandId: Guid_1,
   sessionCode: SESS-42,
   issuedByRole: Audience,

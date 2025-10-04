@@ -1,5 +1,4 @@
-﻿using Nuotti.Contracts.V1.Enum;
-using Nuotti.Contracts.V1.Message;
+﻿using Nuotti.Contracts.V1.Message;
 namespace Nuotti.Contracts.V1.Event;
 
 /// <summary>
@@ -11,10 +10,4 @@ public sealed record AnswerSubmitted(string AudienceId, int ChoiceIndex) : Event
 {
     public required string AudienceId { get; init; } = AudienceId;
     public required int ChoiceIndex { get; init; } = ChoiceIndex;
-}
-
-public sealed record GamePhaseChanged(Phase CurrentPhase, Phase NewPhase) : EventBase
-{
-    public required Phase CurrentPhase { get; init; } = CurrentPhase;
-    public required Phase NewPhase { get; init; } = NewPhase;
 }

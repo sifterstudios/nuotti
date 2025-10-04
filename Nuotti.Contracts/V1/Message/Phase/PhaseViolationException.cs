@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.Serialization;
+﻿using System.Runtime.Serialization;
 using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
 
 namespace Nuotti.Contracts.V1.Message.Phase;

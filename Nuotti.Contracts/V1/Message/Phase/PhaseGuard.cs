@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
+﻿using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
 
 namespace Nuotti.Contracts.V1.Message.Phase;
 
@@ -22,6 +20,23 @@ public static class PhaseGuard
             if (!allowed.Contains(current))
             {
                 throw new PhaseViolationException(current, command.GetType(), allowed);
+            }
+        }
+    }
+
+    /// <summary>
+    /// If the command implements <see cref="IPhaseChange"/>, validates that the transition from
+    /// <paramref name="current"/> to the command's <c>TargetPhase</c> is allowed via
+    /// <see cref="IPhaseChange.IsPhaseChangeAllowed(PhaseEnum)"/>.
+    /// </summary>
+    public static void EnsureChangeAllowed(PhaseEnum current, object command)
+    {
+        if (command is IPhaseChange changer)
+        {
+            if (!changer.IsPhaseChangeAllowed(current))
+            {
+                // Reuse PhaseViolationException, passing the allowed source phases for diagnostic info
+                throw new PhaseViolationException(current, command.GetType(), changer.AllowedSourcePhases);
             }
         }
     }

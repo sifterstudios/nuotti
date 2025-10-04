@@ -9,6 +9,10 @@
   allowedPhases: [
     Lock
   ],
+  targetPhase: Reveal,
+  allowedSourcePhases: [
+    Lock
+  ],
   commandId: Guid_1,
   sessionCode: SESSION-123,
   issuedByRole: Performer,

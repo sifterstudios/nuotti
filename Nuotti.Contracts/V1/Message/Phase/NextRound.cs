@@ -3,11 +3,15 @@ namespace Nuotti.Contracts.V1.Message.Phase;
 
 /// <summary>
 /// Opens the next song.
-/// Allowed phases: Lobby, Intermission
+/// Allowed phases: Guessing
 /// </summary>
-public sealed record NextRound(SongId SongId) : CommandBase, IPhaseRestricted
+public sealed record NextRound(SongId SongId) : CommandBase, IPhaseRestricted, IPhaseChange
 {
     public SongId SongId { get; } = SongId;
     public IReadOnlyCollection<Enum.Phase> AllowedPhases { get; } =
-        [Enum.Phase.Lobby, Enum.Phase.Intermission];
+        [Enum.Phase.Guessing];
+
+    public Enum.Phase TargetPhase => Enum.Phase.Start;
+    public IReadOnlyCollection<Enum.Phase> AllowedSourcePhases => [Enum.Phase.Guessing];
+    public bool IsPhaseChangeAllowed(Enum.Phase current) => AllowedSourcePhases.Contains(current);
 }

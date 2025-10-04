@@ -5,6 +5,10 @@
   allowedPhases: [
     Play
   ],
+  targetPhase: Intermission,
+  allowedSourcePhases: [
+    Play
+  ],
   commandId: Guid_1,
   sessionCode: SESSION-99,
   issuedByRole: Performer,
