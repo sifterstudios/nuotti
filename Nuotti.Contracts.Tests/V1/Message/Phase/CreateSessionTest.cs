@@ -54,7 +54,7 @@ public class CreateSessionTest
         var sut = CreateSample();
 
         // Act
-        var json = JsonSerializer.Serialize(sut, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(sut, ContractsJson.DefaultOptions);
 
         // Assert
         return VerifyJson(json, VerifyDefaults.Settings());

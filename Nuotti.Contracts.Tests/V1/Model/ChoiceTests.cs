@@ -9,7 +9,7 @@ public class ChoiceTests
     public Task Choice_RoundTrip_WithoutLoss()
     {
         var original = new Choice("A", "Piano");
-        var json = JsonSerializer.Serialize(original, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(original, ContractsJson.DefaultOptions);
         return VerifyJson(json, VerifyDefaults.Settings());
     }
 }

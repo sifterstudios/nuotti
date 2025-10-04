@@ -17,7 +17,7 @@ public class PhaseTests
         var values = System.Enum.GetValues<Phase>();
         var map = values.ToDictionary(v => v.ToString(), v =>
         {
-            var json = JsonSerializer.Serialize(v, JsonDefaults.Options);
+            var json = JsonSerializer.Serialize(v, ContractsJson.DefaultOptions);
             return json;
         });
         return Verify(map, VerifyDefaults.Settings());
@@ -28,8 +28,8 @@ public class PhaseTests
     {
         foreach (var v in System.Enum.GetValues<Phase>())
         {
-            var json = JsonSerializer.Serialize(v, JsonDefaults.Options);
-            var back = JsonSerializer.Deserialize<Phase>(json, JsonDefaults.Options);
+            var json = JsonSerializer.Serialize(v, ContractsJson.DefaultOptions);
+            var back = JsonSerializer.Deserialize<Phase>(json, ContractsJson.DefaultOptions);
             Assert.Equal(v, back);
         }
     }

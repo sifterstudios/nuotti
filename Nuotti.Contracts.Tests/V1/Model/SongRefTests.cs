@@ -9,7 +9,7 @@ public class SongRefTests
     public Task SongRef_RoundTrip_WithoutLoss()
     {
         var original = new SongRef(new SongId("song-abc"), "Song Title", "Artist Name");
-        var json = JsonSerializer.Serialize(original, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(original, ContractsJson.DefaultOptions);
         return VerifyJson(json, VerifyDefaults.Settings());
     }
 }

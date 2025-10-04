@@ -10,8 +10,8 @@ public class ValueTypesTests
     [MemberData(nameof(Samples))]
     public void Round_trip_serializes_and_deserializes_to_equal_object<T>(T original)
     {
-        var json = JsonSerializer.Serialize(original!, JsonDefaults.Options);
-        var back = JsonSerializer.Deserialize<T>(json, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(original!, ContractsJson.DefaultOptions);
+        var back = JsonSerializer.Deserialize<T>(json, ContractsJson.DefaultOptions);
         Assert.Equal(original, back);
     }
 
@@ -33,12 +33,12 @@ public class ValueTypesTests
     {
         var samples = new Dictionary<string, string>
         {
-            ["SongId"] = JsonSerializer.Serialize(new SongId("song-123"), JsonDefaults.Options),
-            ["SongRef"] = JsonSerializer.Serialize(new SongRef(new SongId("id-1"), "Song", "Artist"), JsonDefaults.Options),
-            ["SongRef_nullArtist"] = JsonSerializer.Serialize(new SongRef(new SongId("id-2"), "Song", null), JsonDefaults.Options),
-            ["Choice"] = JsonSerializer.Serialize(new Choice("A", "Text"), JsonDefaults.Options),
-            ["Hint"] = JsonSerializer.Serialize(new Hint(0, null, "Text", new SongId("song3")), JsonDefaults.Options),
-            ["Tally"] = JsonSerializer.Serialize(new Tally("A", 3), JsonDefaults.Options),
+            ["SongId"] = JsonSerializer.Serialize(new SongId("song-123"), ContractsJson.DefaultOptions),
+            ["SongRef"] = JsonSerializer.Serialize(new SongRef(new SongId("id-1"), "Song", "Artist"), ContractsJson.DefaultOptions),
+            ["SongRef_nullArtist"] = JsonSerializer.Serialize(new SongRef(new SongId("id-2"), "Song", null), ContractsJson.DefaultOptions),
+            ["Choice"] = JsonSerializer.Serialize(new Choice("A", "Text"), ContractsJson.DefaultOptions),
+            ["Hint"] = JsonSerializer.Serialize(new Hint(0, null, "Text", new SongId("song3")), ContractsJson.DefaultOptions),
+            ["Tally"] = JsonSerializer.Serialize(new Tally("A", 3), ContractsJson.DefaultOptions),
         };
         return Verify(samples, VerifyDefaults.Settings());
     }

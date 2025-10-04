@@ -45,7 +45,7 @@ public class EndSongTest
     public Task EndSong_Serializes_AsExpected()
     {
         var sut = CreateSample();
-        var json = JsonSerializer.Serialize(sut, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(sut, ContractsJson.DefaultOptions);
         return VerifyJson(json, VerifyDefaults.Settings());
     }
 }

@@ -16,7 +16,7 @@ public class RoleTests
         Role[] values = System.Enum.GetValues<Role>();
         Dictionary<string, string> map = values.ToDictionary(v => v.ToString(), v =>
         {
-            string json = JsonSerializer.Serialize(v, JsonDefaults.Options);
+            string json = JsonSerializer.Serialize(v, ContractsJson.DefaultOptions);
             return json;
         });
 
@@ -28,8 +28,8 @@ public class RoleTests
     {
         foreach (var v in System.Enum.GetValues<Role>())
         {
-            var json = JsonSerializer.Serialize(v, JsonDefaults.Options);
-            var back = JsonSerializer.Deserialize<Role>(json, JsonDefaults.Options);
+            var json = JsonSerializer.Serialize(v, ContractsJson.DefaultOptions);
+            var back = JsonSerializer.Deserialize<Role>(json, ContractsJson.DefaultOptions);
             Assert.Equal(v, back);
         }
     }

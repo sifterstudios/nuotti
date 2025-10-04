@@ -22,7 +22,7 @@ public class GameStateSnapshotTests
             songStartedAtUtc: new DateTime(2024, 01, 02, 03, 04, 05, DateTimeKind.Utc)
         );
 
-        var json = JsonSerializer.Serialize(sut, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(sut, ContractsJson.DefaultOptions);
         return VerifyJson(json, VerifyDefaults.Settings());
     }
 
@@ -38,7 +38,7 @@ public class GameStateSnapshotTests
                    "}";
 
         // Act
-        var back = JsonSerializer.Deserialize<GameStateSnapshot>(json, JsonDefaults.Options)!;
+        var back = JsonSerializer.Deserialize<GameStateSnapshot>(json, ContractsJson.DefaultOptions)!;
 
         // Assert
         Assert.NotNull(back);

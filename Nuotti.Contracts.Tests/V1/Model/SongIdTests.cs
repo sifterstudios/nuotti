@@ -9,7 +9,7 @@ public class SongIdTests
     public Task SongId_RoundTrip_WithoutLoss()
     {
         var original = new SongId("song-123");
-        var json = JsonSerializer.Serialize(original, JsonDefaults.Options);
+        var json = JsonSerializer.Serialize(original, ContractsJson.DefaultOptions);
 
         return VerifyJson(json, VerifyDefaults.Settings());
     }

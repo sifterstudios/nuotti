@@ -50,3 +50,33 @@ FAQ
 
 Scope
 - This repository focuses on the definition of contracts only. Business logic, storage, and UI concerns live in their respective projects. Contracts should remain lightweight, serializable, and well‑documented.
+
+
+JSON serialization policy
+- System.Text.Json is the default serializer for these contracts.
+- Casing decision:
+  - REST: camelCase property names (and dictionary keys).
+  - SignalR (Hub): PascalCase property names (as declared on DTOs).
+- Use the central ContractsJson options:
+  - ContractsJson.DefaultOptions: aliases to REST (camelCase) to preserve existing behavior.
+  - ContractsJson.RestOptions: explicit camelCase for REST APIs.
+  - ContractsJson.HubOptions: PascalCase for SignalR Hub payloads.
+
+Examples
+- REST (ASP.NET Core):
+  services.AddControllers().AddJsonOptions(o =>
+  {
+      o.JsonSerializerOptions.PropertyNamingPolicy = ContractsJson.RestOptions.PropertyNamingPolicy;
+      o.JsonSerializerOptions.DictionaryKeyPolicy = ContractsJson.RestOptions.DictionaryKeyPolicy;
+  });
+
+- SignalR Hub:
+  services.AddSignalR().AddJsonProtocol(o =>
+  {
+      o.PayloadSerializerOptions.PropertyNamingPolicy = ContractsJson.HubOptions.PropertyNamingPolicy;
+      o.PayloadSerializerOptions.DictionaryKeyPolicy = ContractsJson.HubOptions.DictionaryKeyPolicy;
+  });
+
+Notes
+- DTOs remain in PascalCase in code. The policies above control the wire format without renaming properties.
+- If you previously used JsonDefaults.Options, it is now obsolete. Use ContractsJson.DefaultOptions or one of the explicit options instead.
