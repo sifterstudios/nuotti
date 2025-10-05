@@ -55,6 +55,15 @@ export interface SongRef {
     artist: string;
 }
 
+export interface NuottiProblem {
+    title: string;
+    status: number;
+    detail: string;
+    reason: ReasonCode;
+    field?: string | null;
+    correlationId?: string | null; // Guid
+}
+
 export interface GameStateSnapshot {
     sessionCode: string;
     phase: Phase;
