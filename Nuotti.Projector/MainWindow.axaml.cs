@@ -11,17 +11,22 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Json;
+using Avalonia.Collections;
+using Nuotti.Contracts.V1.Event;
 namespace Nuotti.Projector;
 
 public partial class MainWindow : Window
 {
     readonly HubConnection _connection;
+    HubConnection? _logConnection;
     readonly TextBlock _connectionTextBlock;
     readonly TextBlock _sessionCodeText;
     readonly TextBlock _questionText;
     readonly TextBlock[] _choiceTexts;
     readonly TextBlock[] _choiceCounts;
     readonly Border[] _rows;
+    readonly ListBox _logList;
+    readonly AvaloniaList<string> _logs = new();
 
     readonly string _backend = "http://localhost:5240";
     readonly string _sessionCode = "dev";
@@ -35,6 +40,8 @@ public partial class MainWindow : Window
         _connectionTextBlock = this.FindControl<TextBlock>("ConnectionStatus")!;
         _sessionCodeText = this.FindControl<TextBlock>("SessionCodeText")!;
         _questionText = this.FindControl<TextBlock>("QuestionText")!;
+        _logList = this.FindControl<ListBox>("LogList")!;
+        _logList.ItemsSource = _logs;
         _choiceTexts = new[]
         {
             this.FindControl<TextBlock>("Choice0Text")!,
@@ -100,7 +107,8 @@ public partial class MainWindow : Window
     async Task StartConnection()
     {
         await _connection.StartAsync();
-        await _connection.InvokeAsync("CreateOrJoin", _sessionCode);
+        await _connection.InvokeAsync("Join", _sessionCode, "projector");
+        _ = StartLogConnection();
     }
 
     public async Task StopConnection()
@@ -170,5 +178,58 @@ public partial class MainWindow : Window
         {
             Dispatcher.UIThread.Post(() => _connectionTextBlock.Text = $"Play POST error: {ex.Message}");
         }
+    }
+
+    async Task StartLogConnection()
+    {
+        try
+        {
+            if (_logConnection == null)
+            {
+                _logConnection = new HubConnectionBuilder()
+                    .WithUrl($"{_backend}/log")
+                    .WithAutomaticReconnect()
+                    .Build();
+
+                _logConnection.On<LogEvent>("Log", e =>
+                {
+                    Dispatcher.UIThread.Post(() => AppendLog(e));
+                });
+            }
+            if (_logConnection.State == HubConnectionState.Disconnected)
+            {
+                await _logConnection.StartAsync();
+                AppendLocal("[log] connected");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[log] connect error: {ex.Message}");
+        }
+    }
+
+    void AppendLog(LogEvent e)
+    {
+        var ts = e.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
+        var line = $"{ts} {e.Level,-5} {e.Source}: {e.Message} | conn={e.ConnectionId} sess={e.Session} role={e.Role}";
+        _logs.Add(line);
+        TrimAndScroll();
+    }
+
+    void AppendLocal(string message)
+    {
+        var ts = DateTimeOffset.Now.ToString("HH:mm:ss.fff");
+        _logs.Add($"{ts} LOCAL  Projector: {message}");
+        TrimAndScroll();
+    }
+
+    void TrimAndScroll()
+    {
+        const int max = 500;
+        while (_logs.Count > max)
+            _logs.RemoveAt(0);
+        // Scroll to bottom
+        if (_logList.ItemCount > 0)
+            _logList.ScrollIntoView(_logList.ItemCount - 1);
     }
 }

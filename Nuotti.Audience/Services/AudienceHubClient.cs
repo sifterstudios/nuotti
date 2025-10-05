@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Model;
 
 namespace Nuotti.Audience.Services;
 
@@ -27,6 +28,8 @@ public class AudienceHubClient : IAsyncDisposable
     public event Action<PlayTrack>? PlayTrack;
     public event Action<JoinedAudience>? JoinedAudience;
     public event Action<AnswerSubmitted>? AnswerSubmitted;
+    public event Action<NuottiProblem>? ProblemReceived;
+    public NuottiProblem? LastProblem { get; private set; }
 
     public AudienceHubClient(NavigationManager nav, HttpClient http)
     {
@@ -93,14 +96,7 @@ public class AudienceHubClient : IAsyncDisposable
         SessionCode = sessionCode;
         AudienceName = audienceName;
 
-        if (!string.IsNullOrWhiteSpace(audienceName))
-        {
-            await _connection!.InvokeAsync("CreateOrJoinWithName", sessionCode, audienceName);
-        }
-        else
-        {
-            await _connection!.InvokeAsync("CreateOrJoin", sessionCode);
-        }
+        await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName);
     }
 
     public async Task SubmitAnswerAsync(int choiceIndex)

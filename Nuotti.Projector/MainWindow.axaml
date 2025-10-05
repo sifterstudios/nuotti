@@ -43,6 +43,13 @@
                 </StackPanel>
             </StackPanel>
         </Border>
+        <!-- Dev log overlay -->
+        <Border Grid.Row="1" HorizontalAlignment="Right" VerticalAlignment="Stretch" Margin="0,16,16,16" Width="460" Background="#33000000" CornerRadius="8">
+            <StackPanel>
+                <TextBlock Text="Debug Log" Margin="8" Foreground="#ddd"/>
+                <ListBox x:Name="LogList" Margin="8" FontFamily="Consolas" FontSize="12" />
+            </StackPanel>
+        </Border>
         <Border Grid.Row="2" Background="#111" Padding="8">
             <TextBlock Text="Nuotti Projector" Foreground="#888" HorizontalAlignment="Center"/>
         </Border>

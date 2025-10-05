@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend;
+using Nuotti.Backend.Models;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +12,7 @@ builder.Configuration
     .AddEnvironmentVariables(prefix: "NUOTTI_");
 
 builder.Services
-    .AddOptions<Nuotti.Backend.Models.NuottiOptions>()
+    .AddOptions<NuottiOptions>()
     .Bind(builder.Configuration)
     .ValidateOnStart();
 
@@ -34,6 +35,8 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
+
 var app = builder.Build();
 
 // Enable CORS before mapping endpoints
@@ -45,6 +48,10 @@ app.UseMiddleware<ProblemHandlingMiddleware>();
 var sessions = new Dictionary<string, HashSet<string>>(); // sessionCode -> connIds
 
 app.MapHub<QuizHub>("/hub").RequireCors("AllowAll");
+if (app.Environment.IsDevelopment())
+{
+    app.MapHub<LogHub>("/log").RequireCors("AllowAll");
+}
 app.MapPost("/api/sessions/{name}", (string name) => Results.Ok(new SessionCreated(name, Guid.NewGuid().ToString()))).RequireCors("AllowAll");
 app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, string session, QuestionPushed q) =>
 {
