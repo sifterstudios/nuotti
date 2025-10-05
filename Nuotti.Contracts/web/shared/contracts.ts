@@ -3,8 +3,6 @@
 // - Properties use camelCase to align with REST/web usage (ContractsJson.RestOptions)
 // - DateTime values are represented as ISO 8601 strings
 //
-// Compile type-check only (no emit):
-//   npx tsc -p ../tsconfig.json
 
 // ===== Enums (string unions) =====
 export type Role = "Performer" | "Projector" | "Audience" | "Engine";
@@ -91,3 +89,102 @@ export const isGameStateSnapshot = (v: unknown): v is GameStateSnapshot => {
     if (x.songStartedAtUtc != null && typeof x.songStartedAtUtc !== "string") return false;
     return true;
 };
+
+
+// ===== C#-mirrored shapes (DTOs and related types) =====
+// Notes:
+// - CommandBase/EventBase carry tracing/id fields. DateTime -> ISO string.
+// - Marker interfaces (IPhaseRestricted/IPhaseChange) are represented structurally.
+// - Utility/static types (ContractsJson, PhaseGuard) are not serialized; we export minimal markers for name parity.
+
+// Common bases
+export interface CommandBase {
+    commandId: string; // Guid
+    sessionCode: string;
+    issuedByRole: Role;
+    issuedById: string;
+    issuedAtUtc: string; // ISO 8601
+}
+
+export interface EventBase {
+    eventId: string; // Guid
+    correlationId: string; // Guid
+    causedByCommandId: string; // Guid
+    sessionCode: string;
+    emittedAtUtc: string; // ISO 8601
+}
+
+// Phase-related markers (serialized in C# as public getters)
+export interface IPhaseRestricted {
+    allowedPhases: Phase[];
+}
+
+export interface IPhaseChange {
+    targetPhase: Phase;
+    allowedSourcePhases: Phase[];
+}
+
+// Models
+export interface Choice { id: string; text: string }
+
+export interface Hint {
+    index: number;
+    text?: string | null;
+    performerInstructions?: string | null;
+    songId: SongId;
+}
+
+export interface Tally { choiceId: string; count: number }
+
+// Simple messages (readonly record structs in C#)
+export interface PlayTrack { fileUrl: string }
+export interface QuestionPushed { text: string; options: string[] }
+export interface SessionCreated { sessionCode: string; hostId: string }
+export interface JoinedAudience { connectionId: string; name: string }
+
+// Events
+export interface AnswerSubmitted extends EventBase { audienceId: string; choiceIndex: number }
+
+// Commands (include both base fields and phase restrictions)
+export interface CreateSession extends CommandBase, IPhaseRestricted {
+    sessionId: string;
+}
+
+export interface EndSong extends CommandBase, IPhaseRestricted, IPhaseChange {
+    songId: SongId;
+}
+
+export interface GiveHint extends CommandBase, IPhaseRestricted {
+    hint: Hint;
+}
+
+export interface LockAnswers extends CommandBase, IPhaseRestricted, IPhaseChange {}
+
+export interface NextRound extends CommandBase, IPhaseRestricted, IPhaseChange {
+    songId: SongId;
+}
+
+export interface PlaySong extends CommandBase, IPhaseRestricted, IPhaseChange {
+    songId: SongId;
+}
+
+export interface RevealAnswer extends CommandBase, IPhaseRestricted, IPhaseChange {
+    songRef: SongRef;
+}
+
+export interface StartGame extends CommandBase, IPhaseRestricted, IPhaseChange {}
+
+export interface SubmitAnswer extends CommandBase, IPhaseRestricted {
+    songId: SongId;
+}
+
+// Non-serializable C# helpers: keep names for parity only
+export type ContractsJson = { readonly __nonSerializable?: true };
+export type PhaseGuard = { readonly __nonSerializable?: true };
+
+// Exception (not normally sent over the wire, but shape mirrored for completeness)
+export interface PhaseViolationException {
+    currentPhase: Phase;
+    commandType: string;
+    allowedPhases: Phase[];
+}
