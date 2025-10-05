@@ -5,6 +5,10 @@ namespace Nuotti.Backend;
 
 public class LogHub : Hub
 {
+    // Allow clients (Audience/Projector/TestClient) to publish log events that will be
+    // fanned out to all connected log listeners (e.g., the Projector UI).
+    public Task Publish(LogEvent e)
+        => Clients.All.SendAsync("Log", e);
 }
 
 public interface ILogStreamer

@@ -7,6 +7,7 @@ using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
+using System.Diagnostics;
 
 namespace Nuotti.Audience.Services;
 
@@ -16,6 +17,7 @@ public class AudienceHubClient : IAsyncDisposable
     private readonly HttpClient _http;
 
     private HubConnection? _connection;
+    private HubConnection? _logConnection;
 
     public string? BackendBaseUrl { get; private set; }
     public string? SessionCode { get; private set; }
@@ -54,9 +56,10 @@ public class AudienceHubClient : IAsyncDisposable
 
     public async Task EnsureConnectedAsync()
     {
-        if (_connection is { State: HubConnectionState.Connected }) return;
+        if (_connection is { State: HubConnectionState.Connected }) { Log("[Audience] Already connected"); return; }
         if (_connection is null)
         {
+            Log($"[Audience] Creating HubConnection to {BackendBaseUrl}/hub");
             _connection = new HubConnectionBuilder()
                 .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/hub"))
                 .WithAutomaticReconnect()
@@ -64,29 +67,35 @@ public class AudienceHubClient : IAsyncDisposable
 
             _connection.On<QuestionPushed>("QuestionPushed", q =>
             {
+                Log($"[Audience] QuestionPushed: {q.Text}");
                 CurrentQuestion = q;
                 QuestionPushed?.Invoke(q);
             });
 
             _connection.On<PlayTrack>("PlayTrack", p =>
             {
+                Log($"[Audience] PlayTrack: {p.FileUrl}");
                 PlayTrack?.Invoke(p);
             });
 
             _connection.On<JoinedAudience>("JoinedAudience", j =>
             {
+                Log($"[Audience] JoinedAudience: {j.ConnectionId} {j.Name}");
                 JoinedAudience?.Invoke(j);
             });
 
             _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
             {
+                Log($"[Audience] AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
                 AnswerSubmitted?.Invoke(a);
             });
         }
 
         if (_connection.State == HubConnectionState.Disconnected)
         {
+            Log("[Audience] Starting HubConnection...");
             await _connection.StartAsync();
+            Log("[Audience] HubConnection started");
         }
     }
 
@@ -95,27 +104,76 @@ public class AudienceHubClient : IAsyncDisposable
         await EnsureConnectedAsync();
         SessionCode = sessionCode;
         AudienceName = audienceName;
-
+        Log($"[Audience] Invoking Join: session={sessionCode} name={audienceName}");
         await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName);
     }
 
     public async Task SubmitAnswerAsync(int choiceIndex)
     {
-        if (string.IsNullOrWhiteSpace(SessionCode)) return;
+        if (string.IsNullOrWhiteSpace(SessionCode)) { Log("[Audience] SubmitAnswer skipped: no session"); return; }
         await EnsureConnectedAsync();
+        Log($"[Audience] Submitting answer: session={SessionCode} choiceIndex={choiceIndex}");
         await _connection!.InvokeAsync("SubmitAnswer", SessionCode!, choiceIndex);
     }
 
     public async Task RequestPlayAsync(string fileUrl)
     {
-        if (string.IsNullOrWhiteSpace(SessionCode)) return;
-        if (string.IsNullOrWhiteSpace(fileUrl)) return;
+        if (string.IsNullOrWhiteSpace(SessionCode)) { Log("[Audience] RequestPlay skipped: no session"); return; }
+        if (string.IsNullOrWhiteSpace(fileUrl)) { Log("[Audience] RequestPlay skipped: empty fileUrl"); return; }
         await EnsureConnectedAsync();
+        Log($"[Audience] RequestPlay: session={SessionCode} url={fileUrl}");
         await _connection!.InvokeAsync("RequestPlay", SessionCode!, new PlayTrack(fileUrl));
+    }
+
+    private void Log(string message)
+    {
+        Debug.WriteLine(message);
+        _ = PublishLogAsync("Debug", "Audience", message);
+    }
+
+    private async Task PublishLogAsync(string level, string source, string message)
+    {
+        try
+        {
+            await EnsureLogConnectedAsync();
+            if (_logConnection is { State: HubConnectionState.Connected })
+            {
+                var e = new LogEvent(
+                    Timestamp: DateTimeOffset.UtcNow,
+                    Level: level,
+                    Source: source,
+                    Message: message,
+                    ConnectionId: null,
+                    Session: SessionCode,
+                    Role: "audience"
+                );
+                await _logConnection.InvokeAsync("Publish", e);
+            }
+        }
+        catch
+        {
+            // Ignore logging failures in UI
+        }
+    }
+
+    private async Task EnsureLogConnectedAsync()
+    {
+        if (_logConnection == null)
+        {
+            _logConnection = new HubConnectionBuilder()
+                .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/log"))
+                .WithAutomaticReconnect()
+                .Build();
+        }
+        if (_logConnection.State == HubConnectionState.Disconnected)
+        {
+            await _logConnection.StartAsync();
+        }
     }
 
     public ValueTask DisposeAsync()
     {
+        Log("[Audience] Disposing HubConnection");
         return _connection?.DisposeAsync() ?? ValueTask.CompletedTask;
     }
 }

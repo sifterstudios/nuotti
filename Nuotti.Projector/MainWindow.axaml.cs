@@ -73,14 +73,17 @@ public partial class MainWindow : Window
 
         _connection.On<QuestionPushed>("QuestionPushed", q =>
         {
+            AppendLocal($"QuestionPushed: {q.Text}");
             Dispatcher.UIThread.Post(() => SetQuestion(q));
         });
         _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
         {
+            AppendLocal($"AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
             Dispatcher.UIThread.Post(() => Tally(a.ChoiceIndex));
         });
         _connection.On<PlayTrack>("RequestPlay", p =>
         {
+            AppendLocal($"RequestPlay received: url={p.FileUrl}");
             _ = ForwardPlayToBackend(p);
         });
 
@@ -90,16 +93,20 @@ public partial class MainWindow : Window
             {
                 await StartConnection();
                 _connectionTextBlock.Text = "Connected";
+                AppendLocal("[hub] connected");
             }
             catch (Exception ex)
             {
                 _connectionTextBlock.Text = $"Connection failed: {ex.Message}";
+                AppendLocal($"[hub] connect error: {ex.Message}");
             }
         };
         _connection.Closed += async (_) =>
         {
             _connectionTextBlock.Text = "Disconnected";
-            await Task.Delay(Random.Shared.Next(0, 5) * 1000);
+            var delayMs = Random.Shared.Next(0, 5) * 1000;
+            AppendLocal($"[hub] disconnected; reconnecting in {delayMs} ms");
+            await Task.Delay(delayMs);
             await StartConnection();
         };
     }
@@ -107,7 +114,9 @@ public partial class MainWindow : Window
     async Task StartConnection()
     {
         await _connection.StartAsync();
+        AppendLocal("[hub] start ok");
         await _connection.InvokeAsync("Join", _sessionCode, "projector");
+        AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
     }
 

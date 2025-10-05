@@ -3,6 +3,7 @@ using Nuotti.Backend;
 using Nuotti.Backend.Models;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Event;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
@@ -52,15 +53,40 @@ if (app.Environment.IsDevelopment())
 {
     app.MapHub<LogHub>("/log").RequireCors("AllowAll");
 }
-app.MapPost("/api/sessions/{name}", (string name) => Results.Ok(new SessionCreated(name, Guid.NewGuid().ToString()))).RequireCors("AllowAll");
-app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, string session, QuestionPushed q) =>
+app.MapPost("/api/sessions/{name}", async (string name, ILogStreamer log) =>
+{
+    var session = new SessionCreated(name, Guid.NewGuid().ToString());
+    await log.BroadcastAsync(new LogEvent(
+        Timestamp: DateTimeOffset.UtcNow,
+        Level: "Info",
+        Source: "Program",
+        Message: $"Session created: code={session.SessionCode} hostId={session.HostId}",
+        Session: session.SessionCode
+    ));
+    return Results.Ok(session);
+}).RequireCors("AllowAll");
+app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
 {
     await hub.Clients.Group(session).SendAsync("QuestionPushed", q);
+    await log.BroadcastAsync(new LogEvent(
+        Timestamp: DateTimeOffset.UtcNow,
+        Level: "Info",
+        Source: "Program",
+        Message: $"QuestionPushed to session={session}: {q.Text}",
+        Session: session
+    ));
     return Results.Accepted();
 }).RequireCors("AllowAll");
-app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, string session, PlayTrack cmd) =>
+app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, PlayTrack cmd) =>
 {
     await hub.Clients.Group(session).SendAsync("PlayTrack", cmd);
+    await log.BroadcastAsync(new LogEvent(
+        Timestamp: DateTimeOffset.UtcNow,
+        Level: "Info",
+        Source: "Program",
+        Message: $"Play requested for session={session}: url={cmd.FileUrl}",
+        Session: session
+    ));
     return Results.Accepted();
 }).RequireCors("AllowAll");
 
