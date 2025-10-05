@@ -4,6 +4,17 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 var builder = WebApplication.CreateBuilder(args);
 
+// Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables(prefix: "NUOTTI_");
+
+builder.Services
+    .AddOptions<Nuotti.Backend.Models.NuottiOptions>()
+    .Bind(builder.Configuration)
+    .ValidateOnStart();
+
 builder.Services
     .AddSignalR(o =>
     {

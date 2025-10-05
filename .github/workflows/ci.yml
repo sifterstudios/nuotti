@@ -1,0 +1,23 @@
+﻿name: CI
+
+on:
+  pull_request:
+    branches: [ "**" ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Restore
+        run: dotnet restore Nuotti.sln
+      - name: Build
+        run: dotnet build Nuotti.sln --configuration Release --no-restore
+      - name: Test
+        run: dotnet test Nuotti.sln --no-build --configuration Release --logger trx --collect:"XPlat Code Coverage"
