@@ -1,0 +1,26 @@
+﻿[
+  {
+    title: Invalid input,
+    status: 400,
+    detail: The provided field is invalid.,
+    reason: InvalidStateTransition,
+    field: songIndex,
+    correlationId: Guid_1
+  },
+  {
+    title: Duplicate command,
+    status: 409,
+    detail: This operation was already performed.,
+    reason: DuplicateCommand,
+    field: null,
+    correlationId: Guid_1
+  },
+  {
+    title: Business rule violated,
+    status: 422,
+    detail: Performer cannot submit an answer.,
+    reason: UnauthorizedRole,
+    field: issuedByRole,
+    correlationId: Guid_1
+  }
+]

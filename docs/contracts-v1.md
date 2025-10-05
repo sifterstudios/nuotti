@@ -232,3 +232,25 @@ export interface NuottiProblem {
 ```
 
 Serialization uses camelCase via ContractsJson.DefaultOptions for REST responses.
+
+### Backend integration (Minimal APIs)
+
+To return these problems from Minimal APIs in Backend, use ProblemResults helpers and the ProblemHandlingMiddleware:
+
+```csharp
+// In Program.cs
+app.UseMiddleware<ProblemHandlingMiddleware>();
+
+app.MapGet("/api/demo/problem/{kind}", (string kind) =>
+{
+    return kind.ToLowerInvariant() switch
+    {
+        "400" => ProblemResults.BadRequest("Invalid input", "Name must not be empty", ReasonCode.InvalidStateTransition, "name"),
+        "409" => ProblemResults.Conflict("Duplicate command", "Operation already performed", ReasonCode.DuplicateCommand),
+        "422" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole"),
+        _ => Results.NotFound()
+    };
+});
+```
+
+Unhandled ArgumentException, InvalidOperationException, and UnauthorizedAccessException will be converted to NuottiProblem with the appropriate HTTP status and ReasonCode by the middleware.
