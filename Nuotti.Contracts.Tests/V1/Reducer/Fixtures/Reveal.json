@@ -1,0 +1,11 @@
+﻿{
+  "sessionCode": "SESS",
+  "phase": "Reveal",
+  "songIndex": 0,
+  "currentSong": null,
+  "choices": [],
+  "hintIndex": 0,
+  "tallies": [],
+  "scores": {},
+  "songStartedAtUtc": null
+}
