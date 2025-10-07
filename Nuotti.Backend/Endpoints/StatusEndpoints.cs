@@ -14,6 +14,6 @@ internal static class StatusEndpoints
                 return Results.Ok(snapshot);
             }
             return Results.NotFound();
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
     }
 }

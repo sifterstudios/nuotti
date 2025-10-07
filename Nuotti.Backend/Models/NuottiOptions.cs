@@ -19,6 +19,14 @@ public sealed class NuottiOptions
     public string Greeting { get; init; } = "Hello";
 
     /// <summary>
+    /// Comma-separated list of allowed CORS origins (only used in non-Development environments).
+    /// Example: "https://app.example.com,https://projector.example.com".
+    /// Environment variable: NUOTTI_ALLOWEDORIGINS
+    /// </summary>
+    public string? AllowedOrigins { get; init; }
+        = null;
+
+    /// <summary>
     /// Idle timeout (in seconds) after which a session is evicted if no connections touched it.
     /// </summary>
     public int SessionIdleTimeoutSeconds { get; init; } = 900; // 15 minutes

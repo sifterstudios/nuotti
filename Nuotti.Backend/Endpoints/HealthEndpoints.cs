@@ -11,7 +11,7 @@ internal static class HealthEndpoints
             {
                 status = "live"
             }))
-            .RequireCors("AllowAll");
+            .RequireCors("NuottiCors");
 
         // Readiness: verify required dependencies are accessible
         app.MapGet("/health/ready", (IHubContext<QuizHub> hub, ISessionStore store) =>
@@ -31,6 +31,6 @@ internal static class HealthEndpoints
                     return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
                 }
             })
-            .RequireCors("AllowAll");
+            .RequireCors("NuottiCors");
     }
 }

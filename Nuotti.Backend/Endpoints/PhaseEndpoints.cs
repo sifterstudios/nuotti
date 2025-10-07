@@ -60,13 +60,13 @@ internal static class PhaseEndpoints
             stateStore.Set(session, snapshot);
             await hub.Clients.Group(session).SendAsync("GameStateChanged", snapshot);
             return Results.Accepted();
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
 
         app.MapPost("/v1/message/phase/start-game/{session}", (IHubContext<QuizHub> hub, Idempotency.IIdempotencyStore idem, IGameStateStore stateStore, string session, StartGame cmd)
-            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("AllowAll");
+            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
 
         app.MapPost("/v1/message/phase/end-song/{session}", (IHubContext<QuizHub> hub, Idempotency.IIdempotencyStore idem, IGameStateStore stateStore, string session, EndSong cmd)
-            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("AllowAll");
+            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
     }
 
 

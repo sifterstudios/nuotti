@@ -21,7 +21,7 @@ internal static class ApiEndpoints
                 Session: session.SessionCode
             ));
             return Results.Ok(session);
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
 
         app.MapGet("/api/sessions/{session}/counts", (ISessionStore store, string session) =>
         {
@@ -33,7 +33,7 @@ internal static class ApiEndpoints
                 engine = counts.Engine,
                 audiences = counts.Audiences
             });
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
 
         app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
         {
@@ -48,7 +48,7 @@ internal static class ApiEndpoints
                 Session: session
             ));
             return Results.Accepted();
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
 
         app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, PlayTrack cmd) =>
         {
@@ -63,7 +63,7 @@ internal static class ApiEndpoints
                 Session: session
             ));
             return Results.Accepted();
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
         
         app.MapPost("/api/stop/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, StopTrack cmd) =>
         {
@@ -78,7 +78,7 @@ internal static class ApiEndpoints
                 Session: session
             ));
             return Results.Accepted();
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
 
         app.MapGet("/api/demo/problem/{kind}", (HttpContext ctx, string kind) =>
         {
@@ -95,6 +95,6 @@ internal static class ApiEndpoints
                 "422" or "unprocessable" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole", correlationId),
                 _ => Results.NotFound()
             };
-        }).RequireCors("AllowAll");
+        }).RequireCors("NuottiCors");
     }
 }

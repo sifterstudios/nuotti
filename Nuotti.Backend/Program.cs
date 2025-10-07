@@ -30,15 +30,48 @@ builder.Services
     })
     .AddJsonProtocol(o => o.PayloadSerializerOptions.PropertyNamingPolicy = null);
 
-// CORS: allow cross-origin dev clients (Audience/Projector) to call the Backend
+// CORS: environment-based policy
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("NuottiCors", policy =>
     {
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            // Allow http(s)://localhost:* with credentials for dev
+            policy
+                .SetIsOriginAllowed(origin =>
+                {
+                    if (string.IsNullOrWhiteSpace(origin)) return false;
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                    var isLocalhost = string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
+                    var isHttp = uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+                    return isLocalhost && isHttp; // any port
+                })
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+        else
+        {
+            // Production: allowlist via config
+            var opts = builder.Configuration.Get<Nuotti.Backend.Models.NuottiOptions>();
+            var origins = (opts?.AllowedOrigins ?? string.Empty)
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (origins.Length > 0)
+            {
+                policy
+                    .WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            }
+            else
+            {
+                // No origins configured -> deny cross-origin by default
+                policy.DisallowCredentials();
+            }
+        }
     });
 });
 
@@ -49,14 +82,14 @@ builder.Services.AddSingleton<Nuotti.Backend.Idempotency.IIdempotencyStore, Nuot
 
 var app = builder.Build();
 
-app.UseCors("AllowAll");
+app.UseCors("NuottiCors");
 app.UseMiddleware<ProblemHandlingMiddleware>();
 app.MapPhaseEndpoints();
 
-app.MapHub<QuizHub>("/hub").RequireCors("AllowAll");
+app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
 if (app.Environment.IsDevelopment())
 {
-    app.MapHub<LogHub>("/log").RequireCors("AllowAll");
+    app.MapHub<LogHub>("/log").RequireCors("NuottiCors");
 }
 app.MapApiEndpoints();
 app.MapHealthEndpoints();
