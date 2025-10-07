@@ -1,30 +1,26 @@
-﻿using System.Collections.Concurrent;
-using Microsoft.AspNetCore.SignalR;
-using Nuotti.Backend;
+﻿using Microsoft.AspNetCore.SignalR;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Reducer;
-
-namespace Microsoft.AspNetCore.Builder;
+using Nuotti.Backend.Exception;
+using System.Collections.Concurrent;
+namespace Nuotti.Backend.Endpoints;
 
 internal static class PhaseEndpoints
 {
     static readonly ConcurrentDictionary<string, GameStateSnapshot> gameStates = new ConcurrentDictionary<string, GameStateSnapshot>();
 
     static GameStateSnapshot GetState(string session)
-        => gameStates.GetOrAdd(session, s => GameReducer.Initial(s));
+        => gameStates.GetOrAdd(session, GameReducer.Initial);
 
-    static async Task<IResult> HandlePhaseChangeAsync<T>(IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, T cmd)
+    static async Task<IResult> HandlePhaseChangeAsync<T>(IHubContext<QuizHub> hub, Idempotency.IIdempotencyStore idem, string session, T cmd)
         where T : CommandBase, IPhaseChange
     {
-        // Idempotency: short-circuit duplicates
-        if (!idem.TryRegister(session, cmd.CommandId))
-        {
-            return Results.Accepted();
-        }
+        if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
+        if (!idem.TryRegister(session, cmd.CommandId)) { return Results.Accepted(); }
 
         var state = GetState(session);
         if (!cmd.IsPhaseChangeAllowed(state.Phase))
@@ -49,7 +45,7 @@ internal static class PhaseEndpoints
             return ProblemResults.Conflict(
                 title: "Reducer rejected event",
                 detail: error,
-                reason: ReasonCode.InvalidStateTransition);
+                reason: ReasonCode.None);
         }
 
         gameStates[session] = newState;
@@ -60,22 +56,23 @@ internal static class PhaseEndpoints
     public static void MapPhaseEndpoints(this WebApplication app)
     {
         // REST endpoints for v1/Message/Phase
-        app.MapPost("/v1/message/phase/create-session/{session}", async (IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, CreateSession cmd) =>
+        app.MapPost("/v1/message/phase/create-session/{session}", async (IHubContext<QuizHub> hub, Idempotency.IIdempotencyStore idem, string session, CreateSession cmd) =>
         {
-            if (!idem.TryRegister(session, cmd.CommandId))
-            {
-                return Results.Accepted();
-            }
+            if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
+            if (!idem.TryRegister(session, cmd.CommandId)) { return Results.Accepted(); }
+
             var snapshot = GameReducer.Initial(session);
             gameStates[session] = snapshot;
             await hub.Clients.Group(session).SendAsync("GameStateChanged", snapshot);
             return Results.Accepted();
         }).RequireCors("AllowAll");
 
-        app.MapPost("/v1/message/phase/start-game/{session}", (IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, StartGame cmd)
+        app.MapPost("/v1/message/phase/start-game/{session}", (IHubContext<QuizHub> hub, Idempotency.IIdempotencyStore idem, string session, StartGame cmd)
             => HandlePhaseChangeAsync(hub, idem, session, cmd)).RequireCors("AllowAll");
 
-        app.MapPost("/v1/message/phase/end-song/{session}", (IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, EndSong cmd)
+        app.MapPost("/v1/message/phase/end-song/{session}", (IHubContext<QuizHub> hub, Idempotency.IIdempotencyStore idem, string session, EndSong cmd)
             => HandlePhaseChangeAsync(hub, idem, session, cmd)).RequireCors("AllowAll");
     }
+
+
 }

@@ -1,11 +1,10 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Nuotti.Backend;
+using Nuotti.Backend.Exception;
 using Nuotti.Backend.Sessions;
-using Nuotti.Contracts.V1.Message;
-using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
-
-namespace Microsoft.AspNetCore.Builder;
+using Nuotti.Contracts.V1.Message;
+namespace Nuotti.Backend.Endpoints;
 
 internal static class ApiEndpoints
 {
@@ -38,6 +37,8 @@ internal static class ApiEndpoints
 
         app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
         {
+            if (q.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
+            
             await hub.Clients.Group(session).SendAsync("QuestionPushed", q);
             await log.BroadcastAsync(new LogEvent(
                 Timestamp: DateTimeOffset.UtcNow,
@@ -51,6 +52,8 @@ internal static class ApiEndpoints
 
         app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, PlayTrack cmd) =>
         {
+            if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
+            
             await hub.Clients.Group(session).SendAsync("PlayTrack", cmd);
             await log.BroadcastAsync(new LogEvent(
                 Timestamp: DateTimeOffset.UtcNow,
@@ -61,15 +64,29 @@ internal static class ApiEndpoints
             ));
             return Results.Accepted();
         }).RequireCors("AllowAll");
+        
+        app.MapPost("/api/stop/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, StopTrack cmd) =>
+        {
+            if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
+            
+            await hub.Clients.Group(session).SendAsync("Stop", cmd);
+            await log.BroadcastAsync(new LogEvent(
+                Timestamp: DateTimeOffset.UtcNow,
+                Level: "Info",
+                Source: "Program",
+                Message: $"Stop requested for session={session}",
+                Session: session
+            ));
+            return Results.Accepted();
+        }).RequireCors("AllowAll");
 
-        // Demo endpoints returning NuottiProblem directly
         app.MapGet("/api/demo/problem/{kind}", (string kind) =>
         {
             return kind.ToLowerInvariant() switch
             {
-                "400" or "badrequest" => Nuotti.Backend.ProblemResults.BadRequest("Invalid input", "Name must not be empty", Nuotti.Contracts.V1.Enum.ReasonCode.InvalidStateTransition, "name"),
-                "409" or "conflict" => Nuotti.Backend.ProblemResults.Conflict("Duplicate command", "Operation already performed", Nuotti.Contracts.V1.Enum.ReasonCode.DuplicateCommand),
-                "422" or "unprocessable" => Nuotti.Backend.ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", Nuotti.Contracts.V1.Enum.ReasonCode.UnauthorizedRole, "issuedByRole"),
+                "400" or "badrequest" => ProblemResults.BadRequest("Invalid input", "Name must not be empty", ReasonCode.InvalidStateTransition, "name"),
+                "409" or "conflict" => ProblemResults.Conflict("Duplicate command", "Operation already performed", ReasonCode.DuplicateCommand),
+                "422" or "unprocessable" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole"),
                 _ => Results.NotFound()
             };
         }).RequireCors("AllowAll");

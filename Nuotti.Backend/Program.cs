@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend;
+using Nuotti.Backend.Endpoints;
+using Nuotti.Backend.Exception;
 using Nuotti.Backend.Models;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;

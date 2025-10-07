@@ -5,7 +5,7 @@ using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Event;
 namespace Nuotti.Backend;
 
-public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Nuotti.Backend.Sessions.ISessionStore sessions) : Hub
+public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessionStore sessions) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -36,7 +36,7 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Nuotti.Backend.S
         Context.Items[RoleKey] = role;
 
         await Groups.AddToGroupAsync(Context.ConnectionId, session);
-        // Track connection by role in session store
+        // Track connection by role in the session store
         sessions.Touch(session, role, Context.ConnectionId, name);
 
         logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name}", Context.ConnectionId, session, role, name);
@@ -52,13 +52,13 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Nuotti.Backend.S
 
         if (!string.IsNullOrWhiteSpace(name))
         {
-            await Clients.Group(session).SendAsync("JoinedAudience", new JoinedAudience(Context.ConnectionId, name!));
+            await Clients.Group(session).SendAsync("JoinedAudience", new JoinedAudience(Context.ConnectionId, name));
         }
     }
 
     public Task CreateOrJoinWithName(string session, string audienceName) => Join(session, role: "audience", name: audienceName);
 
-    public override async Task OnConnectedAsync()
+    public async override Task OnConnectedAsync()
     {
         await base.OnConnectedAsync();
         await log.BroadcastAsync(new LogEvent(
@@ -70,7 +70,7 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Nuotti.Backend.S
         ));
     }
 
-    public async override Task OnDisconnectedAsync(Exception? exception)
+    public async override Task OnDisconnectedAsync(System.Exception? exception)
     {
         var session = Context.Items.TryGetValue(SessionKey, out var sessionObject) ? sessionObject as string : null;
         var role = Context.Items.TryGetValue(RoleKey, out var roleObject) ? roleObject as string : null;
@@ -97,7 +97,7 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Nuotti.Backend.S
             Session: session,
             Role: role
         ));
-        // Remove from session store
+        // Remove from the session store
         sessions.Remove(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }

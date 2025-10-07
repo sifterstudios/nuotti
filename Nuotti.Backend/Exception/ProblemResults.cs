@@ -2,7 +2,7 @@
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using System.Text.Json;
-namespace Nuotti.Backend;
+namespace Nuotti.Backend.Exception;
 
 /// <summary>
 /// Helpers to emit NuottiProblem results from Minimal APIs.
@@ -18,10 +18,21 @@ public static class ProblemResults
     public static IResult UnprocessableEntity(string title, string detail, ReasonCode reason = ReasonCode.None, string? field = null, Guid? correlationId = null)
         => Json(new NuottiProblem(title, 422, detail, reason, field, correlationId), 422);
 
+    public static IResult Forbidden(string title, string detail, ReasonCode reason = ReasonCode.None, string? field = null, Guid? correlationId = null)
+        => Json(new NuottiProblem(title, 403, detail, reason, field, correlationId), 403);
+    
     static IResult Json(object value, int statusCode)
         => Results.Json(value, ContractsJson.RestOptions, statusCode: statusCode);
+    
+    public static IResult WrongRoleTriedExecutingResult(Role role)
+    {
+        return ProblemResults.Forbidden(
+            title: "Unauthorized Role",
+            detail: $"Only {role.ToString()} may execute this command.",
+            reason: ReasonCode.UnauthorizedRole,
+            field: "issuedByRole");
+    }
 }
-
 /// <summary>
 /// Minimal API middleware that maps common exceptions to NuottiProblem payloads.
 /// </summary>
@@ -35,7 +46,7 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
         {
             await next(context);
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             // Resolve correlation id from header if present or generate a new one
             Guid? correlationId = null;
@@ -54,14 +65,15 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
         }
     }
 
-    static (int status, string title, string detail, ReasonCode reason, string? field) MapException(Exception ex)
+    static (int status, string title, string detail, ReasonCode reason, string? field) MapException(System.Exception ex)
     {
         return ex switch
         {
             ArgumentException aex => (400, "Invalid argument", aex.Message, ReasonCode.InvalidStateTransition, aex.ParamName),
-            UnauthorizedAccessException uex => (422, "Unauthorized role", uex.Message, ReasonCode.UnauthorizedRole, null),
+            UnauthorizedAccessException uex => (403, "Unauthorized role", uex.Message, ReasonCode.UnauthorizedRole, null),
             InvalidOperationException iex => (409, "Conflict", iex.Message, ReasonCode.DuplicateCommand, null),
             _ => (500, "Unexpected error", "An unexpected error occurred.", ReasonCode.None, null)
         };
     }
+
 }
