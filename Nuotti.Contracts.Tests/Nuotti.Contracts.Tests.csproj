@@ -23,6 +23,10 @@
     </ItemGroup>
 
     <ItemGroup>
+      <None Include="V1\Reducer\Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
     </ItemGroup>
 

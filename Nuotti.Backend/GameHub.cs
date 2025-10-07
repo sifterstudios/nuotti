@@ -15,7 +15,7 @@ public class GameHub : Hub
         await Clients.Caller.SendAsync("ReceiveGameState", gameState);
     }
 
-    public async override Task OnDisconnectedAsync(Exception? exception)
+    public async override Task OnDisconnectedAsync(System.Exception? exception)
     {
         if (players.TryRemove(Context.ConnectionId, out var player))
         {

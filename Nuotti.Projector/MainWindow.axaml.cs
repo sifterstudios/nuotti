@@ -1,18 +1,16 @@
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
-using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Json;
-using Avalonia.Collections;
-using Nuotti.Contracts.V1.Event;
+using System.Threading.Tasks;
 namespace Nuotti.Projector;
 
 public partial class MainWindow : Window

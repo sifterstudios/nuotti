@@ -1,29 +1,25 @@
-﻿using System;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
-using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
 using System.Diagnostics;
-
+using System.Web;
 namespace Nuotti.Audience.Services;
 
 public class AudienceHubClient : IAsyncDisposable
 {
-    private readonly NavigationManager _nav;
-    private readonly HttpClient _http;
+    readonly NavigationManager _nav;
+    readonly HttpClient _http;
 
-    private HubConnection? _connection;
-    private HubConnection? _logConnection;
+    HubConnection? _connection;
+    HubConnection? _logConnection;
 
-    public string? BackendBaseUrl { get; private set; }
+    public string? BackendBaseUrl { get; }
     public string? SessionCode { get; private set; }
     public string? AudienceName { get; private set; }
 
-    // Latest state
     public QuestionPushed? CurrentQuestion { get; private set; }
 
     public event Action<QuestionPushed>? QuestionPushed;
@@ -40,11 +36,11 @@ public class AudienceHubClient : IAsyncDisposable
         BackendBaseUrl = InferBackendBaseUrl();
     }
 
-    private string InferBackendBaseUrl()
+    string InferBackendBaseUrl()
     {
         // Allow override via query string `backend` (e.g., ?backend=https%3A%2F%2Flocalhost%3A5192)
         var uri = new Uri(_nav.Uri);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var query = HttpUtility.ParseQueryString(uri.Query);
         var fromQuery = query["backend"];
         if (!string.IsNullOrWhiteSpace(fromQuery))
         {
@@ -56,7 +52,11 @@ public class AudienceHubClient : IAsyncDisposable
 
     public async Task EnsureConnectedAsync()
     {
-        if (_connection is { State: HubConnectionState.Connected }) { Log("[Audience] Already connected"); return; }
+        if (_connection is { State: HubConnectionState.Connected })
+        {
+            Log("[Audience] Already connected");
+            return;
+        }
         if (_connection is null)
         {
             Log($"[Audience] Creating HubConnection to {BackendBaseUrl}/hub");
@@ -110,7 +110,11 @@ public class AudienceHubClient : IAsyncDisposable
 
     public async Task SubmitAnswerAsync(int choiceIndex)
     {
-        if (string.IsNullOrWhiteSpace(SessionCode)) { Log("[Audience] SubmitAnswer skipped: no session"); return; }
+        if (string.IsNullOrWhiteSpace(SessionCode))
+        {
+            Log("[Audience] SubmitAnswer skipped: no session");
+            return;
+        }
         await EnsureConnectedAsync();
         Log($"[Audience] Submitting answer: session={SessionCode} choiceIndex={choiceIndex}");
         await _connection!.InvokeAsync("SubmitAnswer", SessionCode!, choiceIndex);
@@ -118,20 +122,33 @@ public class AudienceHubClient : IAsyncDisposable
 
     public async Task RequestPlayAsync(string fileUrl)
     {
-        if (string.IsNullOrWhiteSpace(SessionCode)) { Log("[Audience] RequestPlay skipped: no session"); return; }
-        if (string.IsNullOrWhiteSpace(fileUrl)) { Log("[Audience] RequestPlay skipped: empty fileUrl"); return; }
+        if (string.IsNullOrWhiteSpace(SessionCode))
+        {
+            Log("[Audience] RequestPlay skipped: no session");
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(fileUrl))
+        {
+            Log("[Audience] RequestPlay skipped: empty fileUrl");
+            return;
+        }
         await EnsureConnectedAsync();
         Log($"[Audience] RequestPlay: session={SessionCode} url={fileUrl}");
-        await _connection!.InvokeAsync("RequestPlay", SessionCode!, new PlayTrack(fileUrl));
+        await _connection!.InvokeAsync("RequestPlay", SessionCode!, new PlayTrack(fileUrl)
+        {
+            SessionCode = SessionCode!,
+            IssuedByRole = Role.Audience,
+            IssuedById = AudienceName ?? "anonymous"
+        });
     }
 
-    private void Log(string message)
+    void Log(string message)
     {
         Debug.WriteLine(message);
         _ = PublishLogAsync("Debug", "Audience", message);
     }
 
-    private async Task PublishLogAsync(string level, string source, string message)
+    async Task PublishLogAsync(string level, string source, string message)
     {
         try
         {
@@ -156,7 +173,7 @@ public class AudienceHubClient : IAsyncDisposable
         }
     }
 
-    private async Task EnsureLogConnectedAsync()
+    async Task EnsureLogConnectedAsync()
     {
         if (_logConnection == null)
         {

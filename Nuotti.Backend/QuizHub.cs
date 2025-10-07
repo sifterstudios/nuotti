@@ -1,11 +1,14 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Nuotti.Backend.RateLimiting;
+using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Event;
+using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
-using Nuotti.Contracts.V1.Event;
 namespace Nuotti.Backend;
 
-public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
+public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore sessions, IEventBus bus) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -32,10 +35,15 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
         }
 
         // Track session and role on the connection
+        var normalizedRole = role.Trim();
         Context.Items[SessionKey] = session;
-        Context.Items[RoleKey] = role;
+        Context.Items[RoleKey] = normalizedRole;
 
+        // Join session-wide group and session+role group
         await Groups.AddToGroupAsync(Context.ConnectionId, session);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"{session}:{normalizedRole.ToLowerInvariant()}");
+        // Track connection by role in the session store
+        sessions.Touch(session, normalizedRole, Context.ConnectionId, name);
 
         logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name}", Context.ConnectionId, session, role, name);
         await log.BroadcastAsync(new LogEvent(
@@ -50,13 +58,13 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
 
         if (!string.IsNullOrWhiteSpace(name))
         {
-            await Clients.Group(session).SendAsync("JoinedAudience", new JoinedAudience(Context.ConnectionId, name!));
+            await Clients.Group(session).SendAsync("JoinedAudience", new JoinedAudience(Context.ConnectionId, name));
         }
     }
 
     public Task CreateOrJoinWithName(string session, string audienceName) => Join(session, role: "audience", name: audienceName);
 
-    public override async Task OnConnectedAsync()
+    public async override Task OnConnectedAsync()
     {
         await base.OnConnectedAsync();
         await log.BroadcastAsync(new LogEvent(
@@ -68,7 +76,7 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
         ));
     }
 
-    public async override Task OnDisconnectedAsync(Exception? exception)
+    public async override Task OnDisconnectedAsync(System.Exception? exception)
     {
         var session = Context.Items.TryGetValue(SessionKey, out var sessionObject) ? sessionObject as string : null;
         var role = Context.Items.TryGetValue(RoleKey, out var roleObject) ? roleObject as string : null;
@@ -95,6 +103,8 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
             Session: session,
             Role: role
         ));
+        // Remove from the session store
+        sessions.Remove(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -116,6 +126,19 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
             return;
         }
 
+        // Rate limit play/stop actions to 1 per 2 seconds per connection
+        if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "PlayStop", TimeSpan.FromSeconds(2)))
+        {
+            await SendProblemAsync(new NuottiProblem(
+                Title: "Too Many Requests",
+                Status: 429,
+                Detail: "You are sending play/stop actions too quickly. Please wait a moment and try again.",
+                Reason: ReasonCode.None,
+                Field: null,
+                CorrelationId: null));
+            return;
+        }
+
         logger.LogInformation("RequestPlay: conn={ConnectionId} session={Session} role={Role} url={Url}", Context.ConnectionId, session, role, cmd.FileUrl);
         await log.BroadcastAsync(new LogEvent(
             Timestamp: DateTimeOffset.UtcNow,
@@ -128,5 +151,45 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
         ));
 
         await Clients.Group(session).SendAsync("RequestPlay", cmd);
+    }
+
+    // Audience submits answer choice
+    public async Task SubmitAnswer(string session, int choiceIndex)
+    {
+        // Only audience members may submit answers
+        var role = Context.Items.TryGetValue(RoleKey, out var roleObj) ? roleObj as string : null;
+        if (!string.Equals(role, "audience", StringComparison.OrdinalIgnoreCase))
+        {
+            await SendProblemAsync(NuottiProblem.UnprocessableEntity(
+                title: "Business rule violated",
+                detail: "Performer cannot submit an answer.",
+                reason: ReasonCode.InvalidStateTransition,
+                field: "role"));
+            return;
+        }
+
+        // Debounce SubmitAnswer per-connection with 500ms window
+        if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "SubmitAnswer", TimeSpan.FromMilliseconds(500)))
+        {
+            await SendProblemAsync(new NuottiProblem(
+                Title: "Too Many Requests",
+                Status: 429,
+                Detail: "You are submitting answers too quickly. Please wait and try again.",
+                Reason: ReasonCode.None,
+                Field: null,
+                CorrelationId: null));
+            return;
+        }
+
+        var audienceId = Context.ConnectionId;
+        var evt = new AnswerSubmitted(audienceId, choiceIndex)
+        {
+            AudienceId = audienceId,
+            ChoiceIndex = choiceIndex,
+            CorrelationId = Guid.NewGuid(),
+            CausedByCommandId = Guid.NewGuid(),
+            SessionCode = session
+        };
+        await bus.PublishAsync(evt);
     }
 }

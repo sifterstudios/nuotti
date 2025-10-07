@@ -1,0 +1,11 @@
+﻿{
+  "sessionCode": "SESS",
+  "phase": "Intermission",
+  "songIndex": 0,
+  "currentSong": null,
+  "choices": [],
+  "hintIndex": 0,
+  "tallies": [],
+  "scores": {},
+  "songStartedAtUtc": null
+}

@@ -1,9 +1,12 @@
-using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend;
+using Nuotti.Backend.Endpoints;
+using Nuotti.Backend.Eventing;
+using Nuotti.Backend.Eventing.Subscribers;
+using Nuotti.Backend.Exception;
+using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Models;
-using Nuotti.Contracts.V1.Enum;
-using Nuotti.Contracts.V1.Message;
-using Nuotti.Contracts.V1.Event;
+using Nuotti.Backend.Sessions;
+using Nuotti.Contracts.V1.Eventing;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
@@ -24,82 +27,84 @@ builder.Services
     })
     .AddJsonProtocol(o => o.PayloadSerializerOptions.PropertyNamingPolicy = null);
 
-// CORS: allow cross-origin dev clients (Audience/Projector) to call the Backend
+// CORS: environment-based policy
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("NuottiCors", policy =>
     {
-        policy
-            .AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        if (builder.Environment.IsDevelopment())
+        {
+            // Allow http(s)://localhost:* with credentials for dev
+            policy
+                .SetIsOriginAllowed(origin =>
+                {
+                    if (string.IsNullOrWhiteSpace(origin)) return false;
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                    var isLocalhost = string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
+                    var isHttp = uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
+                    return isLocalhost && isHttp; // any port
+                })
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
+        else
+        {
+            // Production: allowlist via config
+            var opts = builder.Configuration.Get<NuottiOptions>();
+            var origins = (opts?.AllowedOrigins ?? string.Empty)
+                .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (origins.Length > 0)
+            {
+                policy
+                    .WithOrigins(origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
+            }
+            else
+            {
+                // No origins configured -> deny cross-origin by default
+                policy.DisallowCredentials();
+            }
+        }
     });
 });
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
+builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
+builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
+builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+
+// Event bus and subscribers
+builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
+builder.Services.AddSingleton<StateApplySubscriber>();
+builder.Services.AddSingleton<HubBroadcastSubscriber>();
+builder.Services.AddSingleton<MetricsSubscriber>();
 
 var app = builder.Build();
 
-// Enable CORS before mapping endpoints
-app.UseCors("AllowAll");
-
-// Map exceptions to NuottiProblem consistently
+app.UseCors("NuottiCors");
 app.UseMiddleware<ProblemHandlingMiddleware>();
+app.MapPhaseEndpoints();
 
-var sessions = new Dictionary<string, HashSet<string>>(); // sessionCode -> connIds
-
-app.MapHub<QuizHub>("/hub").RequireCors("AllowAll");
+app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
 if (app.Environment.IsDevelopment())
 {
-    app.MapHub<LogHub>("/log").RequireCors("AllowAll");
+    app.MapHub<LogHub>("/log").RequireCors("NuottiCors");
 }
-app.MapPost("/api/sessions/{name}", async (string name, ILogStreamer log) =>
-{
-    var session = new SessionCreated(name, Guid.NewGuid().ToString());
-    await log.BroadcastAsync(new LogEvent(
-        Timestamp: DateTimeOffset.UtcNow,
-        Level: "Info",
-        Source: "Program",
-        Message: $"Session created: code={session.SessionCode} hostId={session.HostId}",
-        Session: session.SessionCode
-    ));
-    return Results.Ok(session);
-}).RequireCors("AllowAll");
-app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
-{
-    await hub.Clients.Group(session).SendAsync("QuestionPushed", q);
-    await log.BroadcastAsync(new LogEvent(
-        Timestamp: DateTimeOffset.UtcNow,
-        Level: "Info",
-        Source: "Program",
-        Message: $"QuestionPushed to session={session}: {q.Text}",
-        Session: session
-    ));
-    return Results.Accepted();
-}).RequireCors("AllowAll");
-app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, PlayTrack cmd) =>
-{
-    await hub.Clients.Group(session).SendAsync("PlayTrack", cmd);
-    await log.BroadcastAsync(new LogEvent(
-        Timestamp: DateTimeOffset.UtcNow,
-        Level: "Info",
-        Source: "Program",
-        Message: $"Play requested for session={session}: url={cmd.FileUrl}",
-        Session: session
-    ));
-    return Results.Accepted();
-}).RequireCors("AllowAll");
+app.MapApiEndpoints();
+app.MapHealthEndpoints();
+app.MapStatusEndpoints();
+app.MapDevEndpoints();
 
-// Demo endpoints returning NuottiProblem directly
-app.MapGet("/api/demo/problem/{kind}", (string kind) =>
-{
-    return kind.ToLowerInvariant() switch
-    {
-        "400" or "badrequest" => ProblemResults.BadRequest("Invalid input", "Name must not be empty", ReasonCode.InvalidStateTransition, "name"),
-        "409" or "conflict" => ProblemResults.Conflict("Duplicate command", "Operation already performed", ReasonCode.DuplicateCommand),
-        "422" or "unprocessable" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole"),
-        _ => Results.NotFound()
-    };
-}).RequireCors("AllowAll");
+// Force creation of subscribers so they can attach to the bus
+_ = app.Services.GetRequiredService<StateApplySubscriber>();
+_ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
+_ = app.Services.GetRequiredService<MetricsSubscriber>();
 
 app.Run();
+
+// Expose Program for WebApplicationFactory in tests
+public partial class Program { }

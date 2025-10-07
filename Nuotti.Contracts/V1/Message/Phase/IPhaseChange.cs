@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
+﻿using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
 
 namespace Nuotti.Contracts.V1.Message.Phase;
 
