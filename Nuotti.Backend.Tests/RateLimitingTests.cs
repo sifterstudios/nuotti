@@ -1,8 +1,5 @@
 ﻿using Nuotti.Backend.RateLimiting;
 using Xunit;
-using System;
-using System.Threading.Tasks;
-
 namespace Nuotti.Backend.Tests;
 
 public class RateLimitingTests

@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-using Nuotti.Contracts.V1.Enum;
-
+﻿using Nuotti.Contracts.V1.Enum;
 namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>

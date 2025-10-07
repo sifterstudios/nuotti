@@ -1,7 +1,4 @@
 ﻿using System.Diagnostics;
-using System.IO;
-using Xunit;
-
 namespace Nuotti.Contracts.Tests;
 
 public class DocsLinkLintTests

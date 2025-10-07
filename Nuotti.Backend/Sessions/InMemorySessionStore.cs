@@ -1,8 +1,6 @@
-﻿using System.Collections.Concurrent;
-using System.Threading;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
-
+using System.Collections.Concurrent;
 namespace Nuotti.Backend.Sessions;
 
 public sealed class InMemorySessionStore : ISessionStore, IDisposable

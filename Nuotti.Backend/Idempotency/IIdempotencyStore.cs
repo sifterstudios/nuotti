@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Nuotti.Backend.Idempotency;
+﻿namespace Nuotti.Backend.Idempotency;
 
 public interface IIdempotencyStore
 {

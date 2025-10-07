@@ -1,12 +1,14 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Nuotti.Backend.RateLimiting;
+using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Event;
+using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
-using Nuotti.Contracts.V1.Event;
-using Nuotti.Backend.RateLimiting;
 namespace Nuotti.Backend;
 
-public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessionStore sessions, Nuotti.Contracts.V1.Eventing.IEventBus bus) : Hub
+public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore sessions, IEventBus bus) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -33,12 +35,15 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessio
         }
 
         // Track session and role on the connection
+        var normalizedRole = role.Trim();
         Context.Items[SessionKey] = session;
-        Context.Items[RoleKey] = role;
+        Context.Items[RoleKey] = normalizedRole;
 
+        // Join session-wide group and session+role group
         await Groups.AddToGroupAsync(Context.ConnectionId, session);
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"{session}:{normalizedRole.ToLowerInvariant()}");
         // Track connection by role in the session store
-        sessions.Touch(session, role, Context.ConnectionId, name);
+        sessions.Touch(session, normalizedRole, Context.ConnectionId, name);
 
         logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name}", Context.ConnectionId, session, role, name);
         await log.BroadcastAsync(new LogEvent(
@@ -151,6 +156,18 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessio
     // Audience submits answer choice
     public async Task SubmitAnswer(string session, int choiceIndex)
     {
+        // Only audience members may submit answers
+        var role = Context.Items.TryGetValue(RoleKey, out var roleObj) ? roleObj as string : null;
+        if (!string.Equals(role, "audience", StringComparison.OrdinalIgnoreCase))
+        {
+            await SendProblemAsync(NuottiProblem.UnprocessableEntity(
+                title: "Business rule violated",
+                detail: "Performer cannot submit an answer.",
+                reason: ReasonCode.InvalidStateTransition,
+                field: "role"));
+            return;
+        }
+
         // Debounce SubmitAnswer per-connection with 500ms window
         if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "SubmitAnswer", TimeSpan.FromMilliseconds(500)))
         {

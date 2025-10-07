@@ -1,8 +1,7 @@
-﻿using System.Diagnostics;
-using Microsoft.AspNetCore.SignalR.Client;
-using Nuotti.Contracts.V1;
+﻿using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Message;
-
+using System.ComponentModel;
+using System.Diagnostics;
 static string GetArg(string[] args, string name, string? envVar = null, string? fallback = null)
 {
     for (int i = 0; i < args.Length; i++)
@@ -68,7 +67,7 @@ static bool CanStart(string fileName)
         try { if (!p.WaitForExit(300)) p.Kill(true); } catch { /* ignore */ }
         return true;
     }
-    catch (System.ComponentModel.Win32Exception)
+    catch (Win32Exception)
     {
         return false;
     }
