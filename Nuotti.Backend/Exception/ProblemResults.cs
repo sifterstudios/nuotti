@@ -26,7 +26,7 @@ public static class ProblemResults
     
     public static IResult WrongRoleTriedExecutingResult(Role role)
     {
-        return ProblemResults.Forbidden(
+        return Forbidden(
             title: "Unauthorized Role",
             detail: $"Only {role.ToString()} may execute this command.",
             reason: ReasonCode.UnauthorizedRole,

@@ -48,13 +48,8 @@ builder.Services.AddSingleton<Nuotti.Backend.Idempotency.IIdempotencyStore, Nuot
 
 var app = builder.Build();
 
-// Enable CORS before mapping endpoints
 app.UseCors("AllowAll");
-
-// Map exceptions to NuottiProblem consistently
 app.UseMiddleware<ProblemHandlingMiddleware>();
-
-// Map Phase endpoints (extracted)
 app.MapPhaseEndpoints();
 
 app.MapHub<QuizHub>("/hub").RequireCors("AllowAll");
@@ -62,8 +57,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapHub<LogHub>("/log").RequireCors("AllowAll");
 }
-// Map other API endpoints (extracted)
 app.MapApiEndpoints();
+app.MapHealthEndpoints();
 
 app.Run();
 
