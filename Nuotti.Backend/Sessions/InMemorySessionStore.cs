@@ -53,6 +53,17 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
         return new RoleCounts(0, 0, 0, 0);
     }
 
+    public void Clear(string session)
+    {
+        if (_sessions.TryRemove(session, out var state))
+        {
+            foreach (var conn in state.GetAllConnectionIds())
+            {
+                _byConnection.TryRemove(conn, out _);
+            }
+        }
+    }
+
     public void EvictIdleNow() => Scan(null);
 
     void Scan(object? _)

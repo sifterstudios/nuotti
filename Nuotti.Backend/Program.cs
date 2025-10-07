@@ -94,6 +94,7 @@ if (app.Environment.IsDevelopment())
 app.MapApiEndpoints();
 app.MapHealthEndpoints();
 app.MapStatusEndpoints();
+app.MapDevEndpoints();
 
 app.Run();
 

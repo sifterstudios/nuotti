@@ -12,6 +12,9 @@ public interface ISessionStore
 
     // Get counts per role for a session
     RoleCounts GetCounts(string session);
+
+    // Clear all data related to a session (DEV/testing support)
+    void Clear(string session);
 }
 
 public readonly record struct RoleCounts(int Performer, int Projector, int Engine, int Audiences);

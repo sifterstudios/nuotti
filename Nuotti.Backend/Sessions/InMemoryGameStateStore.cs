@@ -15,4 +15,7 @@ public sealed class InMemoryGameStateStore : IGameStateStore
 
     public void Set(string session, GameStateSnapshot snapshot)
         => _states[session] = snapshot;
+
+    public void Remove(string session)
+        => _states.TryRemove(session, out _);
 }

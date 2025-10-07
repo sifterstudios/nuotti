@@ -8,4 +8,5 @@ public interface IGameStateStore
     bool TryGet(string session, out GameStateSnapshot snapshot);
     GameStateSnapshot GetOrCreate(string session, Func<string, GameStateSnapshot> factory);
     void Set(string session, GameStateSnapshot snapshot);
+    void Remove(string session);
 }
