@@ -6,7 +6,7 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Backend.RateLimiting;
 namespace Nuotti.Backend;
 
-public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessionStore sessions) : Hub
+public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessionStore sessions, Nuotti.Contracts.V1.Eventing.IEventBus bus) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -173,6 +173,6 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessio
             CausedByCommandId = Guid.NewGuid(),
             SessionCode = session
         };
-        await Clients.Group(session).SendAsync("AnswerSubmitted", evt);
+        await bus.PublishAsync(evt);
     }
 }

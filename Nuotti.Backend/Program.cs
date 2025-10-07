@@ -1,15 +1,12 @@
-using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend;
 using Nuotti.Backend.Endpoints;
+using Nuotti.Backend.Eventing;
+using Nuotti.Backend.Eventing.Subscribers;
 using Nuotti.Backend.Exception;
+using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Models;
-using Nuotti.Contracts.V1.Enum;
-using Nuotti.Contracts.V1.Message;
-using Nuotti.Contracts.V1.Event;
-using Nuotti.Contracts.V1.Reducer;
-using Nuotti.Contracts.V1.Model;
-using Nuotti.Contracts.V1.Message.Phase;
-using System.Collections.Concurrent;
+using Nuotti.Backend.Sessions;
+using Nuotti.Contracts.V1.Eventing;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
@@ -54,9 +51,9 @@ builder.Services.AddCors(options =>
         else
         {
             // Production: allowlist via config
-            var opts = builder.Configuration.Get<Nuotti.Backend.Models.NuottiOptions>();
+            var opts = builder.Configuration.Get<NuottiOptions>();
             var origins = (opts?.AllowedOrigins ?? string.Empty)
-                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             if (origins.Length > 0)
             {
@@ -76,9 +73,15 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
-builder.Services.AddSingleton<Nuotti.Backend.Sessions.ISessionStore, Nuotti.Backend.Sessions.InMemorySessionStore>();
-builder.Services.AddSingleton<Nuotti.Backend.Sessions.IGameStateStore, Nuotti.Backend.Sessions.InMemoryGameStateStore>();
-builder.Services.AddSingleton<Nuotti.Backend.Idempotency.IIdempotencyStore, Nuotti.Backend.Idempotency.InMemoryIdempotencyStore>();
+builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
+builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
+builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+
+// Event bus and subscribers
+builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
+builder.Services.AddSingleton<StateApplySubscriber>();
+builder.Services.AddSingleton<HubBroadcastSubscriber>();
+builder.Services.AddSingleton<MetricsSubscriber>();
 
 var app = builder.Build();
 
@@ -95,6 +98,11 @@ app.MapApiEndpoints();
 app.MapHealthEndpoints();
 app.MapStatusEndpoints();
 app.MapDevEndpoints();
+
+// Force creation of subscribers so they can attach to the bus
+_ = app.Services.GetRequiredService<StateApplySubscriber>();
+_ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
+_ = app.Services.GetRequiredService<MetricsSubscriber>();
 
 app.Run();
 
