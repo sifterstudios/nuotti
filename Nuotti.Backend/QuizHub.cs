@@ -3,6 +3,7 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Event;
+using Nuotti.Backend.RateLimiting;
 namespace Nuotti.Backend;
 
 public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessionStore sessions) : Hub
@@ -120,6 +121,19 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessio
             return;
         }
 
+        // Rate limit play/stop actions to 1 per 2 seconds per connection
+        if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "PlayStop", TimeSpan.FromSeconds(2)))
+        {
+            await SendProblemAsync(new NuottiProblem(
+                Title: "Too Many Requests",
+                Status: 429,
+                Detail: "You are sending play/stop actions too quickly. Please wait a moment and try again.",
+                Reason: ReasonCode.None,
+                Field: null,
+                CorrelationId: null));
+            return;
+        }
+
         logger.LogInformation("RequestPlay: conn={ConnectionId} session={Session} role={Role} url={Url}", Context.ConnectionId, session, role, cmd.FileUrl);
         await log.BroadcastAsync(new LogEvent(
             Timestamp: DateTimeOffset.UtcNow,
@@ -132,5 +146,33 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Sessions.ISessio
         ));
 
         await Clients.Group(session).SendAsync("RequestPlay", cmd);
+    }
+
+    // Audience submits answer choice
+    public async Task SubmitAnswer(string session, int choiceIndex)
+    {
+        // Debounce SubmitAnswer per-connection with 500ms window
+        if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "SubmitAnswer", TimeSpan.FromMilliseconds(500)))
+        {
+            await SendProblemAsync(new NuottiProblem(
+                Title: "Too Many Requests",
+                Status: 429,
+                Detail: "You are submitting answers too quickly. Please wait and try again.",
+                Reason: ReasonCode.None,
+                Field: null,
+                CorrelationId: null));
+            return;
+        }
+
+        var audienceId = Context.ConnectionId;
+        var evt = new AnswerSubmitted(audienceId, choiceIndex)
+        {
+            AudienceId = audienceId,
+            ChoiceIndex = choiceIndex,
+            CorrelationId = Guid.NewGuid(),
+            CausedByCommandId = Guid.NewGuid(),
+            SessionCode = session
+        };
+        await Clients.Group(session).SendAsync("AnswerSubmitted", evt);
     }
 }
