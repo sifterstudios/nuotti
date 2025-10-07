@@ -50,6 +50,12 @@ public sealed record GameStateSnapshot
     public IReadOnlyDictionary<string, int> Scores { get; init; } = FrozenDictionary<string, int>.Empty;
 
     /// <summary>
+    /// Latest submitted answers per audience. Internal server-side bookkeeping; not serialized.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, int> Answers { get; init; } = FrozenDictionary<string, int>.Empty;
+
+    /// <summary>
     /// UTC timestamp when the current song started, if applicable.
     /// </summary>
     public DateTime? SongStartedAtUtc { get; init; }

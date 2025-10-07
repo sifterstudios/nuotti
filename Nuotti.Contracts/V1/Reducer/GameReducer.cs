@@ -42,7 +42,8 @@ public static class GameReducer
                 var next = state with
                 {
                     Phase = phaseChanged.NewPhase,
-                    Tallies = phaseChanged.NewPhase == Phase.Start ? [] : state.Tallies
+                    Tallies = phaseChanged.NewPhase == Phase.Start ? [] : state.Tallies,
+                    Answers = phaseChanged.NewPhase == Phase.Start ? System.Collections.Frozen.FrozenDictionary<string, int>.Empty : state.Answers
                 };
                 return (next, null);
             }
@@ -72,11 +73,52 @@ public static class GameReducer
                 // Increment selected choice tally.
                 checked { tallies[idx] += 1; }
 
+                // Upsert per-audience last answer
+                var answers = state.Answers.Count == 0
+                    ? new Dictionary<string, int>()
+                    : new Dictionary<string, int>(state.Answers);
+                answers[answer.AudienceId] = idx;
+
                 var updated = state with
                 {
-                    Tallies = tallies
+                    Tallies = tallies,
+                    Answers = answers
                 };
                 return (updated, null);
+            }
+            case CorrectAnswerRevealed revealed:
+            {
+                // On reveal, award +1 per audience whose last submitted answer matches the correct index.
+                var correctIdx = revealed.CorrectChoiceIndex;
+                if (correctIdx < 0 || correctIdx >= state.Choices.Count)
+                {
+                    // ignore if index is invalid for current choices
+                    return (state, null);
+                }
+
+                // Start from existing scores
+                var scores = state.Scores.Count == 0
+                    ? new Dictionary<string, int>()
+                    : new Dictionary<string, int>(state.Scores);
+
+                foreach (var kvp in state.Answers)
+                {
+                    if (kvp.Value == correctIdx)
+                    {
+                        // award +1
+                        if (scores.TryGetValue(kvp.Key, out var current))
+                        {
+                            checked { scores[kvp.Key] = current + 1; }
+                        }
+                        else
+                        {
+                            scores[kvp.Key] = 1;
+                        }
+                    }
+                }
+
+                var next = state with { Scores = scores };
+                return (next, null);
             }
             default:
                 // Unknown events are no-ops in this reducer
