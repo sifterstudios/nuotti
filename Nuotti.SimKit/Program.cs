@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Model;
+using System.Globalization;
 namespace Nuotti.SimKit;
 
 internal static class Program
@@ -7,12 +8,14 @@ internal static class Program
     private const string HelpText = @"nuotti-sim
 
 Usage:
-  nuotti-sim run --backend <url> --session <code>
+  nuotti-sim run --backend <url> --session <code> [--speed <x>] [--instant]
   nuotti-sim --help
 
 Options:
   --backend <url>   Backend base URL (e.g., http://localhost:5240)
   --session <code>  Session code to join (e.g., dev)
+  --speed <x>       Speed multiplier for simulation timing (e.g., 0.5 = slower, 2 = faster)
+  --instant         Run with no waits (overrides --speed)
   --help            Show this help
 ";
 
@@ -37,6 +40,22 @@ Options:
                 return 2;
             }
 
+            // Timing controls
+            bool instant = HasFlag(args, "--instant");
+            double speed = 1.0;
+            var speedStr = GetOptionValue(args, "--speed");
+            if (!string.IsNullOrWhiteSpace(speedStr))
+            {
+                if (!double.TryParse(speedStr, NumberStyles.Float, CultureInfo.InvariantCulture, out speed))
+                {
+                    Console.Error.WriteLine($"Invalid --speed value '{speedStr}'. Use a number like 0.5 or 2.0");
+                    return 2;
+                }
+                if (speed < 0) speed = 0;
+            }
+
+            var effective = instant ? "instant (no waits)" : $"speed x{speed.ToString(CultureInfo.InvariantCulture)}";
+
             // Touch types from Contracts and SignalR so the references are meaningful
             // (these may be used by future implementations of the simulator).
             GameStateSnapshot? _exampleContractsUsage = null;
@@ -45,7 +64,7 @@ Options:
             _ = typeof(HubConnection);
             _ = typeof(HttpClient);
 
-            Console.WriteLine($"Simulating against backend {backend} in session '{session}'.");
+            Console.WriteLine($"Simulating against backend {backend} in session '{session}' with {effective}.");
             Console.WriteLine("(Simulation logic not yet implemented; this is a scaffold.)");
             return 0;
         }
