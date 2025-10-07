@@ -37,6 +37,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
+builder.Services.AddSingleton<Nuotti.Backend.Sessions.ISessionStore, Nuotti.Backend.Sessions.InMemorySessionStore>();
 
 var app = builder.Build();
 
@@ -64,6 +65,18 @@ app.MapPost("/api/sessions/{name}", async (string name, ILogStreamer log) =>
         Session: session.SessionCode
     ));
     return Results.Ok(session);
+}).RequireCors("AllowAll");
+
+app.MapGet("/api/sessions/{session}/counts", (Nuotti.Backend.Sessions.ISessionStore store, string session) =>
+{
+    var counts = store.GetCounts(session);
+    return Results.Ok(new
+    {
+        performer = counts.Performer,
+        projector = counts.Projector,
+        engine = counts.Engine,
+        audiences = counts.Audiences
+    });
 }).RequireCors("AllowAll");
 app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
 {

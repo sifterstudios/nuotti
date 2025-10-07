@@ -17,4 +17,14 @@ public sealed class NuottiOptions
     /// Demo greeting to validate binding in tests.
     /// </summary>
     public string Greeting { get; init; } = "Hello";
+
+    /// <summary>
+    /// Idle timeout (in seconds) after which a session is evicted if no connections touched it.
+    /// </summary>
+    public int SessionIdleTimeoutSeconds { get; init; } = 900; // 15 minutes
+
+    /// <summary>
+    /// How often the eviction loop scans for idle sessions (in seconds).
+    /// </summary>
+    public int SessionEvictionIntervalSeconds { get; init; } = 30;
 }

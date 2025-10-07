@@ -5,7 +5,7 @@ using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Event;
 namespace Nuotti.Backend;
 
-public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
+public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, Nuotti.Backend.Sessions.ISessionStore sessions) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -36,6 +36,8 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
         Context.Items[RoleKey] = role;
 
         await Groups.AddToGroupAsync(Context.ConnectionId, session);
+        // Track connection by role in session store
+        sessions.Touch(session, role, Context.ConnectionId, name);
 
         logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name}", Context.ConnectionId, session, role, name);
         await log.BroadcastAsync(new LogEvent(
@@ -95,6 +97,8 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log) : Hub
             Session: session,
             Role: role
         ));
+        // Remove from session store
+        sessions.Remove(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
