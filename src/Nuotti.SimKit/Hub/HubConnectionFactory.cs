@@ -49,4 +49,7 @@ internal sealed class RealHubClient : IHubClient
         }
         return _connection.InvokeAsync("Join", session, role, name, cancellationToken);
     }
+
+    public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
+        => _connection.InvokeAsync("SubmitAnswer", session, choiceIndex, cancellationToken);
 }

@@ -170,4 +170,7 @@ file sealed class FakeHubClient : IHubClient
         Calls.Add((session, role, name));
         return Task.CompletedTask;
     }
+
+    public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 }
