@@ -98,4 +98,92 @@ public class GameReducerTests
         Assert.Null(err);
         Assert.Equal(Phase.Guessing, next.Phase);
     }
+
+    [Fact]
+    public void AnswerSubmitted_increments_tally_during_Guessing()
+    {
+        var state = new GameStateSnapshot(
+            sessionCode: "S",
+            phase: Phase.Guessing,
+            songIndex: 1,
+            currentSong: null,
+            choices: new[] { "A", "B", "C" },
+            hintIndex: 0,
+            tallies: new[] { 0, 0, 0 },
+            scores: null,
+            songStartedAtUtc: null);
+
+        (state, var err) = GameReducer.Reduce(state, new AnswerSubmitted("aud-1", 1)
+        {
+            AudienceId = "aud-1",
+            ChoiceIndex = 1,
+            SessionCode = state.SessionCode,
+            EmittedAtUtc = DateTime.UtcNow,
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+
+        Assert.Null(err);
+        Assert.Equal(new[] { 0, 1, 0 }, state.Tallies);
+    }
+
+    [Fact]
+    public void AnswerSubmitted_ignored_when_not_Guessing()
+    {
+        var state = new GameStateSnapshot(
+            sessionCode: "S",
+            phase: Phase.Lobby,
+            songIndex: 0,
+            currentSong: null,
+            choices: new[] { "A", "B" },
+            hintIndex: 0,
+            tallies: new[] { 0, 0 },
+            scores: null,
+            songStartedAtUtc: null);
+
+        var before = state.Tallies.ToArray();
+
+        var (next, err) = GameReducer.Reduce(state, new AnswerSubmitted("aud-1", 0)
+        {
+            AudienceId = "aud-1",
+            ChoiceIndex = 0,
+            SessionCode = state.SessionCode,
+            EmittedAtUtc = DateTime.UtcNow,
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+
+        Assert.Null(err);
+        Assert.Equal(before, next.Tallies);
+        Assert.Equal(Phase.Lobby, next.Phase);
+    }
+
+    [Fact]
+    public void Tallies_reset_on_next_song_phase_change_to_Start()
+    {
+        var state = new GameStateSnapshot(
+            sessionCode: "S",
+            phase: Phase.Guessing,
+            songIndex: 3,
+            currentSong: null,
+            choices: new[] { "A", "B" },
+            hintIndex: 0,
+            tallies: new[] { 2, 5 },
+            scores: null,
+            songStartedAtUtc: null);
+
+        var (next, err) = GameReducer.Reduce(state, new GamePhaseChanged(Phase.Guessing, Phase.Start)
+        {
+            CurrentPhase = Phase.Guessing,
+            NewPhase = Phase.Start,
+            SessionCode = state.SessionCode,
+            EmittedAtUtc = DateTime.UtcNow,
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+
+        Assert.Null(err);
+        Assert.Equal(Phase.Start, next.Phase);
+        Assert.Empty(next.Tallies);
+    }
 }
