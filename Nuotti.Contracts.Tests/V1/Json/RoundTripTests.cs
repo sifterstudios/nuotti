@@ -8,7 +8,7 @@ using Nuotti.Contracts.V1.Model;
 
 namespace Nuotti.Contracts.Tests.V1.Json;
 
-public class A11RoundTripTests
+public class RoundTripTests
 {
     public static IEnumerable<object[]> Cases()
     {
