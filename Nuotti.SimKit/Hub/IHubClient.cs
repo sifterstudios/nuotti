@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-
-namespace Nuotti.SimKit.Hub;
+﻿namespace Nuotti.SimKit.Hub;
 
 public interface IHubClient
 {

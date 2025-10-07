@@ -1,5 +1,7 @@
-﻿using Nuotti.SimKit.Hub;
-
+﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Model;
+using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Time;
 namespace Nuotti.SimKit.Actors;
 
 public sealed class AudienceActor : BaseActor
@@ -7,16 +9,18 @@ public sealed class AudienceActor : BaseActor
     readonly string _name;
     readonly AudienceOptions _options;
     readonly Random _random;
+    readonly ITimeProvider _time;
     int _lastAnsweredSongIndex = -1;
     int? _scheduledForSongIndex;
     readonly object _gate = new();
 
-    public AudienceActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, string name, AudienceOptions? options = null)
+    public AudienceActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, string name, AudienceOptions? options = null, ITimeProvider? timeProvider = null)
         : base(hubClientFactory, baseUri, session)
     {
         _name = name;
         _options = options ?? new AudienceOptions();
         _random = _options.RandomSeed.HasValue ? new Random(_options.RandomSeed.Value) : Random.Shared;
+        _time = timeProvider ?? new RealTimeProvider(1.0);
     }
 
     protected override string Role => "audience";
@@ -26,10 +30,10 @@ public sealed class AudienceActor : BaseActor
     /// React to a game state snapshot. If in Guessing phase, schedule exactly one randomized SubmitAnswer for this round.
     /// This method is idempotent per song index: multiple calls for the same round will not produce more than one answer.
     /// </summary>
-    public async Task OnStateAsync(Nuotti.Contracts.V1.Model.GameStateSnapshot snapshot, CancellationToken cancellationToken = default)
+    public async Task OnStateAsync(GameStateSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         if (snapshot is null) return;
-        if (snapshot.Phase != Nuotti.Contracts.V1.Enum.Phase.Guessing) return;
+        if (snapshot.Phase != Phase.Guessing) return;
         if (snapshot.Choices is null || snapshot.Choices.Count == 0) return;
         if (Client is null) return; // not started yet
 
@@ -63,7 +67,7 @@ public sealed class AudienceActor : BaseActor
         try
         {
             if (delay > TimeSpan.Zero)
-                await Task.Delay(delay, cancellationToken);
+                await _time.Delay(delay, cancellationToken);
         }
         catch (TaskCanceledException)
         {

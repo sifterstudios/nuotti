@@ -1,5 +1,4 @@
 ﻿using Nuotti.SimKit.Hub;
-
 namespace Nuotti.SimKit.Actors;
 
 public sealed class EngineActor : BaseActor

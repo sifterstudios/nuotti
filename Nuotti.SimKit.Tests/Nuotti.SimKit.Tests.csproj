@@ -11,6 +11,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Nuotti.SimKit\Nuotti.SimKit.csproj" />
+    <ProjectReference Include="..\Nuotti.SimKit\Nuotti.SimKit.csproj" />
   </ItemGroup>
 </Project>

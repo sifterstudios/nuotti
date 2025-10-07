@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
-
 namespace Nuotti.SimKit.Hub;
 
 public sealed class HubConnectionFactory : IHubClientFactory
