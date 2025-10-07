@@ -17,9 +17,15 @@ internal static class PhaseEndpoints
     static GameStateSnapshot GetState(string session)
         => gameStates.GetOrAdd(session, s => GameReducer.Initial(s));
 
-    static async Task<IResult> HandlePhaseChangeAsync<T>(IHubContext<QuizHub> hub, string session, T cmd)
+    static async Task<IResult> HandlePhaseChangeAsync<T>(IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, T cmd)
         where T : CommandBase, IPhaseChange
     {
+        // Idempotency: short-circuit duplicates
+        if (!idem.TryRegister(session, cmd.CommandId))
+        {
+            return Results.Accepted();
+        }
+
         var state = GetState(session);
         if (!cmd.IsPhaseChangeAllowed(state.Phase))
         {
@@ -54,18 +60,22 @@ internal static class PhaseEndpoints
     public static void MapPhaseEndpoints(this WebApplication app)
     {
         // REST endpoints for v1/Message/Phase
-        app.MapPost("/v1/message/phase/create-session/{session}", async (IHubContext<QuizHub> hub, string session, CreateSession _) =>
+        app.MapPost("/v1/message/phase/create-session/{session}", async (IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, CreateSession cmd) =>
         {
+            if (!idem.TryRegister(session, cmd.CommandId))
+            {
+                return Results.Accepted();
+            }
             var snapshot = GameReducer.Initial(session);
             gameStates[session] = snapshot;
             await hub.Clients.Group(session).SendAsync("GameStateChanged", snapshot);
             return Results.Accepted();
         }).RequireCors("AllowAll");
 
-        app.MapPost("/v1/message/phase/start-game/{session}", (IHubContext<QuizHub> hub, string session, StartGame cmd)
-            => HandlePhaseChangeAsync(hub, session, cmd)).RequireCors("AllowAll");
+        app.MapPost("/v1/message/phase/start-game/{session}", (IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, StartGame cmd)
+            => HandlePhaseChangeAsync(hub, idem, session, cmd)).RequireCors("AllowAll");
 
-        app.MapPost("/v1/message/phase/end-song/{session}", (IHubContext<QuizHub> hub, string session, EndSong cmd)
-            => HandlePhaseChangeAsync(hub, session, cmd)).RequireCors("AllowAll");
+        app.MapPost("/v1/message/phase/end-song/{session}", (IHubContext<QuizHub> hub, Nuotti.Backend.Idempotency.IIdempotencyStore idem, string session, EndSong cmd)
+            => HandlePhaseChangeAsync(hub, idem, session, cmd)).RequireCors("AllowAll");
     }
 }

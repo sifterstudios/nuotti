@@ -42,6 +42,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
 builder.Services.AddSingleton<Nuotti.Backend.Sessions.ISessionStore, Nuotti.Backend.Sessions.InMemorySessionStore>();
+builder.Services.AddSingleton<Nuotti.Backend.Idempotency.IIdempotencyStore, Nuotti.Backend.Idempotency.InMemoryIdempotencyStore>();
 
 var app = builder.Build();
 

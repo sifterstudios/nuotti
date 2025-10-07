@@ -27,4 +27,14 @@ public sealed class NuottiOptions
     /// How often the eviction loop scans for idle sessions (in seconds).
     /// </summary>
     public int SessionEvictionIntervalSeconds { get; init; } = 30;
+
+    /// <summary>
+    /// Idempotency: how long a CommandId is remembered (seconds).
+    /// </summary>
+    public int IdempotencyTtlSeconds { get; init; } = 600; // 10 minutes
+
+    /// <summary>
+    /// Idempotency: maximum number of recent CommandIds stored per session.
+    /// </summary>
+    public int IdempotencyMaxPerSession { get; init; } = 128;
 }
