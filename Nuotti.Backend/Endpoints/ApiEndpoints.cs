@@ -80,13 +80,19 @@ internal static class ApiEndpoints
             return Results.Accepted();
         }).RequireCors("AllowAll");
 
-        app.MapGet("/api/demo/problem/{kind}", (string kind) =>
+        app.MapGet("/api/demo/problem/{kind}", (HttpContext ctx, string kind) =>
         {
+            Guid? correlationId = null;
+            if (ctx.Request.Headers.TryGetValue("X-Correlation-Id", out var values) && Guid.TryParse(values.ToString(), out var parsed))
+            {
+                correlationId = parsed;
+            }
+
             return kind.ToLowerInvariant() switch
             {
-                "400" or "badrequest" => ProblemResults.BadRequest("Invalid input", "Name must not be empty", ReasonCode.InvalidStateTransition, "name"),
-                "409" or "conflict" => ProblemResults.Conflict("Duplicate command", "Operation already performed", ReasonCode.DuplicateCommand),
-                "422" or "unprocessable" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole"),
+                "400" or "badrequest" => ProblemResults.BadRequest("Invalid input", "Name must not be empty", ReasonCode.InvalidStateTransition, "name", correlationId),
+                "409" or "conflict" => ProblemResults.Conflict("Duplicate command", "Operation already performed", ReasonCode.DuplicateCommand, null, correlationId),
+                "422" or "unprocessable" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole", correlationId),
                 _ => Results.NotFound()
             };
         }).RequireCors("AllowAll");
