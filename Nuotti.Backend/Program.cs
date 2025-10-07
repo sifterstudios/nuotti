@@ -4,6 +4,10 @@ using Nuotti.Backend.Models;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Event;
+using Nuotti.Contracts.V1.Reducer;
+using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Message.Phase;
+using System.Collections.Concurrent;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
@@ -47,72 +51,18 @@ app.UseCors("AllowAll");
 // Map exceptions to NuottiProblem consistently
 app.UseMiddleware<ProblemHandlingMiddleware>();
 
-var sessions = new Dictionary<string, HashSet<string>>(); // sessionCode -> connIds
+// Map Phase endpoints (extracted)
+app.MapPhaseEndpoints();
 
 app.MapHub<QuizHub>("/hub").RequireCors("AllowAll");
 if (app.Environment.IsDevelopment())
 {
     app.MapHub<LogHub>("/log").RequireCors("AllowAll");
 }
-app.MapPost("/api/sessions/{name}", async (string name, ILogStreamer log) =>
-{
-    var session = new SessionCreated(name, Guid.NewGuid().ToString());
-    await log.BroadcastAsync(new LogEvent(
-        Timestamp: DateTimeOffset.UtcNow,
-        Level: "Info",
-        Source: "Program",
-        Message: $"Session created: code={session.SessionCode} hostId={session.HostId}",
-        Session: session.SessionCode
-    ));
-    return Results.Ok(session);
-}).RequireCors("AllowAll");
-
-app.MapGet("/api/sessions/{session}/counts", (Nuotti.Backend.Sessions.ISessionStore store, string session) =>
-{
-    var counts = store.GetCounts(session);
-    return Results.Ok(new
-    {
-        performer = counts.Performer,
-        projector = counts.Projector,
-        engine = counts.Engine,
-        audiences = counts.Audiences
-    });
-}).RequireCors("AllowAll");
-app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
-{
-    await hub.Clients.Group(session).SendAsync("QuestionPushed", q);
-    await log.BroadcastAsync(new LogEvent(
-        Timestamp: DateTimeOffset.UtcNow,
-        Level: "Info",
-        Source: "Program",
-        Message: $"QuestionPushed to session={session}: {q.Text}",
-        Session: session
-    ));
-    return Results.Accepted();
-}).RequireCors("AllowAll");
-app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, PlayTrack cmd) =>
-{
-    await hub.Clients.Group(session).SendAsync("PlayTrack", cmd);
-    await log.BroadcastAsync(new LogEvent(
-        Timestamp: DateTimeOffset.UtcNow,
-        Level: "Info",
-        Source: "Program",
-        Message: $"Play requested for session={session}: url={cmd.FileUrl}",
-        Session: session
-    ));
-    return Results.Accepted();
-}).RequireCors("AllowAll");
-
-// Demo endpoints returning NuottiProblem directly
-app.MapGet("/api/demo/problem/{kind}", (string kind) =>
-{
-    return kind.ToLowerInvariant() switch
-    {
-        "400" or "badrequest" => ProblemResults.BadRequest("Invalid input", "Name must not be empty", ReasonCode.InvalidStateTransition, "name"),
-        "409" or "conflict" => ProblemResults.Conflict("Duplicate command", "Operation already performed", ReasonCode.DuplicateCommand),
-        "422" or "unprocessable" => ProblemResults.UnprocessableEntity("Business rule violated", "Performer cannot submit an answer", ReasonCode.UnauthorizedRole, "issuedByRole"),
-        _ => Results.NotFound()
-    };
-}).RequireCors("AllowAll");
+// Map other API endpoints (extracted)
+app.MapApiEndpoints();
 
 app.Run();
+
+// Expose Program for WebApplicationFactory in tests
+public partial class Program { }
