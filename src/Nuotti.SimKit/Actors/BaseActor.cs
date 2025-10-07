@@ -19,6 +19,8 @@ public abstract class BaseActor : IActor
     protected abstract string Role { get; }
     protected virtual string? DisplayName => null;
 
+    protected string SessionCode => _session;
+
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         _client = _hubClientFactory.Create(_baseUri);
