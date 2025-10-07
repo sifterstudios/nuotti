@@ -44,6 +44,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
 builder.Services.AddSingleton<Nuotti.Backend.Sessions.ISessionStore, Nuotti.Backend.Sessions.InMemorySessionStore>();
+builder.Services.AddSingleton<Nuotti.Backend.Sessions.IGameStateStore, Nuotti.Backend.Sessions.InMemoryGameStateStore>();
 builder.Services.AddSingleton<Nuotti.Backend.Idempotency.IIdempotencyStore, Nuotti.Backend.Idempotency.InMemoryIdempotencyStore>();
 
 var app = builder.Build();
@@ -59,6 +60,7 @@ if (app.Environment.IsDevelopment())
 }
 app.MapApiEndpoints();
 app.MapHealthEndpoints();
+app.MapStatusEndpoints();
 
 app.Run();
 
