@@ -16,6 +16,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nuotti.Contracts.Tests", "N
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nuotti.Backend.Tests", "Nuotti.Backend.Tests\Nuotti.Backend.Tests.csproj", "{8B3A2D7E-4D2A-4D8E-8E9D-1B3E6A9CF5A1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nuotti.SimKit", "Nuotti.SimKit\Nuotti.SimKit.csproj", "{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -122,6 +124,18 @@ Global
 		{8B3A2D7E-4D2A-4D8E-8E9D-1B3E6A9CF5A1}.Release|x64.Build.0 = Release|Any CPU
 		{8B3A2D7E-4D2A-4D8E-8E9D-1B3E6A9CF5A1}.Release|x86.ActiveCfg = Release|Any CPU
 		{8B3A2D7E-4D2A-4D8E-8E9D-1B3E6A9CF5A1}.Release|x86.Build.0 = Release|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Debug|x64.Build.0 = Debug|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Debug|x86.Build.0 = Debug|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Release|x64.ActiveCfg = Release|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Release|x64.Build.0 = Release|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Release|x86.ActiveCfg = Release|Any CPU
+		{8C66CB2F-D3C3-4035-AFC3-6389E6C1EFCC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
