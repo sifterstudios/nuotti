@@ -1,5 +1,6 @@
 ﻿using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using System.Text.Json;
 namespace Nuotti.Backend.Exception;
@@ -69,6 +70,7 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
     {
         return ex switch
         {
+            PhaseViolationException pvx => (409, "Invalid state transition", pvx.Message, ReasonCode.InvalidStateTransition, null),
             ArgumentException aex => (400, "Invalid argument", aex.Message, ReasonCode.InvalidStateTransition, aex.ParamName),
             UnauthorizedAccessException uex => (403, "Unauthorized role", uex.Message, ReasonCode.UnauthorizedRole, null),
             InvalidOperationException iex => (409, "Conflict", iex.Message, ReasonCode.DuplicateCommand, null),
