@@ -1,0 +1,138 @@
+﻿[
+  {
+    "sessionCode": "BASE01",
+    "phase": "Lobby",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Start",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Play",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Hint",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Guessing",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Lock",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Reveal",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  },
+  {
+    "sessionCode": "BASE01",
+    "phase": "Intermission",
+    "songIndex": 0,
+    "currentSong": null,
+    "choices": [
+      "A",
+      "B"
+    ],
+    "hintIndex": 0,
+    "tallies": [
+      0,
+      0
+    ],
+    "scores": {},
+    "songStartedAtUtc": null
+  }
+]

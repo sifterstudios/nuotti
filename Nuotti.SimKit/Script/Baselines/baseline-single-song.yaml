@@ -1,0 +1,31 @@
+﻿# Baseline scenario: single-song happy path
+# - 20 audiences
+# - 50% correct (statistical, with two choices)
+# - 2–5s delays
+# - Ends in Intermission
+
+audienceCount: 20
+audience:
+  correctnessRatio: 0.5
+  minDelay: 00:00:02
+  maxDelay: 00:00:05
+  dropRate: 0.0
+script:
+  steps:
+    - kind: StartSet
+    - kind: NextSong
+      songId: song-001
+    - kind: Play
+      songId: song-001
+    - kind: GiveHint
+      songId: song-001
+      hintIndex: 0
+      hintText: "Intro riff"
+      performerInstructions: "Hum the intro"
+    - kind: LockAnswers
+    - kind: RevealAnswer
+      songId: song-001
+      title: "Sample Title"
+      artist: "Sample Artist"
+    - kind: EndSong
+      songId: song-001
