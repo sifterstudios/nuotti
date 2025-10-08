@@ -25,4 +25,14 @@ public static class ScriptParser
         var model = deserializer.Deserialize<ScriptModel>(yaml);
         return model ?? throw new InvalidOperationException("Invalid YAML script");
     }
+
+    public static BaselineScenario ParseBaselineYaml(string yaml)
+    {
+        var deserializer = new DeserializerBuilder()
+            .WithNamingConvention(CamelCaseNamingConvention.Instance)
+            .IgnoreUnmatchedProperties()
+            .Build();
+        var scenario = deserializer.Deserialize<BaselineScenario>(yaml);
+        return scenario ?? throw new InvalidOperationException("Invalid baseline YAML");
+    }
 }
