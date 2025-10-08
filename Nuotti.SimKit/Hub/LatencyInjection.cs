@@ -19,7 +19,9 @@ public readonly record struct LatencyPolicy(TimeSpan Mean, TimeSpan Jitter, bool
         var u = random.NextDouble();
         var ms = min.TotalMilliseconds + u * rangeMs;
         if (ms < 0) ms = 0;
-        return TimeSpan.FromMilliseconds(ms);
+        // Round up to avoid systematic negative bias due to timer rounding
+        var msCeil = Math.Ceiling(ms);
+        return TimeSpan.FromMilliseconds(msCeil);
     }
 }
 

@@ -13,6 +13,11 @@
         <PackageReference Include="JsonSchema.Net" Version="6.1.0"/>
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj"/>
+      <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj"/>
     </ItemGroup>
-</Project>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+        <_Parameter1>Nuotti.SimKit.Tests</_Parameter1>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Project>
