@@ -5,7 +5,6 @@ using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
 using Nuotti.SimKit.Script;
 using Xunit;
-
 namespace Nuotti.SimKit.Tests;
 
 public class ScriptMappingTests
@@ -173,4 +172,9 @@ file sealed class FakeHubClient : IHubClient
 
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
+
+    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+        => new NoopDisposable();
+
+    sealed class NoopDisposable : IDisposable { public void Dispose() { } }
 }

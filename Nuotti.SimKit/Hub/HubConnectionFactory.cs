@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Nuotti.Contracts.V1.Model;
 namespace Nuotti.SimKit.Hub;
 
 public sealed class HubConnectionFactory : IHubClientFactory
@@ -51,4 +52,7 @@ internal sealed class RealHubClient : IHubClient
 
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
         => _connection.InvokeAsync("SubmitAnswer", session, choiceIndex, cancellationToken);
+
+    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+        => _connection.On("GameStateChanged", handler);
 }

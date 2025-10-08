@@ -1,10 +1,8 @@
-﻿using System.Collections.Concurrent;
-using Nuotti.Contracts.V1.Enum;
+﻿using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
 using Xunit;
-
 namespace Nuotti.SimKit.Tests;
 
 public class AudienceActorAnsweringTests
@@ -82,4 +80,9 @@ file sealed class CapturingHubClient : IHubClient
         Answers.Add((session, choiceIndex, DateTime.UtcNow));
         return Task.CompletedTask;
     }
+
+    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+        => new NoopDisposable();
+
+    sealed class NoopDisposable : IDisposable { public void Dispose() { } }
 }

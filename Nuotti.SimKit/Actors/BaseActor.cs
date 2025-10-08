@@ -20,13 +20,21 @@ public abstract class BaseActor : IActor
 
     protected string SessionCode => _session;
 
+    protected virtual Task OnStartedAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    protected virtual Task OnStoppingAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         Client = _hubClientFactory.Create(_baseUri);
         await Client.StartAsync(cancellationToken);
         await Client.JoinAsync(_session, Role, DisplayName, cancellationToken);
+        await OnStartedAsync(cancellationToken);
     }
 
-    public Task StopAsync(CancellationToken cancellationToken = default)
-        => Client?.StopAsync(cancellationToken) ?? Task.CompletedTask;
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        await OnStoppingAsync(cancellationToken);
+        if (Client is not null)
+            await Client.StopAsync(cancellationToken);
+    }
 }

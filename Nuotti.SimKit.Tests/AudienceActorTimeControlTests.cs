@@ -112,4 +112,9 @@ file sealed class CapturingHubClient : IHubClient
         Answers.Add((session, choiceIndex, DateTime.UtcNow));
         return Task.CompletedTask;
     }
+
+    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+        => new NoopDisposable();
+
+    sealed class NoopDisposable : IDisposable { public void Dispose() { } }
 }
