@@ -10,6 +10,7 @@
     <ItemGroup>
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.2"/>
         <PackageReference Include="YamlDotNet" Version="15.3.0"/>
+        <PackageReference Include="JsonSchema.Net" Version="6.1.0"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj"/>
