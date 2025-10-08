@@ -89,6 +89,58 @@ script:
         projector.StopAsync().GetAwaiter().GetResult();
     }
 
+    [Fact]
+    public void Baseline_snapshot_sequence_matches_golden_json()
+    {
+        var expectedPhases = new List<Phase>
+        {
+            Phase.Lobby,
+            Phase.Start,
+            Phase.Play,
+            Phase.Hint,
+            Phase.Guessing,
+            Phase.Lock,
+            Phase.Reveal,
+            Phase.Intermission,
+        };
+
+        var snapshots = new List<GameStateSnapshot>();
+        foreach (var phase in expectedPhases)
+        {
+            snapshots.Add(new GameStateSnapshot(
+                sessionCode: "BASE01",
+                phase: phase,
+                songIndex: 0,
+                currentSong: null,
+                choices: new[] { "A", "B" },
+                hintIndex: 0,
+                tallies: new[] { 0, 0 },
+                scores: null,
+                songStartedAtUtc: null));
+        }
+
+        var actualJson = SnapshotTestHelpers.SerializeSnapshots(snapshots);
+
+        var baselineFile = FindBaselineFile("Baselines\\baseline-single-song.snapshots.json");
+        var expectedJson = File.ReadAllText(baselineFile);
+
+        SnapshotTestHelpers.AssertJsonSequenceFuzzyEqual(expectedJson, actualJson);
+    }
+
+    private static string FindBaselineFile(string relativePath)
+    {
+        var dir = AppContext.BaseDirectory; // e.g., ...\\Nuotti.SimKit.Tests\\bin\\Debug\\net9.0\\
+        for (int i = 0; i < 8; i++)
+        {
+            var candidate = Path.Combine(dir, relativePath);
+            if (File.Exists(candidate)) return candidate;
+            var parent = Directory.GetParent(dir);
+            if (parent == null) break;
+            dir = parent.FullName;
+        }
+        throw new FileNotFoundException($"Baseline file not found: {relativePath}");
+    }
+
     sealed class NoopHubClientFactory : IHubClientFactory
     {
         public IHubClient Create(Uri baseAddress) => new NoopHubClient();
