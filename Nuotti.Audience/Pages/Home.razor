@@ -1,53 +1,185 @@
 ﻿@page "/"
-@using Nuotti.Audience.Services
 @using Nuotti.Contracts.V1.Message
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
-<PageTitle>Join session</PageTitle>
+<PageTitle>Join Session - Nuotti</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="py-4">
-    <MudText Typo="Typo.h4" GutterBottom="true">Join a session</MudText>
+<div class="home-container">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <MudContainer MaxWidth="MaxWidth.Small">
+            <div class="text-center mb-6 bounce-in">
+                <div class="hero-icon mb-4">
+                    🎵
+                </div>
+                <MudText Typo="Typo.h2" Style="font-weight: 800; line-height: 1.2;" Class="mb-2">
+                    Ready to Play?
+                </MudText>
+                <MudText Typo="Typo.h6" Color="Color.Secondary" Style="font-weight: 400;">
+                    Join a music quiz session and test your knowledge!
+                </MudText>
+            </div>
 
-    <MudTextField @bind-Value="session" 
-                  Label="Session code" 
-                  Placeholder="e.g. ABC123symotion-prefix)"
-                  Variant="Variant.Outlined"
-                  Margin="Margin.Normal"
-                  FullWidth="true" />
+            <!-- Join Form Card -->
+            <MudPaper Elevation="8" Class="join-card pa-6 slide-up">
+                <MudTextField @bind-Value="session" 
+                              Label="Session Code" 
+                              Placeholder="Enter the code shown on screen"
+                              Variant="Variant.Filled"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              Immediate="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Material.Filled.Tag"
+                              Class="mb-4"
+                              OnKeyDown="HandleKeyDown"
+                              Style="text-transform: uppercase;" />
 
-    <MudTextField @bind-Value="name" 
-                  Label="Your name (optional)"
-                  Placeholder="Jane"
-                  Variant="Variant.Outlined"
-                  Margin="Margin.Normal"
-                  FullWidth="true" />
+                <MudTextField @bind-Value="name" 
+                              Label="Your Name (Optional)"
+                              Placeholder="How should we call you?"
+                              Variant="Variant.Filled"
+                              Margin="Margin.Dense"
+                              FullWidth="true"
+                              Immediate="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Material.Filled.Person"
+                              Class="mb-5"
+                              OnKeyDown="HandleKeyDown" />
 
-    <MudButton Variant="Variant.Filled" 
-               Color="Color.Primary" 
-               Size="Size.Large"
-               FullWidth="true"
-               OnClick="JoinAsync" 
-               Disabled="@(isBusy || string.IsNullOrWhiteSpace(session))"
-               Class="mt-4">
-        @(isBusy ? "Joining..." : "Join")
-    </MudButton>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           Size="Size.Large"
+                           FullWidth="true"
+                           OnClick="JoinAsync" 
+                           Disabled="@(isBusy || string.IsNullOrWhiteSpace(session))"
+                           StartIcon="@(isBusy ? null : Material.Filled.Login)"
+                           Style="height: 56px; border-radius: 12px; font-size: 1.1rem; font-weight: 700;">
+                    @if (isBusy)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Joining...</span>
+                    }
+                    else
+                    {
+                        <span>Join Session</span>
+                    }
+                </MudButton>
 
-    @if (!string.IsNullOrWhiteSpace(error))
-    {
-        <MudAlert Severity="Severity.Error" Class="mt-4">@error</MudAlert>
+                @if (!string.IsNullOrWhiteSpace(error))
+                {
+                    <MudAlert Severity="Severity.Error" 
+                              Class="mt-4" 
+                              Variant="Variant.Filled"
+                              Dense="true"
+                              CloseIconClicked="@(() => error = null)">
+                        @error
+                    </MudAlert>
+                }
+            </MudPaper>
+
+            <!-- Quick Tips -->
+            <MudPaper Elevation="0" Class="mt-4 pa-4" Style="background: transparent; border: 2px solid var(--mud-palette-divider); border-radius: 16px;">
+                <div class="d-flex align-items-start mb-2">
+                    <MudIcon Icon="@Material.Filled.Info" Color="Color.Info" Class="mr-2 mt-1" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">
+                        <strong>How it works:</strong> Get the session code from the host's screen, enter it above, and you're in!
+                    </MudText>
+                </div>
+                <div class="d-flex align-items-start">
+                    <MudIcon Icon="@Material.Filled.People" Color="Color.Success" Class="mr-2 mt-1" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">
+                        <strong>Play together:</strong> Compete with friends and see who knows the most songs!
+                    </MudText>
+                </div>
+            </MudPaper>
+
+            <!-- Backend Info (collapsible for development) -->
+            @if (_showDevInfo)
+            {
+                <div class="text-center mt-4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Backend: @Hub.BackendBaseUrl
+                    </MudText>
+                </div>
+            }
+            else
+            {
+                <div class="text-center mt-4">
+                    <MudLink Typo="Typo.caption" Color="Color.Secondary" OnClick="@(() => _showDevInfo = true)">
+                        Show connection info
+                    </MudLink>
+                </div>
+            }
+        </MudContainer>
+    </div>
+</div>
+
+<style>
+    .home-container {
+        min-height: calc(100vh - 64px);
+        display: flex;
+        align-items: center;
+        padding: 24px 0;
+        background: linear-gradient(180deg, 
+            rgba(var(--mud-palette-primary-rgb), 0.03) 0%, 
+            rgba(var(--mud-palette-secondary-rgb), 0.03) 100%);
     }
-
-    <MudText Typo="Typo.caption" Class="mt-4" Color="Color.Secondary">
-        Backend: @Hub.BackendBaseUrl
-    </MudText>
-</MudContainer>
+    
+    .hero-section {
+        width: 100%;
+    }
+    
+    .hero-icon {
+        font-size: 5rem;
+        line-height: 1;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @@keyframes float {
+        0%, 100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+    
+    .join-card {
+        border-radius: 20px !important;
+        background: var(--mud-palette-surface);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .join-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, 
+            var(--mud-palette-primary), 
+            var(--mud-palette-secondary),
+            var(--mud-palette-tertiary));
+    }
+    
+    @@media (max-width: 600px) {
+        .hero-icon {
+            font-size: 3.5rem;
+        }
+    }
+</style>
 
 @code {
     private string session = string.Empty;
     private string? name;
     private bool isBusy;
     private string? error;
+    private bool _showDevInfo = false;
 
     protected override void OnInitialized()
     {
@@ -60,23 +192,39 @@
         Nav.NavigateTo("/question");
     }
 
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !isBusy && !string.IsNullOrWhiteSpace(session))
+        {
+            _ = JoinAsync();
+        }
+    }
+
     private async Task JoinAsync()
     {
         error = null;
         isBusy = true;
         try
         {
-            await Hub.CreateOrJoinAsync(session.Trim(), string.IsNullOrWhiteSpace(name) ? null : name!.Trim());
+            await Hub.CreateOrJoinAsync(session.Trim().ToUpper(), string.IsNullOrWhiteSpace(name) ? null : name!.Trim());
+            MudBlazor.Snackbar.Add($"Successfully joined session {session.Trim().ToUpper()}!", Severity.Success);
             // Navigate to the question page (which also serves as a waiting room) once connected/joined
+            await Task.Delay(500); // Brief delay for snackbar to show
             Nav.NavigateTo("/question");
         }
         catch (Exception ex)
         {
             error = ex.Message;
+            MudBlazor.Snackbar.Add("Failed to join session. Please check the code and try again.", Severity.Error);
         }
         finally
         {
             isBusy = false;
         }
+    }
+
+    public void Dispose()
+    {
+        Hub.QuestionPushed -= OnQuestion;
     }
 }

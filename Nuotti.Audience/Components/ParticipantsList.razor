@@ -1,0 +1,140 @@
+@namespace Nuotti.Audience.Components
+
+<MudPaper Elevation="0" Class="@($"pa-4 {Class}")" Style="border: 2px dashed var(--mud-palette-divider); border-radius: 16px;">
+    <div class="d-flex align-items-center justify-space-between mb-3">
+        <div class="d-flex align-items-center">
+            <MudIcon Icon="@Material.Filled.People" 
+                     Color="Color.Primary" 
+                     Class="mr-2" />
+            <MudText Typo="Typo.h6" Style="font-weight: 600;">
+                @Title
+            </MudText>
+        </div>
+        <MudChip T="string" Color="Color.Primary" 
+                 Size="Size.Small" 
+                 Variant="Variant.Text">
+            @Participants.Count
+        </MudChip>
+    </div>
+
+    @if (Participants.Any())
+    {
+        <div class="participants-grid">
+            @foreach (var (participant, index) in Participants.Select((p, i) => (p, i)))
+            {
+                <div class="participant-card bounce-in" 
+                     style="animation-delay: @(index * 0.05)s;">
+                    <MudAvatar Color="@GetAvatarColor(index)" 
+                               Size="Size.Medium"
+                               Class="participant-avatar">
+                        @GetInitials(participant)
+                    </MudAvatar>
+                    <MudText Typo="Typo.body2" 
+                             Class="mt-2 text-center participant-name"
+                             Style="font-weight: 500;">
+                        @participant
+                    </MudText>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-center py-4">
+            <MudIcon Icon="@Material.Filled.PersonAddAlt" 
+                     Size="Size.Large" 
+                     Color="Color.Secondary"
+                     Class="pulse mb-2" />
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                @EmptyMessage
+            </MudText>
+        </div>
+    }
+</MudPaper>
+
+<style>
+    .participants-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 16px;
+        margin-top: 8px;
+    }
+    
+    .participant-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px;
+        border-radius: 12px;
+        transition: transform 0.2s ease, background-color 0.2s ease;
+    }
+    
+    .participant-card:hover {
+        transform: translateY(-4px);
+        background-color: rgba(var(--mud-palette-primary-rgb), 0.05);
+    }
+    
+    .participant-name {
+        word-break: break-word;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+    
+    @@media (max-width: 600px) {
+        .participants-grid {
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 12px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public List<string> Participants { get; set; } = new();
+    
+    [Parameter]
+    public string Title { get; set; } = "Participants";
+    
+    [Parameter]
+    public string EmptyMessage { get; set; } = "Waiting for participants to join...";
+    
+    [Parameter]
+    public string Class { get; set; } = string.Empty;
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "?";
+        
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        
+        if (parts.Length == 0)
+            return "?";
+        
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        
+        return (parts[0][0].ToString() + parts[^1][0].ToString()).ToUpper();
+    }
+
+    private Color GetAvatarColor(int index)
+    {
+        // Cycle through colors for visual variety
+        var colors = new[]
+        {
+            Color.Primary,
+            Color.Secondary,
+            Color.Tertiary,
+            Color.Info,
+            Color.Success,
+            Color.Warning
+        };
+        
+        return colors[index % colors.Length];
+    }
+}
+

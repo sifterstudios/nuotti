@@ -1,7 +1,9 @@
-﻿<MudThemeProvider/>
+﻿@inject ThemeService ThemeService
+
+<MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode"/>
 <MudPopoverProvider/>
 <MudDialogProvider/>
-<MudSnackbarProvider/>
+<MudSnackbarProvider Position="SnackbarPosition.BottomCenter"/>
 
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
@@ -11,7 +13,39 @@
     <NotFound>
         <PageTitle>Not found</PageTitle>
         <LayoutView Layout="@typeof(MainLayout)">
-            <p role="alert">Sorry, there's nothing at this address.</p>
+            <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8 text-center">
+                <MudIcon Icon="@Material.Filled.SentimentDissatisfied" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h4" GutterBottom="true">404 - Not Found</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Sorry, there's nothing at this address.</MudText>
+                <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">
+                    Go Home
+                </MudButton>
+            </MudContainer>
         </LayoutView>
     </NotFound>
 </Router>
+
+@code {
+    private MudThemeProvider? _mudThemeProvider;
+    private MudTheme _theme = null!;
+    private bool _isDarkMode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ThemeService.InitializeAsync();
+        _theme = ThemeService.GetTheme();
+        _isDarkMode = ThemeService.IsDarkMode;
+        ThemeService.OnThemeChanged += OnThemeChanged;
+    }
+
+    private void OnThemeChanged()
+    {
+        _isDarkMode = ThemeService.IsDarkMode;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeChanged;
+    }
+}
