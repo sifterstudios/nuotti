@@ -67,6 +67,40 @@ internal static class PhaseEndpoints
 
         app.MapPost("/v1/message/phase/end-song/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, EndSong cmd)
             => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+
+        app.MapPost("/v1/message/phase/lock-answers/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, LockAnswers cmd)
+            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+
+        app.MapPost("/v1/message/phase/reveal-answer/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, RevealAnswer cmd)
+            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+
+        app.MapPost("/v1/message/phase/next-round/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, NextRound cmd)
+            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+
+        app.MapPost("/v1/message/phase/play-song/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, PlaySong cmd)
+            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        
+        // Non-phase-change but phase-restricted commands
+        app.MapPost("/v1/message/phase/give-hint/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, GiveHint cmd) =>
+        {
+            if (cmd.IssuedByRole != Role.Performer) { return Task.FromResult<IResult>(ProblemResults.WrongRoleTriedExecutingResult(Role.Performer)); }
+            if (!idem.TryRegister(session, cmd.CommandId)) { return Task.FromResult<IResult>(Results.Accepted()); }
+
+            var state = stateStore.GetOrCreate(session, GameReducer.Initial);
+            // Validate phase restriction
+            if (!cmd.AllowedPhases.Contains(state.Phase))
+            {
+                return Task.FromResult<IResult>(ProblemResults.Conflict(
+                    title: "Invalid command phase",
+                    detail: $"Command 'GiveHint' is not allowed in phase '{state.Phase}'.",
+                    reason: ReasonCode.InvalidStateTransition));
+            }
+
+            // For now, emit a no-op state change other than staying in the same phase; GameReducer has no hint event yet.
+            // We still notify clients with unchanged state to unblock UI flows expecting Accepted.
+            _ = hub.Clients.Group(session).SendAsync("GameStateChanged", state);
+            return Task.FromResult<IResult>(Results.Accepted());
+        }).RequireCors("NuottiCors");
     }
 
 

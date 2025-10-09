@@ -44,6 +44,8 @@ else
         <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Connect</button>
         <button class="btn btn-warning" @onclick="DisconnectAsync" disabled="@(!isConnected)">Disconnect</button>
     </div>
+
+    <ControlPanel />
 }
 
 @if (!string.IsNullOrWhiteSpace(status))

@@ -1,0 +1,49 @@
+﻿@using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Model
+@inject PerformerUiState State
+@inject PerformerCommands Commands
+
+<div class="card mb-3">
+    <div class="card-header">Flow Controls</div>
+    <div class="card-body d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" @onclick="StartSet" disabled="@(!CanStartSet)">Start Set</button>
+        <button class="btn btn-secondary" @onclick="NextSong" disabled="@(!CanNextSong)">Next Song</button>
+        <button class="btn btn-info" @onclick="GiveHint" disabled="@(!CanGiveHint)">Give Hint</button>
+        <button class="btn btn-warning" @onclick="LockAnswers" disabled="@(!CanLock)">Lock Answers</button>
+        <button class="btn btn-success" @onclick="Reveal" disabled="@(!CanReveal)">Reveal</button>
+        <button class="btn btn-danger" @onclick="EndSong" disabled="@(!CanEndSong)">End Song</button>
+    </div>
+</div>
+
+@code {
+    bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
+    bool CanNextSong => State.Phase is Phase.Guessing; // NextRound
+    bool CanGiveHint => State.Phase is Phase.Guessing;
+    bool CanLock => State.Phase is Phase.Guessing;
+    bool CanReveal => State.Phase is Phase.Lock;
+    bool CanEndSong => State.Phase is Phase.Play;
+
+    async Task StartSet() => await Commands.StartSetAsync();
+    async Task NextSong()
+    {
+        var songId = State.CurrentSong?.Id ?? new SongId("song-1");
+        await Commands.NextSongAsync(songId);
+    }
+    async Task GiveHint()
+    {
+        var songId = State.CurrentSong?.Id ?? new SongId("song-1");
+        var hint = new Hint(State.SongIndex, null, null, songId);
+        await Commands.GiveHintAsync(hint);
+    }
+    async Task LockAnswers() => await Commands.LockAnswersAsync();
+    async Task Reveal()
+    {
+        if (State.CurrentSong is null) return;
+        await Commands.RevealAsync(State.CurrentSong);
+    }
+    async Task EndSong()
+    {
+        if (State.CurrentSong is null) return;
+        await Commands.EndSongAsync(State.CurrentSong.Id);
+    }
+}
