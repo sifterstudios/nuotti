@@ -1,4 +1,6 @@
-﻿@inject PerformerUiState State
+﻿@using Nuotti.Contracts.V1.Enum
+@inject PerformerUiState State
+@inject IHttpClientFactory HttpFactory
 
 <div class="live-header navbar navbar-expand bg-body-tertiary border-bottom mb-3 @HeaderStatusClass">
     <div class="container-fluid py-1 d-flex justify-content-between align-items-center">
@@ -16,12 +18,35 @@
                 <span class="badge rounded-pill @BadgeClass(State.EngineCount > 0, critical: true)">Engine: @State.EngineCount</span>
                 <span class="badge rounded-pill @BadgeClass(State.AudienceCount > 0, critical: false)">Audience: @State.AudienceCount</span>
             </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="small">Engine status: <strong>@_statusText</strong></span>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="PingAsync" disabled="@_isPinging">@(_isPinging ? "Pinging..." : "Ping")</button>
+            </div>
             <a href="/setlist" class="btn btn-sm btn-outline-primary">Setlist</a>
         </div>
     </div>
+    @if (!string.IsNullOrEmpty(_lastMessage))
+    {
+        <div class="container-fluid"><div class="small text-muted">@_lastMessage</div></div>
+    }
+    @if (State.EngineCount == 0)
+    {
+        <div class="container-fluid"><div class="alert alert-warning py-1 my-2">Audio Engine missing: Play/Stop disabled.</div></div>
+    }
 </div>
 
 @code {
+    string _statusText => _status switch
+    {
+        EngineStatus.Playing => "Playing",
+        EngineStatus.Error => "Error",
+        _ => State.EngineCount > 0 ? "Ready" : "Missing"
+    };
+
+    EngineStatus _status = EngineStatus.Ready;
+    string? _lastMessage;
+    bool _isPinging;
+
     protected override void OnInitialized()
     {
         State.Changed += OnStateChanged;
@@ -29,7 +54,59 @@
 
     void OnStateChanged()
     {
+        // Infer status from phase if engine present
+        if (State.EngineCount > 0)
+        {
+            _status = State.Phase == Phase.Play ? EngineStatus.Playing : EngineStatus.Ready;
+        }
         InvokeAsync(StateHasChanged);
+    }
+
+    async Task PingAsync()
+    {
+        if (State.BackendBaseUri is null || string.IsNullOrWhiteSpace(State.SessionCode))
+        {
+            _lastMessage = "Backend or session not set.";
+            _status = EngineStatus.Error;
+            StateHasChanged();
+            return;
+        }
+        _isPinging = true;
+        _lastMessage = null;
+        StateHasChanged();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try
+        {
+            var http = HttpFactory.CreateClient();
+            http.BaseAddress = State.BackendBaseUri;
+            var resp = await http.GetAsync($"/api/sessions/{Uri.EscapeDataString(State.SessionCode!)}/counts", cts.Token);
+            if (resp.IsSuccessStatusCode)
+            {
+                // Consider OK as Ready/Playing depending on phase; also update last message
+                _status = State.Phase == Phase.Play ? EngineStatus.Playing : (State.EngineCount > 0 ? EngineStatus.Ready : EngineStatus.Error);
+                _lastMessage = "Ping OK";
+            }
+            else
+            {
+                _status = EngineStatus.Error;
+                _lastMessage = $"Ping failed: {(int)resp.StatusCode}";
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            _status = EngineStatus.Error;
+            _lastMessage = "Ping timeout";
+        }
+        catch (Exception ex)
+        {
+            _status = EngineStatus.Error;
+            _lastMessage = ex.Message;
+        }
+        finally
+        {
+            _isPinging = false;
+            StateHasChanged();
+        }
     }
 
     string HeaderStatusClass

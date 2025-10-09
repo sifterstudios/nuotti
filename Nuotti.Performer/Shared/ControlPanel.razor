@@ -17,11 +17,11 @@
 
 @code {
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
-    bool CanNextSong => State.Phase is Phase.Guessing; // NextRound
+    bool CanNextSong => State.Phase is Phase.Guessing && State.EngineCount > 0; // NextRound requires Engine
     bool CanGiveHint => State.Phase is Phase.Guessing;
     bool CanLock => State.Phase is Phase.Guessing;
     bool CanReveal => State.Phase is Phase.Lock;
-    bool CanEndSong => State.Phase is Phase.Play;
+    bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
 
     async Task StartSet() => await Commands.StartSetAsync();
     async Task NextSong()
