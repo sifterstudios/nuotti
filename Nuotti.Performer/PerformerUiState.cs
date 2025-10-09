@@ -26,6 +26,10 @@ public sealed class PerformerUiState
     public IReadOnlyList<string> Choices { get; private set; } = Array.Empty<string>();
     public int? SelectedCorrectIndex { get; private set; }
 
+    // Scores (latest and baseline at end of previous song)
+    public IReadOnlyDictionary<string, int> Scores { get; private set; } = new Dictionary<string, int>();
+    public IReadOnlyDictionary<string, int> BaselineScores { get; private set; } = new Dictionary<string, int>();
+
     // Role counts
     public int ProjectorCount { get; private set; }
     public int EngineCount { get; private set; }
@@ -47,15 +51,21 @@ public sealed class PerformerUiState
     public void UpdateGameState(GameStateSnapshot snapshot)
     {
         var songChanged = snapshot.SongIndex != SongIndex || snapshot.CurrentSong?.Id != CurrentSong?.Id;
+
+        // snapshot might include new cumulative scores; if the song changed, capture previous as baseline
+        if (songChanged)
+        {
+            BaselineScores = Scores; // previous latest becomes baseline for delta
+            SelectedCorrectIndex = null;
+        }
+
         Phase = snapshot.Phase;
         SongIndex = snapshot.SongIndex;
         HintIndex = snapshot.HintIndex;
         CurrentSong = snapshot.CurrentSong;
         Choices = snapshot.Choices;
-        if (songChanged)
-        {
-            SelectedCorrectIndex = null;
-        }
+        Scores = snapshot.Scores;
+
         // keep the session if not set
         if (!string.IsNullOrWhiteSpace(snapshot.SessionCode))
             SessionCode ??= snapshot.SessionCode;
@@ -94,6 +104,21 @@ public sealed class PerformerUiState
     {
         SelectedCorrectIndex = index;
         Changed?.Invoke();
+    }
+
+    public IEnumerable<(string id, int points, int delta)> GetOrderedScoreboard(int topN = 10)
+    {
+        // Sort by points desc, then by id ascending for deterministic ties
+        var ordered = Scores
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key, StringComparer.Ordinal)
+            .Select(kvp =>
+            {
+                var prev = BaselineScores.TryGetValue(kvp.Key, out var p) ? p : 0;
+                return (kvp.Key, kvp.Value, kvp.Value - prev);
+            })
+            .Take(topN);
+        return ordered;
     }
 
     public sealed record RoleCountsDto(int performer, int projector, int engine, int audiences);

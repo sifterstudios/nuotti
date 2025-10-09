@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject SessionSelectionService SessionSvc
 @inject PerformerUiState LiveState
+@using Nuotti.Contracts.V1.Enum
 @using Nuotti.Contracts.V1.Model
 @implements IAsyncDisposable
 
@@ -89,34 +90,41 @@ else
         </MudItem>
 
         <MudItem xs="12" lg="4">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudText Typo="Typo.h6" Class="mb-3">Session Statistics</MudText>
-                <MudStack Spacing="2">
-                    <MudChip T="string" Icon="@Material.Filled.Tv" Color="@(LiveState.ProjectorCount > 0 ? Color.Success : Color.Default)">
-                        Projectors: @LiveState.ProjectorCount
-                    </MudChip>
-                    <MudChip T="string" Icon="@Material.Filled.VolumeUp" Color="@(LiveState.EngineCount > 0 ? Color.Success : Color.Default)">
-                        Engines: @LiveState.EngineCount
-                    </MudChip>
-                    <MudChip T="string" Icon="@Material.Filled.People" Color="@(LiveState.AudienceCount > 0 ? Color.Success : Color.Default)">
-                        Audience: @LiveState.AudienceCount
-                    </MudChip>
-                    <MudChip T="string" Icon="@Material.Filled.MusicNote" Color="Color.Info">
-                        Song: @LiveState.SongIndex
-                    </MudChip>
-                    <MudChip T="string" Icon="@Material.Filled.Lightbulb" Color="Color.Info">
-                        Hint: @LiveState.HintIndex
-                    </MudChip>
-                </MudStack>
-                
-                @if (LiveState.CurrentSong is not null)
+            <MudStack Spacing="2">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">Session Statistics</MudText>
+                    <MudStack Spacing="2">
+                        <MudChip T="string" Icon="@Material.Filled.Tv" Color="@(LiveState.ProjectorCount > 0 ? Color.Success : Color.Default)">
+                            Projectors: @LiveState.ProjectorCount
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.VolumeUp" Color="@(LiveState.EngineCount > 0 ? Color.Success : Color.Default)">
+                            Engines: @LiveState.EngineCount
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.People" Color="@(LiveState.AudienceCount > 0 ? Color.Success : Color.Default)">
+                            Audience: @LiveState.AudienceCount
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.MusicNote" Color="Color.Info">
+                            Song: @LiveState.SongIndex
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.Lightbulb" Color="Color.Info">
+                            Hint: @LiveState.HintIndex
+                        </MudChip>
+                    </MudStack>
+                    
+                    @if (LiveState.CurrentSong is not null)
+                    {
+                        <MudDivider Class="my-4" />
+                        <MudText Typo="Typo.subtitle1" Class="mb-2">Current Song</MudText>
+                        <MudText Typo="Typo.body2"><strong>@LiveState.CurrentSong.Title</strong></MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@LiveState.CurrentSong.Artist</MudText>
+                    }
+                </MudPaper>
+
+                @if (LiveState.Phase == Phase.Lobby || LiveState.Phase == Phase.Start || LiveState.Phase == Phase.Finished)
                 {
-                    <MudDivider Class="my-4" />
-                    <MudText Typo="Typo.subtitle1" Class="mb-2">Current Song</MudText>
-                    <MudText Typo="Typo.body2"><strong>@LiveState.CurrentSong.Title</strong></MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@LiveState.CurrentSong.Artist</MudText>
+                    <ScoreboardPanel />
                 }
-            </MudPaper>
+            </MudStack>
         </MudItem>
     </MudGrid>
 }
