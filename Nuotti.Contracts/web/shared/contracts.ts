@@ -69,6 +69,7 @@ export interface GameStateSnapshot {
     phase: Phase;
     songIndex: number;
     currentSong?: SongRef | null; // nullable in C#
+    catalog: SongRef[]; // never null in C# (defaults to [])
     choices: string[]; // never null in C# (defaults to [])
     hintIndex: number;
     tallies: number[]; // never null in C# (defaults to [])
@@ -91,6 +92,7 @@ export const isGameStateSnapshot = (v: unknown): v is GameStateSnapshot => {
     if (!isPhase(x.phase)) return false;
     if (typeof x.songIndex !== "number") return false;
     if (x.currentSong != null && !isSongRef(x.currentSong)) return false;
+    if (!Array.isArray(x.catalog) || !x.catalog.every((s: unknown) => isSongRef(s))) return false;
     if (!Array.isArray(x.choices) || !x.choices.every((c: unknown) => typeof c === "string")) return false;
     if (typeof x.hintIndex !== "number") return false;
     if (!Array.isArray(x.tallies) || !x.tallies.every((n: unknown) => typeof n === "number")) return false;

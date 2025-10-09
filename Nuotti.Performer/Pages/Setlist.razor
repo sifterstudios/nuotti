@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
 @inject IManifestService Manifest
+@inject HttpClient Http
 
 <h3>Setlist Manager</h3>
 
@@ -73,15 +74,25 @@
         </tbody>
     </table>
 
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-end">
+        <div class="me-2">
+            <label class="form-label">Session</label>
+            <input class="form-control" @bind="SessionCode" placeholder="Enter session code" />
+        </div>
         <button type="button" class="btn btn-secondary" @onclick="Add">Add Row</button>
         <button type="submit" class="btn btn-primary" disabled="@HasInvalidRows">Save</button>
         <button type="button" class="btn btn-outline-secondary" @onclick="ReloadAsync">Reload</button>
+        <button type="button" class="btn btn-success" @onclick="UploadAsync" disabled="@HasInvalidRows || string.IsNullOrWhiteSpace(SessionCode)">Upload</button>
     </div>
 
     @if (HasInvalidRows)
     {
         <div class="text-danger mt-2">Fix validation errors before saving.</div>
+    }
+
+    @if (!string.IsNullOrEmpty(ServerError))
+    {
+        <div class="alert alert-danger mt-2">@ServerError</div>
     }
 </EditForm>
 
@@ -93,6 +104,8 @@
     public List<List<ValidationResult>> RowErrors { get; set; } = new();
 
     public string? Status { get; set; }
+    public string? ServerError { get; set; }
+    public string SessionCode { get; set; } = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -183,5 +196,45 @@
         var manifest = new PerformerManifest { Songs = Items };
         await Manifest.SaveAsync(manifest);
         Status = "Saved.";
+    }
+
+    async Task UploadAsync()
+    {
+        ServerError = null;
+        ComputeRowErrors();
+        if (HasInvalidRows)
+        {
+            Status = "Cannot upload: invalid rows detected.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(SessionCode))
+        {
+            ServerError = "Session code is required.";
+            return;
+        }
+
+        try
+        {
+            Status = "Uploading manifest...";
+            var payload = new
+            {
+                songs = Items.Select(s => new { title = s.Title, artist = s.Artist, file = s.File, hints = (IEnumerable<string>)(s.Hints ?? new()) }).ToList()
+            };
+            var resp = await Http.PostAsJsonAsync($"/api/manifest/{SessionCode}", payload);
+            if ((int)resp.StatusCode == 202)
+            {
+                Status = $"Uploaded {Items.Count} song(s) to session {SessionCode}.";
+                ServerError = null;
+            }
+            else
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                ServerError = $"Upload failed ({(int)resp.StatusCode}): {text}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ServerError = ex.Message;
+        }
     }
 }

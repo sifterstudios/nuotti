@@ -1,7 +1,6 @@
-﻿using System.Collections.Frozen;
+﻿using Nuotti.Contracts.V1.Enum;
+using System.Collections.Frozen;
 using System.Text.Json.Serialization;
-using Nuotti.Contracts.V1.Enum;
-
 namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>
@@ -28,6 +27,11 @@ public sealed record GameStateSnapshot
     /// The currently active song reference if available; otherwise null.
     /// </summary>
     public SongRef? CurrentSong { get; init; }
+
+    /// <summary>
+    /// Full catalog of songs available in this session for reference. Never null.
+    /// </summary>
+    public IReadOnlyList<SongRef> Catalog { get; init; } = [];
 
     /// <summary>
     /// The choices available to players for the current song. Never null.
@@ -70,6 +74,7 @@ public sealed record GameStateSnapshot
         Phase phase,
         int songIndex,
         SongRef? currentSong,
+        IReadOnlyList<SongRef>? catalog,
         IReadOnlyList<string>? choices,
         int hintIndex,
         IReadOnlyList<int>? tallies,
@@ -80,6 +85,7 @@ public sealed record GameStateSnapshot
         Phase = phase;
         SongIndex = songIndex;
         CurrentSong = currentSong;
+        Catalog = catalog ?? [];
         Choices = choices ?? [];
         HintIndex = hintIndex;
         Tallies = tallies ?? [];
@@ -95,6 +101,7 @@ public sealed record GameStateSnapshot
         Phase phase,
         int songIndex,
         SongRef? currentSong = null,
+        IEnumerable<SongRef>? catalog = null,
         IEnumerable<string>? choices = null,
         int hintIndex = 0,
         IEnumerable<int>? tallies = null,
@@ -105,10 +112,25 @@ public sealed record GameStateSnapshot
         Phase = phase;
         SongIndex = songIndex;
         CurrentSong = currentSong;
+        Catalog = (catalog ?? []).ToArray();
         Choices = (choices ?? []).ToArray();
         HintIndex = hintIndex;
         Tallies = (tallies ?? []).ToArray();
         Scores = scores ?? FrozenDictionary<string, int>.Empty;
         SongStartedAtUtc = songStartedAtUtc;
     }
+
+    // Backward-compatible overload (without catalog parameter) to avoid breaking existing call sites
+    public GameStateSnapshot(
+        string sessionCode,
+        Phase phase,
+        int songIndex,
+        SongRef? currentSong,
+        IEnumerable<string>? choices = null,
+        int hintIndex = 0,
+        IEnumerable<int>? tallies = null,
+        IReadOnlyDictionary<string, int>? scores = null,
+        DateTime? songStartedAtUtc = null)
+        : this(sessionCode, phase, songIndex, currentSong, catalog: null, choices, hintIndex, tallies, scores, songStartedAtUtc)
+    { }
 }

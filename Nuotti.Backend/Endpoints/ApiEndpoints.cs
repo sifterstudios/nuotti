@@ -4,6 +4,8 @@ using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Model;
+using System.ComponentModel.DataAnnotations;
 namespace Nuotti.Backend.Endpoints;
 
 internal static class ApiEndpoints
@@ -78,6 +80,60 @@ internal static class ApiEndpoints
                 Session: session
             ));
             return Results.Accepted();
+        }).RequireCors("NuottiCors");
+
+        // Upload setlist manifest and update server-side state with the song catalog
+        app.MapPost("/api/manifest/{session}", (IGameStateStore game, string session, SetlistManifest manifest) =>
+        {
+            // Basic validation
+            if (manifest?.Songs == null || manifest.Songs.Count == 0)
+            {
+                return ProblemResults.UnprocessableEntity("Invalid manifest", "At least one song is required.");
+            }
+
+            // Validate each song using DataAnnotations
+            for (var i = 0; i < manifest.Songs.Count; i++)
+            {
+                var song = manifest.Songs[i];
+                var ctx = new ValidationContext(song);
+                var results = new List<ValidationResult>();
+                if (!Validator.TryValidateObject(song, ctx, results, validateAllProperties: true))
+                {
+                    var first = results.First();
+                    var field = first.MemberNames.FirstOrDefault();
+                    return ProblemResults.UnprocessableEntity("Invalid manifest", first.ErrorMessage ?? "Validation failed", ReasonCode.None, field);
+                }
+            }
+
+            // Build catalog from manifest
+            static string Slug(string s)
+                => new string((s ?? string.Empty).ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch) || ch == '-').ToArray());
+
+            var catalog = manifest.Songs
+                .Select((s, i) => new SongRef(
+                    new SongId($"song-{i + 1}-{Slug(s.Title)}"),
+                    s.Title,
+                    s.Artist ?? string.Empty))
+                .ToArray();
+
+            // Update or create snapshot with catalog
+            var snapshot = game.GetOrCreate(session, sess => new GameStateSnapshot(
+                sessionCode: sess,
+                phase: Phase.Idle,
+                songIndex: 0,
+                currentSong: null,
+                catalog: catalog,
+                choices: Array.Empty<string>(),
+                hintIndex: 0,
+                tallies: Array.Empty<int>(),
+                scores: null,
+                songStartedAtUtc: null));
+
+            // If snapshot exists, replace with same values but updated catalog
+            snapshot = snapshot with { Catalog = catalog };
+            game.Set(session, snapshot);
+
+            return Results.Accepted($"/status/{session}", new { catalog });
         }).RequireCors("NuottiCors");
 
         app.MapGet("/api/demo/problem/{kind}", (HttpContext ctx, string kind) =>
