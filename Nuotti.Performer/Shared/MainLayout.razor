@@ -1,32 +1,58 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
 @inherits LayoutComponentBase
+@inject ThemeService ThemeService
 
-<MudThemeProvider Theme="_theme" />
+<MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
-
 <MudDialogProvider />
 <MudSnackbarProvider Position="SnackbarPosition.BottomRight" MaxDisplayedSnackbars="5" PreventDuplicates="true" />
-<MudCssBaseline />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Dense="true">
-        <MudIconButton Icon="@Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
-        <MudText Typo="Typo.h6" Class="ml-3">Nuotti Performer</MudText>
+    <MudAppBar Elevation="0" Dense="true" Style="backdrop-filter: blur(10px);">
+        <MudIconButton Icon="@Material.Filled.Menu" 
+                       Color="Color.Inherit" 
+                       Edge="Edge.Start" 
+                       OnClick="@ToggleDrawer"
+                       Size="Size.Large" />
+        <MudText Typo="Typo.h5" Style="font-weight: 700; margin-left: 12px;">
+            🎵 Nuotti Performer
+        </MudText>
         <MudSpacer />
         <LiveHeader />
+        <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+            <MudIconButton Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+                           Color="Color.Inherit"
+                           OnClick="ToggleTheme"
+                           Size="Size.Large"
+                           Class="ml-2" />
+        </MudTooltip>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Docked">
         <MudDrawerHeader>
-            <MudText Typo="Typo.h5" Color="Color.Primary">Nuotti</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Performance Control</MudText>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700;">🎵 Nuotti</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Performance Control</MudText>
+            </div>
         </MudDrawerHeader>
         <MudNavMenu>
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Material.Filled.Dashboard">Dashboard</MudNavLink>
-            <MudNavLink Href="/setlist" Match="NavLinkMatch.Prefix" Icon="@Material.Filled.QueueMusic">Setlist Manager</MudNavLink>
+            <MudNavLink Href="/" 
+                        Match="NavLinkMatch.All" 
+                        Icon="@Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+            <MudNavLink Href="/setlist" 
+                        Match="NavLinkMatch.Prefix" 
+                        Icon="@Material.Filled.QueueMusic">
+                Setlist Manager
+            </MudNavLink>
             <MudDivider Class="my-2" />
             <MudNavGroup Title="Settings" Icon="@Material.Filled.Settings" Expanded="false">
                 <MudNavLink Icon="@Material.Filled.Info">About</MudNavLink>
+                <MudNavLink Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+                            OnClick="ToggleTheme">
+                    @(_isDarkMode ? "Light" : "Dark") Mode
+                </MudNavLink>
             </MudNavGroup>
         </MudNavMenu>
     </MudDrawer>
@@ -40,33 +66,35 @@
 
 @code {
     private bool _drawerOpen = true;
+    private MudThemeProvider? _mudThemeProvider;
+    private MudTheme _theme = null!;
+    private bool _isDarkMode;
 
-    private MudTheme _theme = new MudTheme()
+    protected override void OnInitialized()
     {
-        PaletteLight = new PaletteLight()
-        {
-            Primary = "#594ae2",
-            Secondary = "#ff4081",
-            AppbarBackground = "#594ae2",
-            Success = "#00c853",
-            Warning = "#ff9800",
-            Error = "#f44336",
-            Info = "#2196f3"
-        },
-        PaletteDark = new PaletteDark()
-        {
-            Primary = "#776be7",
-            Secondary = "#ff4081",
-            AppbarBackground = "#27272f",
-            Success = "#00e676",
-            Warning = "#ffab00",
-            Error = "#f44336",
-            Info = "#40c4ff"
-        }
-    };
+        _theme = ThemeService.GetTheme();
+        _isDarkMode = ThemeService.IsDarkMode;
+        ThemeService.OnThemeChanged += OnThemeChanged;
+    }
+
+    private void OnThemeChanged()
+    {
+        _isDarkMode = ThemeService.IsDarkMode;
+        InvokeAsync(StateHasChanged);
+    }
 
     private void ToggleDrawer()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    private void ToggleTheme()
+    {
+        ThemeService.ToggleTheme();
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeChanged;
     }
 }

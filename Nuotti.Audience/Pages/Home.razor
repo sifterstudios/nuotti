@@ -207,7 +207,7 @@
         try
         {
             await Hub.CreateOrJoinAsync(session.Trim().ToUpper(), string.IsNullOrWhiteSpace(name) ? null : name!.Trim());
-            MudBlazor.Snackbar.Add($"Successfully joined session {session.Trim().ToUpper()}!", Severity.Success);
+            Snackbar.Add($"Successfully joined session {session.Trim().ToUpper()}!", Severity.Success);
             // Navigate to the question page (which also serves as a waiting room) once connected/joined
             await Task.Delay(500); // Brief delay for snackbar to show
             Nav.NavigateTo("/question");
@@ -215,7 +215,7 @@
         catch (Exception ex)
         {
             error = ex.Message;
-            MudBlazor.Snackbar.Add("Failed to join session. Please check the code and try again.", Severity.Error);
+            Snackbar.Add("Failed to join session. Please check the code and try again.", Severity.Error);
         }
         finally
         {

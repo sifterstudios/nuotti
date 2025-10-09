@@ -1,5 +1,6 @@
 ﻿using MudBlazor.Services;
 using Nuotti.Performer;
+using Nuotti.Performer.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
@@ -11,6 +12,7 @@ builder.Services.AddScoped<SessionSelectionService>();
 builder.Services.AddSingleton<PerformerUiState>();
 builder.Services.AddScoped<PerformerCommands>();
 builder.Services.AddSingleton<IManifestService, ManifestService>();
+builder.Services.AddSingleton<ThemeService>();
 
 var app = builder.Build();
 

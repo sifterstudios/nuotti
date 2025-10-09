@@ -7,4 +7,67 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+    
+    <Application.Resources>
+        <!-- Light Theme Colors (Kahoot/Bandle inspired) -->
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- Light Theme -->
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="PrimaryColor">#FF6B35</Color>
+                    <Color x:Key="SecondaryColor">#004E89</Color>
+                    <Color x:Key="TertiaryColor">#1B9AAA</Color>
+                    <Color x:Key="InfoColor">#06BEE1</Color>
+                    <Color x:Key="SuccessColor">#46B283</Color>
+                    <Color x:Key="WarningColor">#F77F00</Color>
+                    <Color x:Key="ErrorColor">#EF476F</Color>
+                    <Color x:Key="BackgroundColor">#FAFAFA</Color>
+                    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+                    <Color x:Key="TextPrimaryColor">#1A1A1A</Color>
+                    <Color x:Key="TextSecondaryColor">#666666</Color>
+                    <Color x:Key="DividerColor">#E0E0E0</Color>
+                    
+                    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+                    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
+                    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource TertiaryColor}" />
+                    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+                    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
+                    <SolidColorBrush x:Key="HeaderBrush" Color="{StaticResource SurfaceColor}" />
+                    <SolidColorBrush x:Key="OptionBackgroundBrush" Color="#F5F5F5" />
+                </ResourceDictionary>
+                
+                <!-- Dark Theme -->
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="PrimaryColor">#FF8C61</Color>
+                    <Color x:Key="SecondaryColor">#2E7DAF</Color>
+                    <Color x:Key="TertiaryColor">#48C9B0</Color>
+                    <Color x:Key="InfoColor">#3DD9FF</Color>
+                    <Color x:Key="SuccessColor">#5EC99D</Color>
+                    <Color x:Key="WarningColor">#FFA040</Color>
+                    <Color x:Key="ErrorColor">#FF6B93</Color>
+                    <Color x:Key="BackgroundColor">#0A0E27</Color>
+                    <Color x:Key="SurfaceColor">#151B3B</Color>
+                    <Color x:Key="TextPrimaryColor">#E8E8E8</Color>
+                    <Color x:Key="TextSecondaryColor">#B0B0B0</Color>
+                    <Color x:Key="DividerColor">#2A2F4F</Color>
+                    
+                    <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+                    <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
+                    <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource TertiaryColor}" />
+                    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+                    <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+                    <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
+                    <SolidColorBrush x:Key="HeaderBrush" Color="{StaticResource SurfaceColor}" />
+                    <SolidColorBrush x:Key="OptionBackgroundBrush" Color="#1F2544" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>
