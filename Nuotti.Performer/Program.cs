@@ -1,8 +1,10 @@
-﻿using Nuotti.Performer;
+﻿using MudBlazor.Services;
+using Nuotti.Performer;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
+builder.Services.AddMudServices();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SessionSelectionService>();
