@@ -3,50 +3,51 @@
 @inject PerformerUiState State
 @inject PerformerCommands Commands
 @inject IDialogService Dialogs
+@inject IServiceProvider Services
 
-<MudPaper Elevation="2" Class="pa-4">
+<MudPaper Elevation="2" Class="pa-4" @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
     <MudText Typo="Typo.h6" Class="mb-4">Flow Controls</MudText>
     <MudGrid>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
                        StartIcon="@Material.Filled.PlayArrow" 
                        OnClick="@(e => StartSet(e))" Disabled="@(!CanStartSet)">
-                Start Set
+                Start Set (S)
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" 
                        StartIcon="@Material.Filled.SkipNext" 
                        OnClick="@(e => NextSong(e))" Disabled="@(!CanNextSong)">
-                Next Song
+                Next Song (N)
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Info" FullWidth="true" 
                        StartIcon="@Material.Filled.Lightbulb" 
                        OnClick="@(e => GiveHint(e))" Disabled="@(!CanGiveHint)">
-                Give Hint
+                Give Hint (H)
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" 
                        StartIcon="@Material.Filled.Lock" 
                        OnClick="@(e => LockAnswers(e))" Disabled="@(!CanLock)">
-                Lock Answers
+                Lock Answers (L)
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" 
                        StartIcon="@Material.Filled.Visibility" 
                        OnClick="@(e => Reveal(e))" Disabled="@(!CanReveal)">
-                Reveal
+                Reveal (R)
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" 
                        StartIcon="@Material.Filled.Stop" 
                        OnClick="@(e => EndSong(e))" Disabled="@(!CanEndSong)">
-                End Song
+                End Song (E)
             </MudButton>
         </MudItem>
     </MudGrid>
@@ -75,6 +76,12 @@
 }
 
 @code {
+    private KeyboardShortcutsService _keybd = new();
+    protected override void OnInitialized()
+    {
+        var resolved = Services.GetService(typeof(KeyboardShortcutsService)) as KeyboardShortcutsService;
+        if (resolved is not null) _keybd = resolved;
+    }
     // State helpers
     bool HasSelection => State.SelectedCorrectIndex.HasValue;
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
@@ -115,11 +122,19 @@
         var proceed = e.ShiftKey;
         if (!proceed)
         {
-            proceed = await Dialogs.ShowMessageBox(
-                title: "Next Song",
-                markupMessage: (MarkupString)$"Proceed to the next song? Hold Shift to bypass this confirmation.",
-                yesText: "Next",
-                cancelText: "Cancel") == true;
+            try
+            {
+                _keybd.Suspended = true;
+                proceed = await Dialogs.ShowMessageBox(
+                    title: "Next Song",
+                    markupMessage: (MarkupString)$"Proceed to the next song? Hold Shift to bypass this confirmation.",
+                    yesText: "Next",
+                    cancelText: "Cancel") == true;
+            }
+            finally
+            {
+                _keybd.Suspended = false;
+            }
         }
         if (proceed)
         {
@@ -155,11 +170,20 @@
         if (State.CurrentSong is null || !State.SelectedCorrectIndex.HasValue) return;
         var idx = State.SelectedCorrectIndex.Value;
         var label = idx >= 0 && idx < State.Choices.Count ? State.Choices[idx] : $"Index {idx}";
-        bool? confirmed = await Dialogs.ShowMessageBox(
-            title: "Reveal Answer",
-            markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?",
-            yesText: "Reveal",
-            cancelText: "Cancel");
+        bool? confirmed;
+        try
+        {
+            _keybd.Suspended = true;
+            confirmed = await Dialogs.ShowMessageBox(
+                title: "Reveal Answer",
+                markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?",
+                yesText: "Reveal",
+                cancelText: "Cancel");
+        }
+        finally
+        {
+            _keybd.Suspended = false;
+        }
         if (confirmed == true)
         {
             await Commands.RevealAsync(State.CurrentSong, idx);
@@ -173,11 +197,19 @@
         var proceed = e.ShiftKey;
         if (!proceed)
         {
-            proceed = await Dialogs.ShowMessageBox(
-                title: "End Song",
-                markupMessage: (MarkupString)$"Are you sure you want to end the current song? Hold Shift to bypass this confirmation.",
-                yesText: "End Song",
-                cancelText: "Cancel") == true;
+            try
+            {
+                _keybd.Suspended = true;
+                proceed = await Dialogs.ShowMessageBox(
+                    title: "End Song",
+                    markupMessage: (MarkupString)$"Are you sure you want to end the current song? Hold Shift to bypass this confirmation.",
+                    yesText: "End Song",
+                    cancelText: "Cancel") == true;
+            }
+            finally
+            {
+                _keybd.Suspended = false;
+            }
         }
         if (!proceed) return;
 
@@ -212,5 +244,55 @@
     void CancelEndSong()
     {
         _endCts?.Cancel();
+    }
+
+    void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (_keybd.Suspended) return;
+        var key = (e.Key ?? string.Empty).ToLowerInvariant();
+
+        // Space handling: prefer Stop if possible, otherwise Start
+        if (key == " " || key == "space" || key == "spacebar")
+        {
+            if (CanEndSong)
+            {
+                // Pass through Shift state to allow bypassing confirmation
+                _ = EndSong(new MouseEventArgs { ShiftKey = e.ShiftKey });
+                return;
+            }
+            if (CanStartSet)
+            {
+                _ = StartSet(new MouseEventArgs());
+                return;
+            }
+        }
+
+        switch (key)
+        {
+            case "s":
+                if (CanStartSet)
+                    _ = StartSet(new MouseEventArgs());
+                break;
+            case "n":
+                if (CanNextSong)
+                    _ = NextSong(new MouseEventArgs { ShiftKey = e.ShiftKey });
+                break;
+            case "h":
+                if (CanGiveHint)
+                    _ = GiveHint(new MouseEventArgs());
+                break;
+            case "l":
+                if (CanLock)
+                    _ = LockAnswers(new MouseEventArgs());
+                break;
+            case "r":
+                if (CanReveal)
+                    _ = Reveal(new MouseEventArgs());
+                break;
+            case "e":
+                if (CanEndSong)
+                    _ = EndSong(new MouseEventArgs { ShiftKey = e.ShiftKey });
+                break;
+        }
     }
 }

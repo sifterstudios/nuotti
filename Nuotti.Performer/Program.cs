@@ -14,6 +14,7 @@ builder.Services.AddScoped<PerformerCommands>();
 builder.Services.AddSingleton<IManifestService, ManifestService>();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddSingleton<CommandHistoryService>();
+builder.Services.AddSingleton<KeyboardShortcutsService>();
 
 var app = builder.Build();
 
