@@ -19,6 +19,10 @@ public sealed class PerformerManifest
         [JsonPropertyName("bpm")]
         public int? Bpm { get; set; }
 
+        // Optional SHA-256 of the audio content when imported into local blob store
+        [JsonPropertyName("hash")]
+        public string? Hash { get; set; }
+
         [Required]
         [JsonPropertyName("file")] // URL or Path
         public string File { get; set; } = string.Empty;

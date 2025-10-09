@@ -24,6 +24,7 @@
                 <th>BPM</th>
                 <th>File URL/Path</th>
                 <th>Hints (comma separated)</th>
+                <th>Availability</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -47,6 +48,16 @@
                     </td>
                     <td>
                         <InputText class="form-control" @bind-Value="HintsJoined[i]" @onchange="(_ => { SyncHints(i); Revalidate(); })" />
+                    </td>
+                    <td>
+                        @if (IsAvailable(item))
+                        {
+                            <span class="text-success">OK</span>
+                        }
+                        else
+                        {
+                            <span class="text-danger">Missing</span>
+                        }
                     </td>
                     <td>
                         <div class="btn-group">
@@ -184,6 +195,8 @@
         Status = $"Loaded {Items.Count} song(s).";
         StateHasChanged();
     }
+
+    bool IsAvailable(PerformerManifest.SongEntry song) => AudioStorage.IsAvailable(song);
 
     async Task SaveAsync()
     {
