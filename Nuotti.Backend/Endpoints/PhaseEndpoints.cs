@@ -71,8 +71,53 @@ internal static class PhaseEndpoints
         app.MapPost("/v1/message/phase/lock-answers/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, LockAnswers cmd)
             => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/reveal-answer/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, RevealAnswer cmd)
-            => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        app.MapPost("/v1/message/phase/reveal-answer/{session}", async (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, RevealAnswer cmd) =>
+        {
+            if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
+            if (!idem.TryRegister(session, cmd.CommandId)) { return Results.Accepted(); }
+
+            var state = stateStore.GetOrCreate(session, GameReducer.Initial);
+            // Validate phase restriction explicitly for RevealAnswer
+            if (!cmd.AllowedPhases.Contains(state.Phase))
+            {
+                return ProblemResults.Conflict(
+                    title: "Invalid command phase",
+                    detail: $"Command 'RevealAnswer' is not allowed in phase '{state.Phase}'.",
+                    reason: ReasonCode.InvalidStateTransition);
+            }
+
+            // 1) Change phase to Reveal
+            var phaseChanged = new GamePhaseChanged(state.Phase, cmd.TargetPhase)
+            {
+                CurrentPhase = state.Phase,
+                NewPhase = cmd.TargetPhase,
+                CorrelationId = cmd.CommandId,
+                CausedByCommandId = cmd.CommandId,
+                SessionCode = session
+            };
+            var (afterPhase, error) = GameReducer.Reduce(state, phaseChanged);
+            if (error is not null)
+            {
+                return ProblemResults.Conflict(
+                    title: "Reducer rejected event",
+                    detail: error,
+                    reason: ReasonCode.None);
+            }
+
+            // 2) Emit scoring event with the selected correct index
+            var scoring = new CorrectAnswerRevealed(cmd.CorrectChoiceIndex)
+            {
+                CorrectChoiceIndex = cmd.CorrectChoiceIndex,
+                SessionCode = session,
+                CausedByCommandId = cmd.CommandId,
+                CorrelationId = cmd.CommandId
+            };
+            var (finalState, _) = GameReducer.Reduce(afterPhase, scoring);
+
+            stateStore.Set(session, finalState);
+            await hub.Clients.Group(session).SendAsync("GameStateChanged", finalState);
+            return Results.Accepted();
+        }).RequireCors("NuottiCors");
 
         app.MapPost("/v1/message/phase/next-round/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, NextRound cmd)
             => HandlePhaseChangeAsync(hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");

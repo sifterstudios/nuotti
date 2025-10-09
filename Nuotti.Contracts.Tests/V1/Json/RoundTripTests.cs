@@ -1,11 +1,10 @@
-﻿using System.Collections.Frozen;
-using System.Text.Json;
-using Nuotti.Contracts.V1;
+﻿using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
-
+using System.Collections.Frozen;
+using System.Text.Json;
 namespace Nuotti.Contracts.Tests.V1.Json;
 
 public class RoundTripTests
@@ -90,7 +89,7 @@ public class RoundTripTests
             IssuedAtUtc = fixedNow
         });
 
-        yield return Case(new RevealAnswer(SongRef("song-42", "Song", "Artist"))
+        yield return Case(new RevealAnswer(SongRef("song-42", "Song", "Artist"),0)
         {
             CommandId = guid,
             SessionCode = "SESS-42",

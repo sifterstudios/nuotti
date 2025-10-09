@@ -6,6 +6,7 @@
     title: Sample Title,
     artist: Sample Artist
   },
+  correctChoiceIndex: 2,
   allowedPhases: [
     Lock
   ],

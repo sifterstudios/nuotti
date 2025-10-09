@@ -23,6 +23,8 @@ public sealed class PerformerUiState
     public int HintIndex { get; private set; }
     public int NextHintIndex => HintIndex + 1;
     public SongRef? CurrentSong { get; private set; }
+    public IReadOnlyList<string> Choices { get; private set; } = Array.Empty<string>();
+    public int? SelectedCorrectIndex { get; private set; }
 
     // Role counts
     public int ProjectorCount { get; private set; }
@@ -44,10 +46,16 @@ public sealed class PerformerUiState
 
     public void UpdateGameState(GameStateSnapshot snapshot)
     {
+        var songChanged = snapshot.SongIndex != SongIndex || snapshot.CurrentSong?.Id != CurrentSong?.Id;
         Phase = snapshot.Phase;
         SongIndex = snapshot.SongIndex;
         HintIndex = snapshot.HintIndex;
         CurrentSong = snapshot.CurrentSong;
+        Choices = snapshot.Choices;
+        if (songChanged)
+        {
+            SelectedCorrectIndex = null;
+        }
         // keep the session if not set
         if (!string.IsNullOrWhiteSpace(snapshot.SessionCode))
             SessionCode ??= snapshot.SessionCode;
@@ -80,6 +88,12 @@ public sealed class PerformerUiState
         {
             // ignore network failures; UI will rely on Connected flag
         }
+    }
+
+    public void SetSelectedCorrectIndex(int? index)
+    {
+        SelectedCorrectIndex = index;
+        Changed?.Invoke();
     }
 
     public sealed record RoleCountsDto(int performer, int projector, int engine, int audiences);

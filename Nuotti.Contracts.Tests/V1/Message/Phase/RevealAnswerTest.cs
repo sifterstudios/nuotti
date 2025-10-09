@@ -4,14 +4,13 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using System.Text.Json;
-
 namespace Nuotti.Contracts.Tests.V1.Message.Phase;
 
 [TestSubject(typeof(RevealAnswer))]
 public class RevealAnswerTest
 {
     static RevealAnswer CreateSample()
-        => new RevealAnswer(new SongRef(new SongId("song-123"), "Sample Title", "Sample Artist"))
+        => new RevealAnswer(new SongRef(new SongId("song-123"), "Sample Title", "Sample Artist"), 2)
         {
             CommandId = Guid.Parse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"),
             SessionCode = "SESSION-123",
@@ -40,7 +39,7 @@ public class RevealAnswerTest
     {
         var sut = CreateSample();
 
-        Assert.Contains(Nuotti.Contracts.V1.Enum.Phase.Lock, sut.AllowedPhases);
+        Assert.Contains(Contracts.V1.Enum.Phase.Lock, sut.AllowedPhases);
         Assert.Single(sut.AllowedPhases);
     }
 

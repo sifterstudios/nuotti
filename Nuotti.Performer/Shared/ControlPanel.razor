@@ -2,6 +2,7 @@
 @using Nuotti.Contracts.V1.Model
 @inject PerformerUiState State
 @inject PerformerCommands Commands
+@inject IDialogService Dialogs
 
 <MudPaper Elevation="2" Class="pa-4">
     <MudText Typo="Typo.h6" Class="mb-4">Flow Controls</MudText>
@@ -51,12 +52,27 @@
     </MudGrid>
 </MudPaper>
 
+@if (State.Phase == Phase.Lock && State.Choices.Count > 0)
+{
+    <MudPaper Elevation="1" Class="pa-4 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Select Correct Answer</MudText>
+        <MudRadioGroup T="int?" ValueChanged="OnCorrectChanged" Value="@State.SelectedCorrectIndex">
+            @for (var i = 0; i < State.Choices.Count; i++)
+            {
+                <MudRadio T="int?" Value="@i">@State.Choices[i]</MudRadio>
+            }
+        </MudRadioGroup>
+        <MudText Typo="Typo.caption" Color="Color.Error" Hidden="@HasSelection">Please select the correct answer before revealing.</MudText>
+    </MudPaper>
+}
+
 @code {
+    bool HasSelection => State.SelectedCorrectIndex.HasValue;
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
     bool CanNextSong => State.Phase is Phase.Guessing && State.EngineCount > 0; // NextRound requires Engine
     bool CanGiveHint => State.Phase is Phase.Start or Phase.Hint or Phase.Guessing;
     bool CanLock => State.Phase is Phase.Guessing;
-    bool CanReveal => State.Phase is Phase.Lock;
+    bool CanReveal => State.Phase is Phase.Lock && HasSelection;
     bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
 
     async Task StartSet() => await Commands.StartSetAsync();
@@ -75,10 +91,24 @@
         State.IncrementHintIndex();
     }
     async Task LockAnswers() => await Commands.LockAnswersAsync();
+    void OnCorrectChanged(int? index)
+    {
+        State.SetSelectedCorrectIndex(index);
+    }
     async Task Reveal()
     {
-        if (State.CurrentSong is null) return;
-        await Commands.RevealAsync(State.CurrentSong);
+        if (State.CurrentSong is null || !State.SelectedCorrectIndex.HasValue) return;
+        var idx = State.SelectedCorrectIndex.Value;
+        var label = idx >= 0 && idx < State.Choices.Count ? State.Choices[idx] : $"Index {idx}";
+        bool? confirmed = await Dialogs.ShowMessageBox(
+            title: "Reveal Answer",
+            markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?",
+            yesText: "Reveal",
+            cancelText: "Cancel");
+        if (confirmed == true)
+        {
+            await Commands.RevealAsync(State.CurrentSong, idx);
+        }
     }
     async Task EndSong()
     {

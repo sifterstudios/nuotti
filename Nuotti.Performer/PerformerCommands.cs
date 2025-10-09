@@ -64,10 +64,10 @@ public sealed class PerformerCommands
         await SendAsync("lock-answers", cmd, ct);
     }
 
-    public async Task RevealAsync(SongRef songRef, CancellationToken ct = default)
+    public async Task RevealAsync(SongRef songRef, int correctChoiceIndex, CancellationToken ct = default)
     {
         EnsureSession();
-        var cmd = new RevealAnswer(songRef)
+        var cmd = new RevealAnswer(songRef, correctChoiceIndex)
         {
             SessionCode = _state.SessionCode!,
             IssuedByRole = Role.Performer,
