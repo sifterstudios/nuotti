@@ -7,6 +7,10 @@
         <div class="d-flex align-items-baseline gap-3">
             <span class="fw-semibold">Phase: @State.Phase</span>
             <span>Song: @State.SongIndex</span>
+            @if (State.Phase is Phase.Start or Phase.Hint or Phase.Guessing)
+            {
+                <span>Hint: @State.HintIndex</span>
+            }
             @if (State.CurrentSong is not null)
             {
                 <span class="text-muted">@State.CurrentSong.Title / @State.CurrentSong.Artist</span>

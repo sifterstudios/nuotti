@@ -18,7 +18,7 @@
 @code {
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
     bool CanNextSong => State.Phase is Phase.Guessing && State.EngineCount > 0; // NextRound requires Engine
-    bool CanGiveHint => State.Phase is Phase.Guessing;
+    bool CanGiveHint => State.Phase is Phase.Start or Phase.Hint or Phase.Guessing;
     bool CanLock => State.Phase is Phase.Guessing;
     bool CanReveal => State.Phase is Phase.Lock;
     bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
@@ -32,8 +32,11 @@
     async Task GiveHint()
     {
         var songId = State.CurrentSong?.Id ?? new SongId("song-1");
-        var hint = new Hint(State.SongIndex, null, null, songId);
+        var nextIndex = State.NextHintIndex;
+        var hint = new Hint(nextIndex, null, null, songId);
         await Commands.GiveHintAsync(hint);
+        // Optimistically increment; server snapshot will sync if different
+        State.IncrementHintIndex();
     }
     async Task LockAnswers() => await Commands.LockAnswersAsync();
     async Task Reveal()

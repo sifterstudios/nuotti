@@ -51,7 +51,18 @@
                         <InputText class="form-control" @bind-Value="item.File" @oninput="(_=> Revalidate())" />
                     </td>
                     <td>
-                        <input class="form-control" value="@HintsJoined[i]" @onchange="(e => { HintsJoined[i] = e.Value?.ToString() ?? string.Empty; SyncHints(i); Revalidate(); })" />
+                        <div class="d-flex flex-column gap-1">
+                            @for (int h = 0; h < (item.Hints?.Count ?? 0); h++)
+                            {
+                                <div class="input-group input-group-sm">
+                                    <input class="form-control" value="@item.Hints[h]" @onchange="(e => { item.Hints[h] = e.Value?.ToString() ?? string.Empty; UpdateHintsJoined(i); Revalidate(); })" />
+                                    <button type="button" class="btn btn-outline-secondary" title="Up" disabled="@(h==0)" @onclick="(() => MoveHintUp(i, h))">↑</button>
+                                    <button type="button" class="btn btn-outline-secondary" title="Down" disabled="@(h==item.Hints.Count-1)" @onclick="(() => MoveHintDown(i, h))">↓</button>
+                                    <button type="button" class="btn btn-outline-danger" title="Delete" @onclick="(() => RemoveHint(i, h))">✕</button>
+                                </div>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-primary align-self-start" @onclick="(() => AddHint(i))">Add Hint</button>
+                        </div>
                     </td>
                     <td>
                         @if (IsAvailable(item))
@@ -194,6 +205,46 @@
         Items[index].Hints = HintsJoined[index]
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
+    }
+
+    void UpdateHintsJoined(int index)
+    {
+        HintsJoined[index] = string.Join(", ", Items[index].Hints ?? new());
+    }
+
+    void AddHint(int songIndex)
+    {
+        Items[songIndex].Hints ??= new();
+        Items[songIndex].Hints.Add(string.Empty);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    void RemoveHint(int songIndex, int hintIndex)
+    {
+        if (Items[songIndex].Hints is null) return;
+        if (hintIndex < 0 || hintIndex >= Items[songIndex].Hints.Count) return;
+        Items[songIndex].Hints.RemoveAt(hintIndex);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    void MoveHintUp(int songIndex, int hintIndex)
+    {
+        if (Items[songIndex].Hints is null) return;
+        if (hintIndex <= 0 || hintIndex >= Items[songIndex].Hints.Count) return;
+        (Items[songIndex].Hints[hintIndex-1], Items[songIndex].Hints[hintIndex]) = (Items[songIndex].Hints[hintIndex], Items[songIndex].Hints[hintIndex-1]);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    void MoveHintDown(int songIndex, int hintIndex)
+    {
+        if (Items[songIndex].Hints is null) return;
+        if (hintIndex < 0 || hintIndex >= Items[songIndex].Hints.Count - 1) return;
+        (Items[songIndex].Hints[hintIndex+1], Items[songIndex].Hints[hintIndex]) = (Items[songIndex].Hints[hintIndex], Items[songIndex].Hints[hintIndex+1]);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
     }
 
     async Task ReloadAsync()

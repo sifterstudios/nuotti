@@ -20,6 +20,8 @@ public sealed class PerformerUiState
     // Game state bits
     public Phase Phase { get; private set; } = Phase.Idle;
     public int SongIndex { get; private set; }
+    public int HintIndex { get; private set; }
+    public int NextHintIndex => HintIndex + 1;
     public SongRef? CurrentSong { get; private set; }
 
     // Role counts
@@ -44,10 +46,17 @@ public sealed class PerformerUiState
     {
         Phase = snapshot.Phase;
         SongIndex = snapshot.SongIndex;
+        HintIndex = snapshot.HintIndex;
         CurrentSong = snapshot.CurrentSong;
         // keep the session if not set
         if (!string.IsNullOrWhiteSpace(snapshot.SessionCode))
             SessionCode ??= snapshot.SessionCode;
+        Changed?.Invoke();
+    }
+
+    public void IncrementHintIndex()
+    {
+        HintIndex++;
         Changed?.Invoke();
     }
 

@@ -96,9 +96,10 @@ internal static class PhaseEndpoints
                     reason: ReasonCode.InvalidStateTransition));
             }
 
-            // For now, emit a no-op state change other than staying in the same phase; GameReducer has no hint event yet.
-            // We still notify clients with unchanged state to unblock UI flows expecting Accepted.
-            _ = hub.Clients.Group(session).SendAsync("GameStateChanged", state);
+            // Increment hint index and broadcast updated snapshot so clients can reflect the change.
+            var next = state with { HintIndex = state.HintIndex + 1 };
+            stateStore.Set(session, next);
+            _ = hub.Clients.Group(session).SendAsync("GameStateChanged", next);
             return Task.FromResult<IResult>(Results.Accepted());
         }).RequireCors("NuottiCors");
     }
