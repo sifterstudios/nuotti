@@ -1,0 +1,187 @@
+﻿@page "/setlist"
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@inject IManifestService Manifest
+
+<h3>Setlist Manager</h3>
+
+@if (!string.IsNullOrEmpty(Status))
+{
+    <div class="alert alert-info">@Status</div>
+}
+
+<EditForm Model="Items" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>Artist</th>
+                <th>BPM</th>
+                <th>File URL/Path</th>
+                <th>Hints (comma separated)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i];
+                <tr>
+                    <td>@(i+1)</td>
+                    <td>
+                        <InputText class="form-control" @bind-Value="item.Title" @oninput="(_=> Revalidate())" />
+                    </td>
+                    <td>
+                        <InputText class="form-control" @bind-Value="item.Artist" />
+                    </td>
+                    <td style="width:110px">
+                        <InputNumber class="form-control" @bind-Value="item.Bpm" />
+                    </td>
+                    <td>
+                        <InputText class="form-control" @bind-Value="item.File" @oninput="(_=> Revalidate())" />
+                    </td>
+                    <td>
+                        <InputText class="form-control" @bind-Value="HintsJoined[i]" @onchange="(_ => { SyncHints(i); Revalidate(); })" />
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-secondary" disabled="@(i==0)" @onclick="(() => MoveUp(i))">↑</button>
+                            <button type="button" class="btn btn-outline-secondary" disabled="@(i==Items.Count-1)" @onclick="(() => MoveDown(i))">↓</button>
+                            <button type="button" class="btn btn-outline-danger" @onclick="(() => Remove(i))">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+                @if (RowErrors.Count > i && RowErrors[i].Count > 0)
+                {
+                    <tr class="table-warning">
+                        <td></td>
+                        <td colspan="6">
+                            <ul class="mb-0">
+                                @foreach (var err in RowErrors[i])
+                                {
+                                    <li class="text-danger">@err.ErrorMessage</li>
+                                }
+                            </ul>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-secondary" @onclick="Add">Add Row</button>
+        <button type="submit" class="btn btn-primary" disabled="@HasInvalidRows">Save</button>
+        <button type="button" class="btn btn-outline-secondary" @onclick="ReloadAsync">Reload</button>
+    </div>
+
+    @if (HasInvalidRows)
+    {
+        <div class="text-danger mt-2">Fix validation errors before saving.</div>
+    }
+</EditForm>
+
+@code {
+    public List<PerformerManifest.SongEntry> Items { get; set; } = new();
+    // Helper for editing hints easily
+    public List<string> HintsJoined { get; set; } = new();
+    // Validation errors per row
+    public List<List<ValidationResult>> RowErrors { get; set; } = new();
+
+    public string? Status { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+    }
+
+    void ComputeRowErrors()
+    {
+        RowErrors = new List<List<ValidationResult>>(Items.Count);
+        for (int i = 0; i < Items.Count; i++)
+        {
+            var item = Items[i];
+            var results = new List<ValidationResult>();
+            Validator.TryValidateObject(item, new ValidationContext(item), results, true);
+            RowErrors.Add(results);
+        }
+    }
+
+    void Revalidate()
+    {
+        ComputeRowErrors();
+        StateHasChanged();
+    }
+
+    bool HasInvalidRows => RowErrors.Any(list => list.Count > 0);
+
+    void Add()
+    {
+        Items.Add(new PerformerManifest.SongEntry());
+        HintsJoined.Add(string.Empty);
+        RowErrors.Add(new());
+        Revalidate();
+    }
+
+    void Remove(int index)
+    {
+        Items.RemoveAt(index);
+        HintsJoined.RemoveAt(index);
+        if (RowErrors.Count > index) RowErrors.RemoveAt(index);
+        Revalidate();
+    }
+
+    void MoveUp(int index)
+    {
+        if (index <= 0) return;
+        (Items[index-1], Items[index]) = (Items[index], Items[index-1]);
+        (HintsJoined[index-1], HintsJoined[index]) = (HintsJoined[index], HintsJoined[index-1]);
+        if (RowErrors.Count == Items.Count)
+            (RowErrors[index-1], RowErrors[index]) = (RowErrors[index], RowErrors[index-1]);
+        Revalidate();
+    }
+
+    void MoveDown(int index)
+    {
+        if (index >= Items.Count - 1) return;
+        (Items[index+1], Items[index]) = (Items[index], Items[index+1]);
+        (HintsJoined[index+1], HintsJoined[index]) = (HintsJoined[index], HintsJoined[index+1]);
+        if (RowErrors.Count == Items.Count)
+            (RowErrors[index+1], RowErrors[index]) = (RowErrors[index], RowErrors[index+1]);
+        Revalidate();
+    }
+
+    void SyncHints(int index)
+    {
+        Items[index].Hints = HintsJoined[index]
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+    }
+
+    async Task ReloadAsync()
+    {
+        var manifest = await Manifest.LoadAsync();
+        Items = manifest.Songs;
+        HintsJoined = manifest.Songs.Select(s => string.Join(", ", s.Hints ?? new())).ToList();
+        ComputeRowErrors();
+        Status = $"Loaded {Items.Count} song(s).";
+        StateHasChanged();
+    }
+
+    async Task SaveAsync()
+    {
+        ComputeRowErrors();
+        if (HasInvalidRows)
+        {
+            Status = "Cannot save: invalid rows detected.";
+            return;
+        }
+        var manifest = new PerformerManifest { Songs = Items };
+        await Manifest.SaveAsync(manifest);
+        Status = "Saved.";
+    }
+}

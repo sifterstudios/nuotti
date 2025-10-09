@@ -10,6 +10,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<SessionSelectionService>();
 builder.Services.AddSingleton<PerformerUiState>();
 builder.Services.AddScoped<PerformerCommands>();
+builder.Services.AddSingleton<IManifestService, ManifestService>();
 
 var app = builder.Build();
 
