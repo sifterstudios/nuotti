@@ -8,6 +8,7 @@ builder.Services.AddMudServices();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SessionSelectionService>();
+builder.Services.AddSingleton<PerformerUiState>();
 
 var app = builder.Build();
 

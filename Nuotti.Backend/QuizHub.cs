@@ -64,6 +64,9 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore se
 
     public Task CreateOrJoinWithName(string session, string audienceName) => Join(session, role: "audience", name: audienceName);
 
+    // // Compatibility shim for older clients (e.g., AudioEngine) that invoke 'CreateOrJoin'
+    // public Task CreateOrJoin(string session) => Join(session, role: "engine");
+    //
     public async override Task OnConnectedAsync()
     {
         await base.OnConnectedAsync();

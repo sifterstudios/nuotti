@@ -1,6 +1,12 @@
 ﻿@inherits LayoutComponentBase
 
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider MaxDisplayedSnackbars="5" PreventDuplicates="true" />
+<MudCssBaseline />
+
 <div class="page">
+    <LiveHeader />
     <main class="content px-4 py-3">
         @Body
     </main>

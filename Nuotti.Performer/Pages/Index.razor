@@ -1,5 +1,7 @@
 ﻿@page "/"
+@using Nuotti.Contracts.V1.Model
 @inject SessionSelectionService SessionSvc
+@inject PerformerUiState LiveState
 
 <h1>Nuotti Performer</h1>
 
@@ -77,7 +79,7 @@ else
             isBusy = true;
             StateHasChanged();
             using var http = new HttpClient { BaseAddress = new Uri(backendUrl!, UriKind.Absolute) };
-            sessionCode = await SessionSvc.CreateNewSessionAsync(http);
+            sessionCode = await SessionSvc.CreateNewSessionAsync(http, sessionCode);
             status = $"Created session: {sessionCode}";
             // SessionSvc.State has switched to Control, UI will update accordingly
         }
@@ -103,9 +105,14 @@ else
         {
             isBusy = true;
             _ = client?.DisposeAsync().AsTask();
-            client = new PerformerClient(new Uri(backendUrl!, UriKind.Absolute), sessionCode!);
+            var backendUri = new Uri(backendUrl!, UriKind.Absolute);
+            client = new PerformerClient(backendUri, sessionCode!);
             client.ConnectedChanged += OnConnectedChanged;
+            client.GameStateChanged += OnGameStateChanged;
+            LiveState.SetSession(sessionCode!, backendUri);
             await client.EnsureConnectedAsync();
+            // Refresh role counts once after connect
+            _ = LiveState.RefreshCountsAsync();
             status = "Connected.";
             SessionSvc.SelectExistingSession(sessionCode!); // persist & switch view
         }
@@ -134,6 +141,17 @@ else
     void OnConnectedChanged(bool connected)
     {
         isConnected = connected;
+        LiveState.SetConnection(connected);
+        if (connected)
+        {
+            _ = LiveState.RefreshCountsAsync();
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    void OnGameStateChanged(GameStateSnapshot snapshot)
+    {
+        LiveState.UpdateGameState(snapshot);
         InvokeAsync(StateHasChanged);
     }
 
@@ -142,6 +160,7 @@ else
         if (client is not null)
         {
             client.ConnectedChanged -= OnConnectedChanged;
+            client.GameStateChanged -= OnGameStateChanged;
             await client.DisposeAsync();
         }
     }

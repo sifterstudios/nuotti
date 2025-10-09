@@ -123,7 +123,7 @@ connection.On<PlayTrack>("PlayTrack", cmd =>
 try
 {
     await connection.StartAsync(cts.Token);
-    await connection.InvokeAsync("CreateOrJoin", session, cancellationToken: cts.Token);
+    await connection.InvokeAsync("Join", session,"performer", null,  cancellationToken: cts.Token);
     Log("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
     await Task.Delay(-1, cts.Token);
 }

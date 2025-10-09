@@ -15,6 +15,7 @@ public sealed class PerformerClient : IAsyncDisposable
 
     public event Action<bool>? ConnectedChanged;
     public event Action<NuottiProblem>? ProblemReceived;
+    public event Action<GameStateSnapshot>? GameStateChanged;
 
     public PerformerClient(Uri backendBaseUri, string sessionCode)
     {
@@ -44,6 +45,10 @@ public sealed class PerformerClient : IAsyncDisposable
             _hub.On<NuottiProblem>("Problem", p =>
             {
                 ProblemReceived?.Invoke(p);
+            });
+            _hub.On<GameStateSnapshot>("GameStateChanged", s =>
+            {
+                GameStateChanged?.Invoke(s);
             });
         }
         if (_hub.State == HubConnectionState.Disconnected)

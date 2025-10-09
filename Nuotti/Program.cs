@@ -1,13 +1,18 @@
+using Projects;
 var builder = DistributedApplication.CreateBuilder(args);
 
+var audioEngine = builder.AddProject<Nuotti_AudioEngine>("audioEngine");
 var backend = builder
-    .AddProject<Projects.Nuotti_Backend>("backend")
+    .AddProject<Nuotti_Backend>("backend")
     .WithExternalHttpEndpoints();
-var projector = builder.AddProject<Projects.Nuotti_Projector>("projector");
+var projector = builder.AddProject<Nuotti_Projector>("projector");
 var audience = builder
-    .AddProject<Projects.Nuotti_Audience>("audience")
+    .AddProject<Nuotti_Audience>("audience")
     .WithReference(backend)
     .WithExternalHttpEndpoints();
-var audioEngine = builder.AddProject<Projects.Nuotti_AudioEngine>("audioEngine");
+var performer = builder
+    .AddProject<Nuotti_Performer>("performer")
+    .WithReference(backend)
+    .WithExternalHttpEndpoints();
 
 builder.Build().Run();

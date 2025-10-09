@@ -113,7 +113,7 @@ public partial class MainWindow : Window
     {
         await _connection.StartAsync();
         AppendLocal("[hub] start ok");
-        await _connection.InvokeAsync("Join", _sessionCode, "projector");
+        await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
     }

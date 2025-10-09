@@ -1,0 +1,55 @@
+﻿@inject PerformerUiState State
+
+<div class="live-header navbar navbar-expand bg-body-tertiary border-bottom mb-3 @HeaderStatusClass">
+    <div class="container-fluid py-1 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-baseline gap-3">
+            <span class="fw-semibold">Phase: @State.Phase</span>
+            <span>Song: @State.SongIndex</span>
+            @if (State.CurrentSong is not null)
+            {
+                <span class="text-muted">@State.CurrentSong.Title / @State.CurrentSong.Artist</span>
+            }
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge rounded-pill @BadgeClass(State.ProjectorCount > 0, critical: true)">Projector: @State.ProjectorCount</span>
+            <span class="badge rounded-pill @BadgeClass(State.EngineCount > 0, critical: true)">Engine: @State.EngineCount</span>
+            <span class="badge rounded-pill @BadgeClass(State.AudienceCount > 0, critical: false)">Audience: @State.AudienceCount</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.Changed += OnStateChanged;
+    }
+
+    void OnStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    string HeaderStatusClass
+    {
+        get
+        {
+            // Red if Engine or Projector missing
+            if (State.EngineCount == 0 || State.ProjectorCount == 0) return "bg-danger-subtle";
+            // Orange if partial outage (hub disconnected)
+            if (!State.Connected) return "bg-warning-subtle";
+            return string.Empty;
+        }
+    }
+
+    string BadgeClass(bool ok, bool critical)
+    {
+        if (!ok && critical) return "text-bg-danger";
+        if (!State.Connected && !critical) return "text-bg-warning";
+        return ok ? "text-bg-success" : "text-bg-secondary";
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= OnStateChanged;
+    }
+}

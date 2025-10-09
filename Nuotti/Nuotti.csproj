@@ -22,6 +22,7 @@
       <ProjectReference Include="..\Nuotti.AudioEngine\Nuotti.AudioEngine.csproj" />
       <ProjectReference Include="..\Nuotti.Backend\Nuotti.Backend.csproj" />
       <ProjectReference Include="..\Nuotti.Projector\Nuotti.Projector.csproj" />
+      <ProjectReference Include="..\Nuotti.Performer\Nuotti.Performer.csproj" />
     </ItemGroup>
 
 </Project>
