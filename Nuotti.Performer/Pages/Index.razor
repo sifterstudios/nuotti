@@ -1,0 +1,123 @@
+﻿@page "/"
+@inject SessionSelectionService SessionSvc
+
+<h1>Nuotti Performer</h1>
+
+<p>Use this page to connect the Performer UI to a Nuotti Backend and Session.</p>
+
+<div class="mb-3">
+    <label class="form-label">Backend URL</label>
+    <input class="form-control" @bind-value="backendUrl" @bind-value:event="oninput" placeholder="http://localhost:5000" />
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Session Code</label>
+    <input class="form-control" @bind-value="sessionCode" @bind-value:event="oninput" placeholder="e.g. ABC123" />
+</div>
+
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-primary" @onclick="CreateSessionAsync" disabled="@isBusy">Create New Session</button>
+    <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Connect</button>
+    <button class="btn btn-warning" @onclick="DisconnectAsync" disabled="@(!isConnected)">Disconnect</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(status))
+{
+    <div class="alert @(isConnected ? "alert-success" : "alert-secondary")">@status</div>
+}
+
+@code {
+    string? backendUrl;
+    string? sessionCode;
+
+    bool isBusy;
+    bool isConnected;
+    string? status;
+
+    PerformerClient? client;
+
+    protected override void OnInitialized()
+    {
+        backendUrl = Environment.GetEnvironmentVariable("NUOTTI_BACKEND");
+        sessionCode = Environment.GetEnvironmentVariable("NUOTTI_SESSION") ?? SessionSvc.LastSessionCode;
+    }
+
+    async Task CreateSessionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(backendUrl))
+        {
+            status = "Please enter Backend URL first.";
+            return;
+        }
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+            using var http = new HttpClient { BaseAddress = new Uri(backendUrl!, UriKind.Absolute) };
+            sessionCode = await SessionSvc.CreateNewSessionAsync(http);
+            status = $"Created session: {sessionCode}";
+        }
+        catch (Exception ex)
+        {
+            status = $"Failed to create session: {ex.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    async Task ConnectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(backendUrl) || string.IsNullOrWhiteSpace(sessionCode))
+        {
+            status = "Enter Backend URL and Session code.";
+            return;
+        }
+
+        try
+        {
+            isBusy = true;
+            _ = client?.DisposeAsync().AsTask();
+            client = new PerformerClient(new Uri(backendUrl!, UriKind.Absolute), sessionCode!);
+            client.ConnectedChanged += OnConnectedChanged;
+            await client.EnsureConnectedAsync();
+            status = "Connected.";
+        }
+        catch (Exception ex)
+        {
+            status = $"Connection failed: {ex.Message}";
+            isConnected = false;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    async Task DisconnectAsync()
+    {
+        if (client is null)
+        {
+            status = "Not connected.";
+            return;
+        }
+        await client.DisconnectAsync();
+        status = "Disconnected.";
+    }
+
+    void OnConnectedChanged(bool connected)
+    {
+        isConnected = connected;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (client is not null)
+        {
+            client.ConnectedChanged -= OnConnectedChanged;
+            await client.DisposeAsync();
+        }
+    }
+}
