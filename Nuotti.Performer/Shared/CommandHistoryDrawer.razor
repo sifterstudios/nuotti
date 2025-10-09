@@ -1,0 +1,110 @@
+﻿@inject CommandHistoryService History
+
+<MudPaper Class="pa-2" Elevation="0">
+    <MudText Typo="Typo.h6" Class="mb-2">Command History</MudText>
+    <MudText Typo="Typo.caption" Color="Color.Secondary">Shows the last 50 commands</MudText>
+    <MudDivider Class="my-2" />
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudList T="CommandHistoryEntry">
+                @foreach (var entry in entries)
+                {
+                    <MudListItem T="CommandHistoryEntry" Class="py-2" @onclick="(() => Select(entry))">
+                        <MudIcon Color="@(entry.Result == CommandResult.Ok ? Color.Success : Color.Error)"
+                                 Icon="@(entry.Result == CommandResult.Ok ? Material.Filled.CheckCircle : Material.Filled.Error)" />
+                        <MudText Class="ml-2">@entry.CommandName</MudText>
+                        <MudSpacer />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@entry.Timestamp.LocalDateTime.ToString("HH:mm:ss")</MudText>
+                    </MudListItem>
+                    <MudDivider />
+                }
+            </MudList>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            @if (selected is null)
+            {
+                <MudText Color="Color.Secondary">Select an entry to see details</MudText>
+            }
+            else
+            {
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.subtitle1">@selected.CommandName</MudText>
+                    <MudChip T="string" Color="@(selected.Result == CommandResult.Ok ? Color.Success : Color.Error)" Icon="@(selected.Result == CommandResult.Ok ? Material.Filled.Check : Material.Filled.Error)">
+                        @selected.Result.ToString()
+                    </MudChip>
+                    <MudText Typo="Typo.caption">CommandId: @selected.CommandId</MudText>
+                    <MudText Typo="Typo.caption">CorrelationId: @selected.CorrelationId</MudText>
+
+                    @if (selected.CorrelatedEventIds.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mt-2">Correlated events</MudText>
+                        <MudList T="string" Dense="true">
+                            @foreach (var eid in selected.CorrelatedEventIds)
+                            {
+                                <MudListItem T="string">@eid.ToString()</MudListItem>
+                            }
+                        </MudList>
+                    }
+
+                    <MudText Typo="Typo.subtitle2" Class="mt-2">Payload</MudText>
+                    <MudCodeHighlight Code="@selected.PayloadJson" Language="" Class="pa-2" />
+
+                    @if (selected.Result == CommandResult.Error)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mt-2">Problem Details</MudText>
+                        @if (selected.Problem is not null)
+                        {
+                            <MudAlert Severity="Severity.Error">
+                                <MudText Typo="Typo.subtitle2">@selected.Problem.Title (@selected.Problem.Status)</MudText>
+                                <MudText Typo="Typo.body2">Reason: @selected.Problem.Reason</MudText>
+                                <MudText Typo="Typo.body2">Field: @selected.Problem.Field</MudText>
+                                <MudText Typo="Typo.body2">Detail: @selected.Problem.Detail</MudText>
+                                @if (selected.Problem.CorrelationId is not null)
+                                {
+                                    <MudText Typo="Typo.caption">Correlation: @selected.Problem.CorrelationId</MudText>
+                                }
+                            </MudAlert>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Error">No problem details provided by server.</MudAlert>
+                        }
+                    }
+                </MudStack>
+            }
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    private List<CommandHistoryEntry> entries = new();
+    private CommandHistoryEntry? selected;
+
+    protected override void OnInitialized()
+    {
+        entries = History.GetEntries().ToList();
+        selected = entries.FirstOrDefault();
+        History.Changed += OnChanged;
+    }
+
+    void OnChanged()
+    {
+        entries = History.GetEntries().ToList();
+        if (selected is not null)
+        {
+            selected = entries.FirstOrDefault(e => e.CommandId == selected.CommandId) ?? selected;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    void Select(CommandHistoryEntry e)
+    {
+        selected = e;
+    }
+
+    public void Dispose()
+    {
+        History.Changed -= OnChanged;
+    }
+}

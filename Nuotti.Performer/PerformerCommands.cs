@@ -4,6 +4,7 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Performer.Services;
 using System.Net;
 namespace Nuotti.Performer;
 
@@ -12,12 +13,14 @@ public sealed class PerformerCommands
     private readonly IHttpClientFactory _httpFactory;
     private readonly ISnackbar _snackbar;
     private readonly PerformerUiState _state;
+    private readonly CommandHistoryService _history;
 
-    public PerformerCommands(IHttpClientFactory httpFactory, ISnackbar snackbar, PerformerUiState state)
+    public PerformerCommands(IHttpClientFactory httpFactory, ISnackbar snackbar, PerformerUiState state, CommandHistoryService history)
     {
         _httpFactory = httpFactory;
         _snackbar = snackbar;
         _state = state;
+        _history = history;
     }
 
     HttpClient CreateClient()
@@ -132,15 +135,18 @@ public sealed class PerformerCommands
                 var prob = await resp.Content.ReadFromJsonAsync<NuottiProblem>(ContractsJson.RestOptions, ct);
                 if (prob is not null)
                 {
+                    _history.RecordFailure(cmd, prob);
                     _snackbar.Add($"{prob.Title} ({prob.Reason})", Severity.Error);
                     return;
                 }
             }
             catch { /* ignore parse errors */ }
+            _history.RecordFailure(cmd, null);
             _snackbar.Add($"Command failed: {(int)resp.StatusCode}", Severity.Error);
         }
         else if (resp.StatusCode == HttpStatusCode.Accepted)
         {
+            _history.RecordSuccess(cmd);
             _snackbar.Add("Accepted", Severity.Success);
         }
     }

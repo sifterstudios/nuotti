@@ -13,6 +13,7 @@ builder.Services.AddSingleton<PerformerUiState>();
 builder.Services.AddScoped<PerformerCommands>();
 builder.Services.AddSingleton<IManifestService, ManifestService>();
 builder.Services.AddSingleton<ThemeService>();
+builder.Services.AddSingleton<CommandHistoryService>();
 
 var app = builder.Build();
 
