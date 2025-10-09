@@ -1,13 +1,72 @@
-﻿@inherits LayoutComponentBase
+﻿@using Microsoft.AspNetCore.Components.Routing
+@inherits LayoutComponentBase
 
-<MudThemeProvider />
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+
 <MudDialogProvider />
-<MudSnackbarProvider MaxDisplayedSnackbars="5" PreventDuplicates="true" />
+<MudSnackbarProvider Position="SnackbarPosition.BottomRight" MaxDisplayedSnackbars="5" PreventDuplicates="true" />
 <MudCssBaseline />
 
-<div class="page">
-    <LiveHeader />
-    <main class="content px-4 py-3">
-        @Body
-    </main>
-</div>
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true">
+        <MudIconButton Icon="@Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <MudText Typo="Typo.h6" Class="ml-3">Nuotti Performer</MudText>
+        <MudSpacer />
+        <LiveHeader />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Docked">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h5" Color="Color.Primary">Nuotti</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Performance Control</MudText>
+        </MudDrawerHeader>
+        <MudNavMenu>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Material.Filled.Dashboard">Dashboard</MudNavLink>
+            <MudNavLink Href="/setlist" Match="NavLinkMatch.Prefix" Icon="@Material.Filled.QueueMusic">Setlist Manager</MudNavLink>
+            <MudDivider Class="my-2" />
+            <MudNavGroup Title="Settings" Icon="@Material.Filled.Settings" Expanded="false">
+                <MudNavLink Icon="@Material.Filled.Info">About</MudNavLink>
+            </MudNavGroup>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="mt-2">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private MudTheme _theme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#594ae2",
+            Secondary = "#ff4081",
+            AppbarBackground = "#594ae2",
+            Success = "#00c853",
+            Warning = "#ff9800",
+            Error = "#f44336",
+            Info = "#2196f3"
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#776be7",
+            Secondary = "#ff4081",
+            AppbarBackground = "#27272f",
+            Success = "#00e676",
+            Warning = "#ffab00",
+            Error = "#f44336",
+            Info = "#40c4ff"
+        }
+    };
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

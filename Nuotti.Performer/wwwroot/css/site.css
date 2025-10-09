@@ -1,0 +1,85 @@
+/* Nuotti Performer Custom Styles */
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    height: 100%;
+    margin: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Loading animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #594ae2;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+/* Mud overrides for better spacing */
+.mud-table-container {
+    overflow-x: auto;
+}
+
+/* Make drawer content scrollable */
+.mud-drawer-content {
+    overflow-y: auto;
+}
+
+/* Ensure main content is properly positioned */
+.mud-main-content {
+    height: calc(100vh - 64px);
+    overflow-y: auto;
+}
+
+/* Better button spacing in button groups */
+.mud-button-group .mud-icon-button {
+    margin: 0 !important;
+}
+
+/* Add some visual polish to chips */
+.mud-chip {
+    font-weight: 500;
+}
+
+/* Better table cell padding */
+.mud-table .mud-table-cell {
+    padding: 8px 12px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 960px) {
+    .mud-drawer {
+        width: 240px !important;
+    }
+}
+

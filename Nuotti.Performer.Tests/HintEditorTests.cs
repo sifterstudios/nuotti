@@ -1,10 +1,11 @@
 ﻿using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using Nuotti.Performer.Pages;
 using Xunit;
 namespace Nuotti.Performer.Tests;
 
-public class HintEditorTests : TestContext
+public class HintEditorTests : MudTestContext
 {
     sealed class DummyFactory : IHttpClientFactory
     {
@@ -45,6 +46,7 @@ public class HintEditorTests : TestContext
         Services.AddSingleton<IManifestService>(manifest);
         Services.AddSingleton(new PerformerUiState(new DummyFactory()));
 
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<Setlist>();
 
         // Wait until hints are rendered

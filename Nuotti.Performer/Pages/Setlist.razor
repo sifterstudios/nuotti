@@ -1,138 +1,159 @@
 ﻿@page "/setlist"
-@using Microsoft.AspNetCore.Components.Forms
 @using Nuotti.Contracts.V1.Enum
 @using Nuotti.Contracts.V1.Message
 @using System.ComponentModel.DataAnnotations
 @inject IManifestService Manifest
 @inject HttpClient Http
 @inject PerformerUiState State
+@inject ISnackbar Snackbar
 
-<h3>Setlist Manager</h3>
+<MudText Typo="Typo.h3" Class="mb-4">Setlist Manager</MudText>
 
-@if (!string.IsNullOrEmpty(Status))
-{
-    <div class="alert alert-info">@Status</div>
-}
-
-<EditForm Model="Items" OnValidSubmit="SaveAsync">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Title</th>
-                <th>Artist</th>
-                <th>BPM</th>
-                <th>File URL/Path</th>
-                <th>Hints (comma separated)</th>
-                <th>Availability</th>
-                <th>Actions</th>
-                <th>Play</th>
-            </tr>
-        </thead>
-        <tbody>
-            @for (int i = 0; i < Items.Count; i++)
-            {
-                var item = Items[i];
-                <tr>
-                    <td>@(i+1)</td>
-                    <td>
-                        <InputText class="form-control" @bind-Value="item.Title" @oninput="(_=> Revalidate())" />
-                    </td>
-                    <td>
-                        <InputText class="form-control" @bind-Value="item.Artist" />
-                    </td>
-                    <td style="width:110px">
-                        <InputNumber class="form-control" @bind-Value="item.Bpm" />
-                    </td>
-                    <td>
-                        <InputText class="form-control" @bind-Value="item.File" @oninput="(_=> Revalidate())" />
-                    </td>
-                    <td>
-                        <div class="d-flex flex-column gap-1">
-                            @for (int h = 0; h < (item.Hints?.Count ?? 0); h++)
-                            {
-                                <div class="input-group input-group-sm">
-                                    <input class="form-control" value="@item.Hints[h]" @onchange="(e => { item.Hints[h] = e.Value?.ToString() ?? string.Empty; UpdateHintsJoined(i); Revalidate(); })" />
-                                    <button type="button" class="btn btn-outline-secondary" title="Up" disabled="@(h==0)" @onclick="(() => MoveHintUp(i, h))">↑</button>
-                                    <button type="button" class="btn btn-outline-secondary" title="Down" disabled="@(h==item.Hints.Count-1)" @onclick="(() => MoveHintDown(i, h))">↓</button>
-                                    <button type="button" class="btn btn-outline-danger" title="Delete" @onclick="(() => RemoveHint(i, h))">✕</button>
-                                </div>
-                            }
-                            <button type="button" class="btn btn-sm btn-outline-primary align-self-start" @onclick="(() => AddHint(i))">Add Hint</button>
-                        </div>
-                    </td>
-                    <td>
-                        @if (IsAvailable(item))
-                        {
-                            <span class="text-success">OK</span>
-                        }
-                        else
-                        {
-                            <span class="text-danger">Missing</span>
-                        }
-                    </td>
-                    <td>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-outline-secondary" disabled="@(i==0)" @onclick="(() => MoveUp(i))">↑</button>
-                            <button type="button" class="btn btn-outline-secondary" disabled="@(i==Items.Count-1)" @onclick="(() => MoveDown(i))">↓</button>
-                            <button type="button" class="btn btn-outline-danger" @onclick="(() => Remove(i))">Delete</button>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-success" title="Play" @onclick="(() => PlayAsync(item))" disabled="@(!CanPlay(item))">Play</button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" title="Stop" @onclick="StopAsync" disabled="@(!CanStop)">Stop</button>
-                        </div>
-                    </td>
-                </tr>
-                @if (RowErrors.Count > i && RowErrors[i].Count > 0)
-                {
-                    <tr class="table-warning">
-                        <td></td>
-                        <td colspan="6">
-                            <ul class="mb-0">
-                                @foreach (var err in RowErrors[i])
-                                {
-                                    <li class="text-danger">@err.ErrorMessage</li>
-                                }
-                            </ul>
-                        </td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
-
-    <div class="d-flex gap-2 align-items-end">
-        <div class="me-2">
-            <label class="form-label">Session</label>
-            <input class="form-control" @bind="SessionCode" placeholder="Enter session code" />
-        </div>
-        <button type="button" class="btn btn-secondary" @onclick="Add">Add Row</button>
-        <button type="submit" class="btn btn-primary" disabled="@HasInvalidRows">Save</button>
-        <button type="button" class="btn btn-outline-secondary" @onclick="ReloadAsync">Reload</button>
-        <button type="button" class="btn btn-success" @onclick="UploadAsync" disabled="@HasInvalidRows || string.IsNullOrWhiteSpace(SessionCode)">Upload</button>
-    </div>
+<MudPaper Elevation="3" Class="pa-4">
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="6" lg="4">
+            <MudTextField @bind-Value="SessionCode" Label="Session Code" Variant="Variant.Outlined" 
+                          Placeholder="Enter session code" />
+        </MudItem>
+        <MudItem xs="12" md="6" lg="8">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Style="height: 100%">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Class="btn btn-secondary"
+                           StartIcon="@Material.Filled.Add"
+                           OnClick="Add">
+                    Add Row
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="btn btn-primary"
+                           StartIcon="@Material.Filled.Save"
+                           OnClick="SaveAsync" Disabled="@HasInvalidRows">
+                    Save
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" 
+                           StartIcon="@Material.Filled.Refresh"
+                           OnClick="ReloadAsync">
+                    Reload
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                           StartIcon="@Material.Filled.Upload"
+                           OnClick="UploadAsync" 
+                           Disabled="@(HasInvalidRows || string.IsNullOrWhiteSpace(SessionCode))">
+                    Upload
+                </MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
 
     @if (HasInvalidRows)
     {
-        <div class="text-danger mt-2">Fix validation errors before saving.</div>
+        <MudAlert Severity="Severity.Error" Class="mb-4">Fix validation errors before saving.</MudAlert>
     }
 
     @if (!string.IsNullOrEmpty(ServerError))
     {
-        <div class="alert alert-danger mt-2">@ServerError</div>
+        <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Material.Filled.Close" CloseIconClicked="@(() => ServerError = null)">
+            @ServerError
+        </MudAlert>
     }
-</EditForm>
+
+    <MudTable Items="@Items" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="calc(100vh - 400px)">
+        <HeaderContent>
+            <MudTh>#</MudTh>
+            <MudTh>Title</MudTh>
+            <MudTh>Artist</MudTh>
+            <MudTh Style="width:100px">BPM</MudTh>
+            <MudTh>File URL/Path</MudTh>
+            <MudTh Style="width:300px">Hints</MudTh>
+            <MudTh Style="width:80px">Status</MudTh>
+            <MudTh Style="width:200px">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            @{
+                var index = Items.IndexOf(context);
+                var hasErrors = RowErrors.Count > index && RowErrors[index].Count > 0;
+            }
+            <MudTd DataLabel="#">@(index + 1)</MudTd>
+            <MudTd DataLabel="Title">
+                <MudTextField @bind-Value="context.Title" Variant="Variant.Outlined" Dense="true" 
+                             Margin="Margin.Dense" Error="@hasErrors" />
+            </MudTd>
+            <MudTd DataLabel="Artist">
+                <MudTextField @bind-Value="context.Artist" Variant="Variant.Outlined" Dense="true" 
+                              Margin="Margin.Dense" />
+            </MudTd>
+            <MudTd DataLabel="BPM">
+                <MudNumericField @bind-Value="context.Bpm" Variant="Variant.Outlined" Dense="true" 
+                                 Margin="Margin.Dense" Min="0" Max="300" />
+            </MudTd>
+            <MudTd DataLabel="File">
+                <MudTextField @bind-Value="context.File" Variant="Variant.Outlined" Dense="true" 
+                             Margin="Margin.Dense" Error="@hasErrors" />
+            </MudTd>
+            <MudTd DataLabel="Hints">
+                <MudStack Spacing="1">
+                    @for (int h = 0; h < (context.Hints?.Count ?? 0); h++)
+                    {
+                        var hintIdx = h;
+                        <MudStack Row="true" Spacing="1">
+                            <MudTextField Value="@context.Hints[hintIdx]" 
+                                          ValueChanged="@((string val) => { context.Hints[hintIdx] = val; UpdateHintsJoined(index); Revalidate(); })"
+                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                            <MudIconButton Title="Up" Icon="@Material.Filled.ArrowUpward" Size="Size.Small" 
+                                           OnClick="@(() => MoveHintUp(index, hintIdx))" 
+                                           Disabled="@(hintIdx == 0)" />
+                            <MudIconButton Title="Down" Icon="@Material.Filled.ArrowDownward" Size="Size.Small" 
+                                           OnClick="@(() => MoveHintDown(index, hintIdx))" 
+                                           Disabled="@(hintIdx == context.Hints.Count - 1)" />
+                            <MudIconButton Title="Delete" Icon="@Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                           OnClick="@(() => RemoveHint(index, hintIdx))" />
+                        </MudStack>
+                    }
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" 
+                               StartIcon="@Material.Filled.Add"
+                               OnClick="@(() => AddHint(index))">
+                        Add Hint
+                    </MudButton>
+                </MudStack>
+            </MudTd>
+            <MudTd DataLabel="Status">
+                @if (IsAvailable(context))
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Material.Filled.Check">OK</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Material.Filled.Error">Missing</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Actions">
+                <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                    <MudIconButton Icon="@Material.Filled.ArrowUpward" 
+                                   OnClick="@(() => MoveUp(index))" 
+                                   Disabled="@(index == 0)" />
+                    <MudIconButton Icon="@Material.Filled.ArrowDownward" 
+                                   OnClick="@(() => MoveDown(index))" 
+                                   Disabled="@(index == Items.Count - 1)" />
+                    <MudIconButton Icon="@Material.Filled.Delete" Color="Color.Error" 
+                                   OnClick="@(() => Remove(index))" />
+                    <MudIconButton Class="btn btn-sm btn-success" Icon="@Material.Filled.PlayArrow" Color="Color.Success" 
+                                   OnClick="@(() => PlayAsync(context))" 
+                                   Disabled="@(!CanPlay(context))" />
+                    <MudIconButton Class="btn btn-sm btn-outline-danger" Icon="@Material.Filled.Stop" Color="Color.Error" 
+                                   OnClick="StopAsync" 
+                                   Disabled="@(!CanStop)" />
+                </MudButtonGroup>
+                @if (hasErrors)
+                {
+                    <MudTooltip Text="@string.Join(", ", RowErrors[index].Select(e => e.ErrorMessage))">
+                        <MudIcon Icon="@Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
+                    </MudTooltip>
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudPaper>
 
 @code {
     public List<PerformerManifest.SongEntry> Items { get; set; } = new();
-    // Helper for editing hints easily
     public List<string> HintsJoined { get; set; } = new();
-    // Validation errors per row
     public List<List<ValidationResult>> RowErrors { get; set; } = new();
 
     public string? Status { get; set; }
@@ -200,13 +221,6 @@
         Revalidate();
     }
 
-    void SyncHints(int index)
-    {
-        Items[index].Hints = HintsJoined[index]
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
-    }
-
     void UpdateHintsJoined(int index)
     {
         HintsJoined[index] = string.Join(", ", Items[index].Hints ?? new());
@@ -253,7 +267,7 @@
         Items = manifest.Songs;
         HintsJoined = manifest.Songs.Select(s => string.Join(", ", s.Hints ?? new())).ToList();
         ComputeRowErrors();
-        Status = $"Loaded {Items.Count} song(s).";
+        Snackbar.Add($"Loaded {Items.Count} song(s).", Severity.Info);
         StateHasChanged();
     }
 
@@ -264,12 +278,12 @@
         ComputeRowErrors();
         if (HasInvalidRows)
         {
-            Status = "Cannot save: invalid rows detected.";
+            Snackbar.Add("Cannot save: invalid rows detected.", Severity.Error);
             return;
         }
         var manifest = new PerformerManifest { Songs = Items };
         await Manifest.SaveAsync(manifest);
-        Status = "Saved.";
+        Snackbar.Add("Saved successfully.", Severity.Success);
     }
 
     bool IsEnginePlaying => State.Phase == Phase.Play && State.EngineCount > 0;
@@ -290,7 +304,7 @@
             var resp = await Http.PostAsJsonAsync($"/api/play/{Uri.EscapeDataString(SessionCode)}", cmd);
             if ((int)resp.StatusCode == 202)
             {
-                Status = $"Play requested: {song.Title}";
+                Snackbar.Add($"Playing: {song.Title}", Severity.Success);
             }
             else
             {
@@ -318,7 +332,7 @@
             var resp = await Http.PostAsJsonAsync($"/api/stop/{Uri.EscapeDataString(SessionCode)}", cmd);
             if ((int)resp.StatusCode == 202)
             {
-                Status = "Stop requested.";
+                Snackbar.Add("Stopped.", Severity.Success);
             }
             else
             {
@@ -338,7 +352,7 @@
         ComputeRowErrors();
         if (HasInvalidRows)
         {
-            Status = "Cannot upload: invalid rows detected.";
+            Snackbar.Add("Cannot upload: invalid rows detected.", Severity.Error);
             return;
         }
         if (string.IsNullOrWhiteSpace(SessionCode))
@@ -349,7 +363,6 @@
 
         try
         {
-            Status = "Uploading manifest...";
             var payload = new
             {
                 songs = Items.Select(s => new { title = s.Title, artist = s.Artist, file = s.File, hints = (IEnumerable<string>)(s.Hints ?? new()) }).ToList()
@@ -357,7 +370,7 @@
             var resp = await Http.PostAsJsonAsync($"/api/manifest/{SessionCode}", payload);
             if ((int)resp.StatusCode == 202)
             {
-                Status = $"Uploaded {Items.Count} song(s) to session {SessionCode}.";
+                Snackbar.Add($"Uploaded {Items.Count} song(s) to session {SessionCode}.", Severity.Success);
                 ServerError = null;
             }
             else

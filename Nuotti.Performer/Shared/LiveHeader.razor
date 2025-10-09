@@ -2,53 +2,27 @@
 @inject PerformerUiState State
 @inject IHttpClientFactory HttpFactory
 
-<div class="live-header navbar navbar-expand bg-body-tertiary border-bottom mb-3 @HeaderStatusClass">
-    <div class="container-fluid py-1 d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-baseline gap-3">
-            <span class="fw-semibold">Phase: @State.Phase</span>
-            <span>Song: @State.SongIndex</span>
-            @if (State.Phase is Phase.Start or Phase.Hint or Phase.Guessing)
-            {
-                <span>Hint: @State.HintIndex</span>
-            }
-            @if (State.CurrentSong is not null)
-            {
-                <span class="text-muted">@State.CurrentSong.Title / @State.CurrentSong.Artist</span>
-            }
-        </div>
-        <div class="d-flex align-items-center gap-3">
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge rounded-pill @BadgeClass(State.ProjectorCount > 0, critical: true)">Projector: @State.ProjectorCount</span>
-                <span class="badge rounded-pill @BadgeClass(State.EngineCount > 0, critical: true)">Engine: @State.EngineCount</span>
-                <span class="badge rounded-pill @BadgeClass(State.AudienceCount > 0, critical: false)">Audience: @State.AudienceCount</span>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="small">Engine status: <strong>@_statusText</strong></span>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="PingAsync" disabled="@_isPinging">@(_isPinging ? "Pinging..." : "Ping")</button>
-            </div>
-            <a href="/setlist" class="btn btn-sm btn-outline-primary">Setlist</a>
-        </div>
-    </div>
-    @if (!string.IsNullOrEmpty(_lastMessage))
-    {
-        <div class="container-fluid"><div class="small text-muted">@_lastMessage</div></div>
-    }
-    @if (State.EngineCount == 0)
-    {
-        <div class="container-fluid"><div class="alert alert-warning py-1 my-2">Audio Engine missing: Play/Stop disabled.</div></div>
-    }
-</div>
+<MudChip T="string" Color="@GetPhaseColor()" Size="Size.Small" Class="mr-2">@State.Phase</MudChip>
+
+@if (State.CurrentSong is not null)
+{
+    <MudText Typo="Typo.body2" Class="mr-2">@State.CurrentSong.Title - @State.CurrentSong.Artist</MudText>
+}
+
+<MudSpacer />
+
+<MudChip T="string" Icon="@Material.Filled.Tv" Color="@(State.ProjectorCount > 0 ? Color.Success : Color.Error)" Size="Size.Small" Class="mr-1">@State.ProjectorCount</MudChip>
+<MudChip T="string" Icon="@Material.Filled.VolumeUp" Color="@(State.EngineCount > 0 ? Color.Success : Color.Error)" Size="Size.Small" Class="mr-1">@State.EngineCount</MudChip>
+<MudChip T="string" Icon="@Material.Filled.People" Color="@(State.AudienceCount > 0 ? Color.Success : Color.Default)" Size="Size.Small" Class="mr-2">@State.AudienceCount</MudChip>
+
+<MudTooltip Text="@_lastMessage">
+    <MudIconButton Icon="@Material.Filled.Refresh" Color="Color.Inherit" Size="Size.Small" OnClick="PingAsync" Disabled="@_isPinging" />
+</MudTooltip>
+<MudText Typo="Typo.caption" Class="ml-2 d-inline-block">@_lastMessage</MudText>
 
 @code {
-    string _statusText => _status switch
-    {
-        EngineStatus.Playing => "Playing",
-        EngineStatus.Error => "Error",
-        _ => State.EngineCount > 0 ? "Ready" : "Missing"
-    };
-
     EngineStatus _status = EngineStatus.Ready;
-    string? _lastMessage;
+    string? _lastMessage = "Ready";
     bool _isPinging;
 
     protected override void OnInitialized()
@@ -58,13 +32,24 @@
 
     void OnStateChanged()
     {
-        // Infer status from phase if engine present
         if (State.EngineCount > 0)
         {
             _status = State.Phase == Phase.Play ? EngineStatus.Playing : EngineStatus.Ready;
         }
         InvokeAsync(StateHasChanged);
     }
+
+    Color GetPhaseColor() => State.Phase switch
+    {
+        Phase.Lobby => Color.Default,
+        Phase.Start => Color.Info,
+        Phase.Hint => Color.Info,
+        Phase.Guessing => Color.Warning,
+        Phase.Lock => Color.Warning,
+        Phase.Play => Color.Success,
+        Phase.Finished => Color.Default,
+        _ => Color.Default
+    };
 
     async Task PingAsync()
     {
@@ -76,7 +61,7 @@
             return;
         }
         _isPinging = true;
-        _lastMessage = null;
+        _lastMessage = "Pinging...";
         StateHasChanged();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         try
@@ -86,9 +71,8 @@
             var resp = await http.GetAsync($"/api/sessions/{Uri.EscapeDataString(State.SessionCode!)}/counts", cts.Token);
             if (resp.IsSuccessStatusCode)
             {
-                // Consider OK as Ready/Playing depending on phase; also update last message
                 _status = State.Phase == Phase.Play ? EngineStatus.Playing : (State.EngineCount > 0 ? EngineStatus.Ready : EngineStatus.Error);
-                _lastMessage = "Ping OK";
+                _lastMessage = "Connection OK";
             }
             else
             {
@@ -111,25 +95,6 @@
             _isPinging = false;
             StateHasChanged();
         }
-    }
-
-    string HeaderStatusClass
-    {
-        get
-        {
-            // Red if Engine or Projector missing
-            if (State.EngineCount == 0 || State.ProjectorCount == 0) return "bg-danger-subtle";
-            // Orange if partial outage (hub disconnected)
-            if (!State.Connected) return "bg-warning-subtle";
-            return string.Empty;
-        }
-    }
-
-    string BadgeClass(bool ok, bool critical)
-    {
-        if (!ok && critical) return "text-bg-danger";
-        if (!State.Connected && !critical) return "text-bg-warning";
-        return ok ? "text-bg-success" : "text-bg-secondary";
     }
 
     public void Dispose()

@@ -1,10 +1,11 @@
 ﻿using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using Nuotti.Performer.Pages;
 using Xunit;
 namespace Nuotti.Performer.Tests;
 
-public class SetlistValidationTests : TestContext
+public class SetlistValidationTests : MudTestContext
 {
     sealed class DummyFactory : IHttpClientFactory
     {
@@ -32,6 +33,7 @@ public class SetlistValidationTests : TestContext
         Services.AddSingleton<IManifestService>(fake);
         Services.AddSingleton(new PerformerUiState(new DummyFactory()));
 
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<Setlist>();
 
         // Click Add Row

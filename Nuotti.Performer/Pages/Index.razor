@@ -1,56 +1,129 @@
 ﻿@page "/"
-@using Nuotti.Contracts.V1.Model
 @inject SessionSelectionService SessionSvc
 @inject PerformerUiState LiveState
+@using Nuotti.Contracts.V1.Model
+@implements IAsyncDisposable
 
-<h1>Nuotti Performer</h1>
+<MudText Typo="Typo.h3" Class="mb-4">Dashboard</MudText>
 
 @if (SessionSvc.State == UiState.Select)
 {
-    <p>Select an existing session or create a new one for the show.</p>
+    <MudGrid>
+        <MudItem xs="12" md="8" lg="6">
+            <MudPaper Elevation="3" Class="pa-6">
+                <MudText Typo="Typo.h5" Class="mb-4">Session Setup</MudText>
+                <MudText Typo="Typo.body1" Class="mb-6">Select an existing session or create a new one for the show.</MudText>
 
-    <div class="mb-3">
-        <label class="form-label">Backend URL</label>
-        <input class="form-control" @bind-value="backendUrl" @bind-value:event="oninput" placeholder="http://localhost:5000" />
-    </div>
+                <MudTextField @bind-Value="backendUrl" Label="Backend URL" Variant="Variant.Outlined" 
+                              Placeholder="http://localhost:5000" Class="mb-4" />
 
-    @if (!string.IsNullOrWhiteSpace(SessionSvc.LastSessionCode))
-    {
-        <div class="mb-2">
-            <label class="form-label">Session picker</label>
-            <select class="form-select" @onchange="(e => sessionCode = e.Value?.ToString())">
-                <option value="">-- choose --</option>
-                <option value="@SessionSvc.LastSessionCode">Last: @SessionSvc.LastSessionCode</option>
-            </select>
-        </div>
-    }
+                @if (!string.IsNullOrWhiteSpace(SessionSvc.LastSessionCode))
+                {
+                    <MudSelect T="string" Label="Session Picker" Variant="Variant.Outlined" 
+                               ValueChanged="OnSessionSelected" Class="mb-4">
+                        <MudSelectItem T="string" Value="@string.Empty">-- choose --</MudSelectItem>
+                        <MudSelectItem T="string" Value="@SessionSvc.LastSessionCode">Last: @SessionSvc.LastSessionCode</MudSelectItem>
+                    </MudSelect>
+                }
 
-    <div class="mb-3">
-        <label class="form-label">Or enter session code</label>
-        <input class="form-control" @bind-value="sessionCode" @bind-value:event="oninput" placeholder="e.g. ABC123" />
-    </div>
+                <MudTextField @bind-Value="sessionCode" Label="Or Enter Session Code" Variant="Variant.Outlined" 
+                              Placeholder="e.g. ABC123" Class="mb-4" />
 
-    <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-primary" @onclick="CreateSessionAsync" disabled="@isBusy">Create session</button>
-        <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Use selected / Connect</button>
-    </div>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                               StartIcon="@Material.Filled.Add"
+                               OnClick="CreateSessionAsync" Disabled="@isBusy">
+                        Create Session
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                               StartIcon="@Material.Filled.Link"
+                               OnClick="ConnectAsync" 
+                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl))">
+                        Use Selected / Connect
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4" lg="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Quick Tips</MudText>
+                <MudList T="string" Dense="true">
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Enter your backend server URL</MudListItem>
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Create a new session or use an existing code</MudListItem>
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Ensure all performers are ready before starting</MudListItem>
+                </MudList>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 }
 else
 {
-    <h3>Control</h3>
-    <p>Session: <strong>@(sessionCode ?? SessionSvc.LastSessionCode)</strong></p>
+    <MudGrid>
+        <MudItem xs="12" lg="8">
+            <MudPaper Elevation="3" Class="pa-6 mb-4">
+                <MudText Typo="Typo.h5" Class="mb-3">Session Control</MudText>
+                
+                <MudAlert Severity="@(isConnected ? Severity.Success : Severity.Info)" Class="mb-4">
+                    <MudText>Session: <strong>@(sessionCode ?? SessionSvc.LastSessionCode)</strong></MudText>
+                    <MudText>Status: <strong>@(isConnected ? "Connected" : "Disconnected")</strong></MudText>
+                </MudAlert>
 
-    <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Connect</button>
-        <button class="btn btn-warning" @onclick="DisconnectAsync" disabled="@(!isConnected)">Disconnect</button>
-    </div>
+                <MudStack Row="true" Spacing="2" Class="mb-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                               StartIcon="@Material.Filled.Link"
+                               OnClick="ConnectAsync" 
+                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode) || string.IsNullOrWhiteSpace(backendUrl))">
+                        Connect
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning" 
+                               StartIcon="@Material.Filled.LinkOff"
+                               OnClick="DisconnectAsync" 
+                               Disabled="@(!isConnected)">
+                        Disconnect
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
 
-    <ControlPanel />
+            <ControlPanel />
+        </MudItem>
+
+        <MudItem xs="12" lg="4">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Session Statistics</MudText>
+                <MudStack Spacing="2">
+                    <MudChip T="string" Icon="@Material.Filled.Tv" Color="@(LiveState.ProjectorCount > 0 ? Color.Success : Color.Default)">
+                        Projectors: @LiveState.ProjectorCount
+                    </MudChip>
+                    <MudChip T="string" Icon="@Material.Filled.VolumeUp" Color="@(LiveState.EngineCount > 0 ? Color.Success : Color.Default)">
+                        Engines: @LiveState.EngineCount
+                    </MudChip>
+                    <MudChip T="string" Icon="@Material.Filled.People" Color="@(LiveState.AudienceCount > 0 ? Color.Success : Color.Default)">
+                        Audience: @LiveState.AudienceCount
+                    </MudChip>
+                    <MudChip T="string" Icon="@Material.Filled.MusicNote" Color="Color.Info">
+                        Song: @LiveState.SongIndex
+                    </MudChip>
+                    <MudChip T="string" Icon="@Material.Filled.Lightbulb" Color="Color.Info">
+                        Hint: @LiveState.HintIndex
+                    </MudChip>
+                </MudStack>
+                
+                @if (LiveState.CurrentSong is not null)
+                {
+                    <MudDivider Class="my-4" />
+                    <MudText Typo="Typo.subtitle1" Class="mb-2">Current Song</MudText>
+                    <MudText Typo="Typo.body2"><strong>@LiveState.CurrentSong.Title</strong></MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@LiveState.CurrentSong.Artist</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 }
 
 @if (!string.IsNullOrWhiteSpace(status))
 {
-    <div class="alert @(isConnected ? "alert-success" : "alert-secondary")">@status</div>
+    <MudAlert Severity="@(isConnected ? Severity.Success : Severity.Info)" Class="mt-4">@status</MudAlert>
 }
 
 @code {
@@ -69,6 +142,11 @@ else
         sessionCode = Environment.GetEnvironmentVariable("NUOTTI_SESSION") ?? SessionSvc.LastSessionCode;
     }
 
+    void OnSessionSelected(string value)
+    {
+        sessionCode = value;
+    }
+
     async Task CreateSessionAsync()
     {
         if (string.IsNullOrWhiteSpace(backendUrl))
@@ -83,7 +161,6 @@ else
             using var http = new HttpClient { BaseAddress = new Uri(backendUrl!, UriKind.Absolute) };
             sessionCode = await SessionSvc.CreateNewSessionAsync(http, sessionCode);
             status = $"Created session: {sessionCode}";
-            // SessionSvc.State has switched to Control, UI will update accordingly
         }
         catch (Exception ex)
         {
@@ -113,10 +190,9 @@ else
             client.GameStateChanged += OnGameStateChanged;
             LiveState.SetSession(sessionCode!, backendUri);
             await client.EnsureConnectedAsync();
-            // Refresh role counts once after connect
             _ = LiveState.RefreshCountsAsync();
             status = "Connected.";
-            SessionSvc.SelectExistingSession(sessionCode!); // persist & switch view
+            SessionSvc.SelectExistingSession(sessionCode!);
         }
         catch (Exception ex)
         {

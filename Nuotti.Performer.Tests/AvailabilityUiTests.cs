@@ -1,10 +1,10 @@
-﻿using Bunit;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using Nuotti.Performer.Pages;
 using Xunit;
 namespace Nuotti.Performer.Tests;
 
-public class AvailabilityUiTests : TestContext
+public class AvailabilityUiTests : MudTestContext
 {
     sealed class DummyFactory : IHttpClientFactory
     {
@@ -34,6 +34,7 @@ public class AvailabilityUiTests : TestContext
         Services.AddSingleton(new PerformerUiState(new DummyFactory()));
 
         // Act
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<Setlist>();
 
         // Assert

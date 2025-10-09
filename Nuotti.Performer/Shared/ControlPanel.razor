@@ -3,17 +3,53 @@
 @inject PerformerUiState State
 @inject PerformerCommands Commands
 
-<div class="card mb-3">
-    <div class="card-header">Flow Controls</div>
-    <div class="card-body d-flex flex-wrap gap-2">
-        <button class="btn btn-primary" @onclick="StartSet" disabled="@(!CanStartSet)">Start Set</button>
-        <button class="btn btn-secondary" @onclick="NextSong" disabled="@(!CanNextSong)">Next Song</button>
-        <button class="btn btn-info" @onclick="GiveHint" disabled="@(!CanGiveHint)">Give Hint</button>
-        <button class="btn btn-warning" @onclick="LockAnswers" disabled="@(!CanLock)">Lock Answers</button>
-        <button class="btn btn-success" @onclick="Reveal" disabled="@(!CanReveal)">Reveal</button>
-        <button class="btn btn-danger" @onclick="EndSong" disabled="@(!CanEndSong)">End Song</button>
-    </div>
-</div>
+<MudPaper Elevation="2" Class="pa-4">
+    <MudText Typo="Typo.h6" Class="mb-4">Flow Controls</MudText>
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
+                       StartIcon="@Material.Filled.PlayArrow" 
+                       OnClick="StartSet" Disabled="@(!CanStartSet)">
+                Start Set
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" 
+                       StartIcon="@Material.Filled.SkipNext" 
+                       OnClick="NextSong" Disabled="@(!CanNextSong)">
+                Next Song
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Info" FullWidth="true" 
+                       StartIcon="@Material.Filled.Lightbulb" 
+                       OnClick="GiveHint" Disabled="@(!CanGiveHint)">
+                Give Hint
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" 
+                       StartIcon="@Material.Filled.Lock" 
+                       OnClick="LockAnswers" Disabled="@(!CanLock)">
+                Lock Answers
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" 
+                       StartIcon="@Material.Filled.Visibility" 
+                       OnClick="Reveal" Disabled="@(!CanReveal)">
+                Reveal
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" 
+                       StartIcon="@Material.Filled.Stop" 
+                       OnClick="EndSong" Disabled="@(!CanEndSong)">
+                End Song
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
 
 @code {
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;

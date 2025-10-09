@@ -1,5 +1,6 @@
 ﻿using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
@@ -9,7 +10,7 @@ using System.Net.Http.Json;
 using Xunit;
 namespace Nuotti.Performer.Tests;
 
-public class SetlistPlayStopTests : TestContext
+public class SetlistPlayStopTests : MudTestContext
 {
     sealed class FakeManifestService : IManifestService
     {
@@ -71,6 +72,7 @@ public class SetlistPlayStopTests : TestContext
         // Directly set via reflection is overkill; stop button derives from Phase too. We'll set Phase=Play to enable Stop.
         Services.AddSingleton(state);
 
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<Setlist>();
 
         // Enter session code
@@ -113,6 +115,7 @@ public class SetlistPlayStopTests : TestContext
         state.SetSession("dev", new Uri("http://localhost"));
         Services.AddSingleton(state);
 
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<Setlist>();
         // Set session code but no engine connected
         var input = cut.Find("input[placeholder='Enter session code']");
