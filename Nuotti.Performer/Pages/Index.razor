@@ -3,23 +3,46 @@
 
 <h1>Nuotti Performer</h1>
 
-<p>Use this page to connect the Performer UI to a Nuotti Backend and Session.</p>
+@if (SessionSvc.State == UiState.Select)
+{
+    <p>Select an existing session or create a new one for the show.</p>
 
-<div class="mb-3">
-    <label class="form-label">Backend URL</label>
-    <input class="form-control" @bind-value="backendUrl" @bind-value:event="oninput" placeholder="http://localhost:5000" />
-</div>
+    <div class="mb-3">
+        <label class="form-label">Backend URL</label>
+        <input class="form-control" @bind-value="backendUrl" @bind-value:event="oninput" placeholder="http://localhost:5000" />
+    </div>
 
-<div class="mb-3">
-    <label class="form-label">Session Code</label>
-    <input class="form-control" @bind-value="sessionCode" @bind-value:event="oninput" placeholder="e.g. ABC123" />
-</div>
+    @if (!string.IsNullOrWhiteSpace(SessionSvc.LastSessionCode))
+    {
+        <div class="mb-2">
+            <label class="form-label">Session picker</label>
+            <select class="form-select" @onchange="(e => sessionCode = e.Value?.ToString())">
+                <option value="">-- choose --</option>
+                <option value="@SessionSvc.LastSessionCode">Last: @SessionSvc.LastSessionCode</option>
+            </select>
+        </div>
+    }
 
-<div class="d-flex gap-2 mb-3">
-    <button class="btn btn-primary" @onclick="CreateSessionAsync" disabled="@isBusy">Create New Session</button>
-    <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Connect</button>
-    <button class="btn btn-warning" @onclick="DisconnectAsync" disabled="@(!isConnected)">Disconnect</button>
-</div>
+    <div class="mb-3">
+        <label class="form-label">Or enter session code</label>
+        <input class="form-control" @bind-value="sessionCode" @bind-value:event="oninput" placeholder="e.g. ABC123" />
+    </div>
+
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-primary" @onclick="CreateSessionAsync" disabled="@isBusy">Create session</button>
+        <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Use selected / Connect</button>
+    </div>
+}
+else
+{
+    <h3>Control</h3>
+    <p>Session: <strong>@(sessionCode ?? SessionSvc.LastSessionCode)</strong></p>
+
+    <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-success" @onclick="ConnectAsync" disabled="@isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode) || string.IsNullOrWhiteSpace(backendUrl)">Connect</button>
+        <button class="btn btn-warning" @onclick="DisconnectAsync" disabled="@(!isConnected)">Disconnect</button>
+    </div>
+}
 
 @if (!string.IsNullOrWhiteSpace(status))
 {
@@ -56,6 +79,7 @@
             using var http = new HttpClient { BaseAddress = new Uri(backendUrl!, UriKind.Absolute) };
             sessionCode = await SessionSvc.CreateNewSessionAsync(http);
             status = $"Created session: {sessionCode}";
+            // SessionSvc.State has switched to Control, UI will update accordingly
         }
         catch (Exception ex)
         {
@@ -83,6 +107,7 @@
             client.ConnectedChanged += OnConnectedChanged;
             await client.EnsureConnectedAsync();
             status = "Connected.";
+            SessionSvc.SelectExistingSession(sessionCode!); // persist & switch view
         }
         catch (Exception ex)
         {

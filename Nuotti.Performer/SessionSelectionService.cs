@@ -1,6 +1,5 @@
 ﻿using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
-using System.Net.Http.Json;
 using System.Text.Json;
 namespace Nuotti.Performer;
 
@@ -24,6 +23,15 @@ public sealed class SessionSelectionService
         Directory.CreateDirectory(dir);
         _settingsPath = Path.Combine(dir, "performer.json");
         LoadLastSession();
+        // If we have a last session remembered, keep UI in Select state but prefill
+    }
+
+    public void SelectExistingSession(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return;
+        LastSessionCode = code.Trim();
+        SaveLastSession(LastSessionCode);
+        State = UiState.Control;
     }
 
     void LoadLastSession()
