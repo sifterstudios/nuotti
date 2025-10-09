@@ -6,6 +6,10 @@ namespace Nuotti.Performer.Tests;
 
 public class SetlistValidationTests : TestContext
 {
+    sealed class DummyFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new HttpClient();
+    }
     sealed class FakeManifestService : IManifestService
     {
         public int SaveCalls;
@@ -26,6 +30,7 @@ public class SetlistValidationTests : TestContext
     {
         var fake = new FakeManifestService();
         Services.AddSingleton<IManifestService>(fake);
+        Services.AddSingleton(new PerformerUiState(new DummyFactory()));
 
         var cut = RenderComponent<Setlist>();
 

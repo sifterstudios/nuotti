@@ -1,8 +1,11 @@
 ﻿@page "/setlist"
 @using Microsoft.AspNetCore.Components.Forms
+@using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Message
 @using System.ComponentModel.DataAnnotations
 @inject IManifestService Manifest
 @inject HttpClient Http
+@inject PerformerUiState State
 
 <h3>Setlist Manager</h3>
 
@@ -26,6 +29,7 @@
                 <th>Hints (comma separated)</th>
                 <th>Availability</th>
                 <th>Actions</th>
+                <th>Play</th>
             </tr>
         </thead>
         <tbody>
@@ -47,7 +51,7 @@
                         <InputText class="form-control" @bind-Value="item.File" @oninput="(_=> Revalidate())" />
                     </td>
                     <td>
-                        <InputText class="form-control" @bind-Value="HintsJoined[i]" @onchange="(_ => { SyncHints(i); Revalidate(); })" />
+                        <input class="form-control" value="@HintsJoined[i]" @onchange="(e => { HintsJoined[i] = e.Value?.ToString() ?? string.Empty; SyncHints(i); Revalidate(); })" />
                     </td>
                     <td>
                         @if (IsAvailable(item))
@@ -64,6 +68,12 @@
                             <button type="button" class="btn btn-outline-secondary" disabled="@(i==0)" @onclick="(() => MoveUp(i))">↑</button>
                             <button type="button" class="btn btn-outline-secondary" disabled="@(i==Items.Count-1)" @onclick="(() => MoveDown(i))">↓</button>
                             <button type="button" class="btn btn-outline-danger" @onclick="(() => Remove(i))">Delete</button>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-success" title="Play" @onclick="(() => PlayAsync(item))" disabled="@(!CanPlay(item))">Play</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Stop" @onclick="StopAsync" disabled="@(!CanStop)">Stop</button>
                         </div>
                     </td>
                 </tr>
@@ -209,6 +219,66 @@
         var manifest = new PerformerManifest { Songs = Items };
         await Manifest.SaveAsync(manifest);
         Status = "Saved.";
+    }
+
+    bool IsEnginePlaying => State.Phase == Phase.Play && State.EngineCount > 0;
+    bool CanPlay(PerformerManifest.SongEntry song) => !string.IsNullOrWhiteSpace(SessionCode) && IsAvailable(song) && State.EngineCount > 0;
+    bool CanStop => State.EngineCount > 0 && IsEnginePlaying;
+
+    async Task PlayAsync(PerformerManifest.SongEntry song)
+    {
+        if (!CanPlay(song)) return;
+        try
+        {
+            var cmd = new PlayTrack(song.File)
+            {
+                IssuedByRole = Role.Performer,
+                IssuedById = "performer-ui",
+                SessionCode = SessionCode
+            };
+            var resp = await Http.PostAsJsonAsync($"/api/play/{Uri.EscapeDataString(SessionCode)}", cmd);
+            if ((int)resp.StatusCode == 202)
+            {
+                Status = $"Play requested: {song.Title}";
+            }
+            else
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                ServerError = $"Play failed ({(int)resp.StatusCode}): {text}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ServerError = ex.Message;
+        }
+    }
+
+    async Task StopAsync()
+    {
+        if (!CanStop) return;
+        try
+        {
+            var cmd = new StopTrack
+            {
+                IssuedByRole = Role.Performer,
+                IssuedById = "performer-ui",
+                SessionCode = SessionCode
+            };
+            var resp = await Http.PostAsJsonAsync($"/api/stop/{Uri.EscapeDataString(SessionCode)}", cmd);
+            if ((int)resp.StatusCode == 202)
+            {
+                Status = "Stop requested.";
+            }
+            else
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                ServerError = $"Stop failed ({(int)resp.StatusCode}): {text}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ServerError = ex.Message;
+        }
     }
 
     async Task UploadAsync()

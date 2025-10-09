@@ -6,6 +6,10 @@ namespace Nuotti.Performer.Tests;
 
 public class AvailabilityUiTests : TestContext
 {
+    sealed class DummyFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new HttpClient();
+    }
     sealed class FakeManifestService : IManifestService
     {
         private readonly PerformerManifest _manifest;
@@ -27,6 +31,7 @@ public class AvailabilityUiTests : TestContext
             ]
         };
         Services.AddSingleton<IManifestService>(new FakeManifestService(manifest));
+        Services.AddSingleton(new PerformerUiState(new DummyFactory()));
 
         // Act
         var cut = RenderComponent<Setlist>();
