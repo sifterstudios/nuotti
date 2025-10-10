@@ -1,6 +1,12 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
+@using Nuotti.Contracts.V1
 @inherits LayoutComponentBase
 @inject ThemeService ThemeService
+@inject PerformerUiState State
+@inject OfflineCommandQueue OfflineQueue
+@inject IHttpClientFactory HttpFactory
+@inject ISnackbar Snackbar
+@inject CommandHistoryService History
 
 <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
 <MudPopoverProvider />
@@ -69,6 +75,12 @@
     </MudDrawer>
 
     <MudMainContent Class="mt-2">
+        @if (OfflineQueue.IsOffline && OfflineQueue.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Elevation="0" Dense="true" Class="mx-4 my-2">
+                Offline – commands queued
+            </MudAlert>
+        }
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
             @Body
         </MudContainer>
@@ -87,6 +99,38 @@
         _theme = ThemeService.GetTheme();
         _isDarkMode = ThemeService.IsDarkMode;
         ThemeService.OnThemeChanged += OnThemeChanged;
+        State.Changed += OnStateChanged;
+        OfflineQueue.Changed += OnQueueChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        // When connection is restored, attempt to flush queued commands
+        if (State.Connected && OfflineQueue.IsOffline)
+        {
+            OfflineQueue.SetOffline(false);
+            _ = FlushQueueAsync();
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnQueueChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task FlushQueueAsync()
+    {
+        if (State.BackendBaseUri is null) return;
+        var http = HttpFactory.CreateClient();
+        http.BaseAddress = State.BackendBaseUri;
+        await OfflineQueue.FlushAsync(async (route, cmd) =>
+        {
+            var url = $"/v1/message/phase/{route}/{Uri.EscapeDataString(State.SessionCode!)}";
+            return await http.PostAsJsonAsync(url, cmd, ContractsJson.RestOptions);
+        },
+        Snackbar,
+        History);
     }
 
     private void OnThemeChanged()
@@ -113,5 +157,7 @@
     public void Dispose()
     {
         ThemeService.OnThemeChanged -= OnThemeChanged;
+        State.Changed -= OnStateChanged;
+        OfflineQueue.Changed -= OnQueueChanged;
     }
 }

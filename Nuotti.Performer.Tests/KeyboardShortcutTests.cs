@@ -71,6 +71,7 @@ public class KeyboardShortcutTests : MudTestContext
         ));
         Services.AddSingleton(state);
         Services.AddSingleton(new CommandHistoryService());
+        Services.AddSingleton(new OfflineCommandQueue());
         Services.AddScoped<PerformerCommands>();
 
         RenderComponent<MudPopoverProvider>();
@@ -123,6 +124,7 @@ public class KeyboardShortcutTests : MudTestContext
         ));
         Services.AddSingleton(state);
         Services.AddSingleton(new CommandHistoryService());
+        Services.AddSingleton(new OfflineCommandQueue());
         Services.AddScoped<PerformerCommands>();
 
         RenderComponent<MudPopoverProvider>();

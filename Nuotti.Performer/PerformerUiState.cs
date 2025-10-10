@@ -91,12 +91,14 @@ public sealed class PerformerUiState
                 ProjectorCount = resp.projector;
                 EngineCount = resp.engine;
                 AudienceCount = resp.audiences;
+                Connected = true;
                 Changed?.Invoke();
             }
         }
         catch
         {
-            // ignore network failures; UI will rely on Connected flag
+            Connected = false;
+            Changed?.Invoke();
         }
     }
 

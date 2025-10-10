@@ -15,6 +15,7 @@ builder.Services.AddSingleton<IManifestService, ManifestService>();
 builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddSingleton<CommandHistoryService>();
 builder.Services.AddSingleton<KeyboardShortcutsService>();
+builder.Services.AddSingleton<OfflineCommandQueue>();
 
 var app = builder.Build();
 
