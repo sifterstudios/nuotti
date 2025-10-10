@@ -16,6 +16,7 @@ builder.Services.AddSingleton<ThemeService>();
 builder.Services.AddSingleton<CommandHistoryService>();
 builder.Services.AddSingleton<KeyboardShortcutsService>();
 builder.Services.AddSingleton<OfflineCommandQueue>();
+builder.Services.AddScoped<CommandPaletteService>();
 
 var app = builder.Build();
 

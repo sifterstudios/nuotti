@@ -7,13 +7,16 @@
 @inject IHttpClientFactory HttpFactory
 @inject ISnackbar Snackbar
 @inject CommandHistoryService History
+@inject KeyboardShortcutsService Keybd
+@inject CommandPaletteService Palette
 
-<MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider Position="SnackbarPosition.BottomRight" MaxDisplayedSnackbars="5" PreventDuplicates="true" />
+<div @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
+    <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider Position="SnackbarPosition.BottomRight" MaxDisplayedSnackbars="5" PreventDuplicates="true" />
 
-<MudLayout>
+    <MudLayout>
     <MudAppBar Elevation="0" Dense="true" Style="backdrop-filter: blur(10px);">
         <MudIconButton Icon="@Material.Filled.Menu" 
                        Color="Color.Inherit" 
@@ -154,6 +157,17 @@
         ThemeService.ToggleTheme();
     }
 
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (Keybd.Suspended) return;
+        var key = (e.Key ?? string.Empty).ToLowerInvariant();
+        if (e.CtrlKey && key == "k")
+        {
+            Palette.Open();
+            // Prevent further handling
+        }
+    }
+
     public void Dispose()
     {
         ThemeService.OnThemeChanged -= OnThemeChanged;
@@ -161,3 +175,4 @@
         OfflineQueue.Changed -= OnQueueChanged;
     }
 }
+</div>
