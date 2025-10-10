@@ -110,15 +110,18 @@ else
                             Hint: @LiveState.HintIndex
                         </MudChip>
                     </MudStack>
-                    
-                    @if (LiveState.CurrentSong is not null)
-                    {
-                        <MudDivider Class="my-4" />
+                </MudPaper>
+
+                <ProjectorPreview />
+
+                @if (LiveState.CurrentSong is not null)
+                {
+                    <MudPaper Elevation="2" Class="pa-4">
                         <MudText Typo="Typo.subtitle1" Class="mb-2">Current Song</MudText>
                         <MudText Typo="Typo.body2"><strong>@LiveState.CurrentSong.Title</strong></MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@LiveState.CurrentSong.Artist</MudText>
-                    }
-                </MudPaper>
+                    </MudPaper>
+                }
 
                 @if (LiveState.Phase == Phase.Lobby || LiveState.Phase == Phase.Start || LiveState.Phase == Phase.Finished)
                 {

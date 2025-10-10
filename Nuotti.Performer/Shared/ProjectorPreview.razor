@@ -1,0 +1,89 @@
+﻿@inject PerformerUiState State
+
+<MudPaper Elevation="1" Class="pa-3">
+    <MudStack Spacing="1">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.subtitle1">Projector Preview</MudText>
+            <MudSwitch T="bool" @bind-Checked="_visible" Color="Color.Primary" CheckedIcon="@Material.Filled.Visibility" UncheckedIcon="@Material.Filled.VisibilityOff" Class="ml-2" />
+        </MudStack>
+
+        @if (_visible)
+        {
+            <div class="mt-2" style="font-size: 0.9rem;">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Phase</MudText>
+                <MudText Typo="Typo.body1" data-test="phase-text">@State.Phase</MudText>
+
+                <MudDivider Class="my-2" />
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Question</MudText>
+                <MudText Typo="Typo.body1" data-test="question-text">@GetQuestionText()</MudText>
+
+                @if (State.Choices?.Count > 0)
+                {
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Tallies</MudText>
+                    <div class="mt-1">
+                        @for (var i = 0; i < State.Choices.Count; i++)
+                        {
+                            var tally = (i < State.Tallies.Count) ? State.Tallies[i] : 0;
+                            <div class="d-flex justify-space-between" style="width: 100%;">
+                                <span data-test="@($"choice-{i}")">@State.Choices[i]</span>
+                                <strong data-test="@($"tally-{i}")">@tally</strong>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2" data-test="preview-hidden">Hidden to save CPU</MudText>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public bool StartVisible { get; set; }
+
+    private bool _visible;
+
+    protected override void OnInitialized()
+    {
+        _visible = StartVisible;
+        // Subscribe only when visible to avoid re-render churn when hidden
+        State.Changed += OnStateChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Ensure subscription reflects visibility
+        UpdateSubscription();
+    }
+
+    void UpdateSubscription()
+    {
+        // We keep the delegate, but early-exit when hidden to avoid StateHasChanged calls
+        // This avoids subscribe/unsubscribe churn and is simple for tests.
+    }
+
+    private void OnStateChanged()
+    {
+        if (!_visible) return; // Prevent setState churn when hidden
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetQuestionText()
+    {
+        if (State.CurrentSong is null) return "Waiting for question...";
+        // Display Title – Artist similar to projector header line
+        var title = string.IsNullOrWhiteSpace(State.CurrentSong.Title) ? "?" : State.CurrentSong.Title;
+        var artist = string.IsNullOrWhiteSpace(State.CurrentSong.Artist) ? "?" : State.CurrentSong.Artist;
+        return $"{title} — {artist}";
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= OnStateChanged;
+    }
+}

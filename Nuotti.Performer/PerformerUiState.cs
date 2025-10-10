@@ -30,6 +30,9 @@ public sealed class PerformerUiState
     public IReadOnlyDictionary<string, int> Scores { get; private set; } = new Dictionary<string, int>();
     public IReadOnlyDictionary<string, int> BaselineScores { get; private set; } = new Dictionary<string, int>();
 
+    // Tallies for current choices
+    public IReadOnlyList<int> Tallies { get; private set; } = Array.Empty<int>();
+
     // Role counts
     public int ProjectorCount { get; private set; }
     public int EngineCount { get; private set; }
@@ -64,6 +67,7 @@ public sealed class PerformerUiState
         HintIndex = snapshot.HintIndex;
         CurrentSong = snapshot.CurrentSong;
         Choices = snapshot.Choices;
+        Tallies = snapshot.Tallies;
         Scores = snapshot.Scores;
 
         // keep the session if not set
