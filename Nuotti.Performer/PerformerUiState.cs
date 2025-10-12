@@ -82,13 +82,20 @@ public sealed class PerformerUiState
         Changed?.Invoke();
     }
 
+    public HttpClient CreateClient()
+    {
+        if (BackendBaseUri is null) throw new InvalidOperationException("Backend not set");
+        var http = _httpFactory.CreateClient();
+        http.BaseAddress = BackendBaseUri;
+        return http;
+    }
+
     public async Task RefreshCountsAsync(CancellationToken ct = default)
     {
         if (BackendBaseUri is null || string.IsNullOrWhiteSpace(SessionCode)) return;
         try
         {
-            var http = _httpFactory.CreateClient();
-            http.BaseAddress = BackendBaseUri;
+            var http = CreateClient();
             var resp = await http.GetFromJsonAsync<RoleCountsDto>($"/api/sessions/{Uri.EscapeDataString(SessionCode!)}/counts", ct);
             if (resp is not null)
             {

@@ -26,10 +26,7 @@ public sealed class PerformerCommands
 
     HttpClient CreateClient()
     {
-        var http = _httpFactory.CreateClient();
-        if (_state.BackendBaseUri is null) throw new InvalidOperationException("Backend not set");
-        http.BaseAddress = _state.BackendBaseUri;
-        return http;
+        return _state.CreateClient();
     }
 
     public async Task StartSetAsync(CancellationToken ct = default)

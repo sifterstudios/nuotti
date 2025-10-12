@@ -1,4 +1,5 @@
-﻿using Bunit;
+﻿using AngleSharp.Dom;
+using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Nuotti.Contracts.V1.Enum;
@@ -45,7 +46,7 @@ public class CommandPaletteTests : MudTestContext
     }
 
     [Fact]
-    public void Keyboard_only_flow_opens_palette_and_executes_hint()
+    public async Task Keyboard_only_flow_opens_palette_and_executes_hint()
     {
         var handler = new CapturingHandler
         {
@@ -85,15 +86,38 @@ public class CommandPaletteTests : MudTestContext
         // Open palette with Ctrl+K
         layout.Find("div").KeyDown(new KeyboardEventArgs { Key = "k", CtrlKey = true });
 
-        // Find input and type 'hint'
-        var input = layout.Find("input");
-        input.Input("hint");
+        // Find input inside the dialog and type 'hint'
+        IElement? input = null;
+        for (int i = 0; i < 100; i++)
+        {
+            var inputs = layout.FindAll(".mud-dialog input");
+            if (inputs.Count > 0)
+            {
+                input = inputs[0];
+                break;
+            }
+            await Task.Delay(10);
+        }
+        Assert.NotNull(input);
+        input!.Input("hint");
+        // Give the component a brief moment to update selection based on query
+        await Task.Delay(50);
         // Press Enter to execute
         input.KeyDown(new KeyboardEventArgs { Key = "Enter" });
 
-        // Assert give-hint was posted
-        var posts = handler.Requests.Where(r => r.Method == HttpMethod.Post).ToList();
-        Assert.Contains(posts, r => r.RequestUri!.AbsolutePath.Contains("/v1/message/phase/give-hint/"));
+        // Assert give-hint was posted (wait for async pipeline)
+        var found = false;
+        for (int i = 0; i < 100; i++)
+        {
+            var posts = handler.Requests.Where(r => r.Method == HttpMethod.Post).ToList();
+            if (posts.Any(r => r.RequestUri!.AbsolutePath.Contains("/v1/message/phase/give-hint/")))
+            {
+                found = true;
+                break;
+            }
+            await Task.Delay(10);
+        }
+        Assert.True(found, "Expected a POST to give-hint endpoint but none was recorded within timeout");
     }
 
     [Fact]

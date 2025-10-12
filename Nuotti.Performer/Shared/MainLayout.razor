@@ -1,5 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
 @using Nuotti.Contracts.V1
+@using Nuotti.Contracts.V1.Model
 @inherits LayoutComponentBase
 @inject ThemeService ThemeService
 @inject PerformerUiState State
@@ -9,6 +10,8 @@
 @inject CommandHistoryService History
 @inject KeyboardShortcutsService Keybd
 @inject CommandPaletteService Palette
+@inject PerformerCommands Commands
+@inject IDialogService Dialogs
 
 <div @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
     <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
@@ -104,6 +107,7 @@
         ThemeService.OnThemeChanged += OnThemeChanged;
         State.Changed += OnStateChanged;
         OfflineQueue.Changed += OnQueueChanged;
+        Palette.ExecuteRequested += OnPaletteExecuteRequested;
     }
 
     private void OnStateChanged()
@@ -168,11 +172,63 @@
         }
     }
 
+    private async Task OnPaletteExecuteRequested(string key)
+    {
+        switch (key)
+        {
+            case "start":
+                await Commands.StartSetAsync();
+                break;
+            case "next":
+                {
+                    var songId = State.CurrentSong?.Id is SongId id1 ? id1 : new SongId("song-1");
+                    var proceed = await Dialogs.ShowMessageBox(title: "Next Song", markupMessage: (MarkupString)$"Proceed to the next song?", yesText: "Next", cancelText: "Cancel") == true;
+                    if (proceed) await Commands.NextSongAsync(songId);
+                }
+                break;
+            case "hint":
+                {
+                    var songId = State.CurrentSong?.Id is SongId id2 ? id2 : new SongId("song-1");
+                    var nextIndex = State.NextHintIndex;
+                    var hint = new Hint(nextIndex, null, null, songId);
+                    await Commands.GiveHintAsync(hint);
+                    State.IncrementHintIndex();
+                }
+                break;
+            case "lock":
+                await Commands.LockAnswersAsync();
+                break;
+            case "reveal":
+                {
+                    if (State.CurrentSong is null || !State.SelectedCorrectIndex.HasValue) return;
+                    var idx = State.SelectedCorrectIndex.Value;
+                    var label = idx >= 0 && idx < State.Choices.Count ? State.Choices[idx] : $"Index {idx}";
+                    var confirmed = await Dialogs.ShowMessageBox(title: "Reveal Answer", markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?", yesText: "Reveal", cancelText: "Cancel");
+                    if (confirmed == true)
+                    {
+                        await Commands.RevealAsync(State.CurrentSong, idx);
+                    }
+                }
+                break;
+            case "end":
+                {
+                    if (State.CurrentSong is null) return;
+                    var proceed = await Dialogs.ShowMessageBox(title: "End Song", markupMessage: (MarkupString)$"Are you sure you want to end the current song?", yesText: "End Song", cancelText: "Cancel") == true;
+                    if (proceed)
+                    {
+                        await Commands.EndSongAsync(State.CurrentSong.Id);
+                    }
+                }
+                break;
+        }
+    }
+
     public void Dispose()
     {
         ThemeService.OnThemeChanged -= OnThemeChanged;
         State.Changed -= OnStateChanged;
         OfflineQueue.Changed -= OnQueueChanged;
+        Palette.ExecuteRequested -= OnPaletteExecuteRequested;
     }
 }
 </div>

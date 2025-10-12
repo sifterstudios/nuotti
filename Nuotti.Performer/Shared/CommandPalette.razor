@@ -2,14 +2,17 @@
 @inject PerformerCommands Commands
 @inject IDialogService Dialogs
 @inject KeyboardShortcutsService Keybd
+@inject CommandPaletteService Palette
+@inherits ComponentBase
 @using Nuotti.Contracts.V1.Enum
 @using Nuotti.Contracts.V1.Model
-@inherits ComponentBase
+@implements IDisposable
 
 <MudDialog>
     <DialogContent>
-        <MudTextField @bind-Value="_query" ValueChanged="OnQueryChanged" Placeholder="Type a command…" Immediate="true" DebounceInterval="50" Adornment="Adornment.Start" AdornmentIcon="@Material.Filled.Search" OnKeyDown="OnInputKeyDown" />
-        <MudList Dense="true" Class="mt-2" @bind-SelectedValue="_selectedKey">
+        <div @onkeydown="OnInputKeyDown">
+            <MudTextField T="string" Value="_query" ValueChanged="OnQueryChanged" ValueExpression="() => _query" Placeholder="Type a command…" Immediate="true" DebounceInterval="50" AutoFocus="true" Adornment="Adornment.Start" AdornmentIcon="@Material.Filled.Search" OnKeyDown="OnInputKeyDown" />
+            <MudList Dense="true" Class="mt-2" @bind-SelectedValue="_selectedKey">
             @foreach (var a in _filtered)
             {
                 <MudListItem Value="@a.Key" Disabled="@(!a.Enabled)">
@@ -21,6 +24,7 @@
                 </MudListItem>
             }
         </MudList>
+        </div>
     </DialogContent>
 </MudDialog>
 
@@ -70,12 +74,13 @@
 
     void OnInputKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Escape") { return; }
-        if (e.Key == "Enter") { _ = ExecuteSelectedAsync(); return; }
+        var key = (e.Key ?? string.Empty).ToLowerInvariant();
+        if (key == "escape") { return; }
+        if (key == "enter") { _ = Task.Run(async () => { await Task.Delay(1); await InvokeAsync(ExecuteSelectedAsync); }); return; }
         if (e.Key == "ArrowDown") { MoveSelection(1); return; }
         if (e.Key == "ArrowUp") { MoveSelection(-1); return; }
-        // Other keys update query automatically
-        _ = Task.Run(async () => { await Task.Delay(1); Filter(); });
+        // Other keys update query automatically (allow input binding to update first)
+        _ = Task.Run(async () => { await Task.Delay(1); await InvokeAsync(Filter); });
     }
 
     void OnQueryChanged(string value)
