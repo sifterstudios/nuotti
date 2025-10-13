@@ -55,18 +55,51 @@ var connection = new HubConnectionBuilder()
     .WithAutomaticReconnect()
     .Build();
 
-connection.On<PlayTrack>("PlayTrack", cmd =>
+// Status sink that publishes to backend hub
+IEngineStatusSink sink = new HubStatusSink(connection, session);
+var engine = new EngineCoordinator(player, sink);
+
+// Back-compat: PlayTrack command
+connection.On<PlayTrack>("PlayTrack", async cmd =>
 {
     try
     {
         Log($"PlayTrack received: {cmd.FileUrl}");
-        _ = player.PlayAsync(cmd.FileUrl);
+        await engine.OnTrackPlayRequested(cmd.FileUrl);
     }
     catch (Exception ex)
     {
         Log($"Error attempting to play: {ex.Message}");
     }
 });
+
+// New commands: TrackPlayRequested (string url) and TrackStopped ()
+connection.On<string>("TrackPlayRequested", async url =>
+{
+    try
+    {
+        Log($"TrackPlayRequested: {url}");
+        await engine.OnTrackPlayRequested(url);
+    }
+    catch (Exception ex)
+    {
+        Log($"Error in TrackPlayRequested: {ex.Message}");
+    }
+});
+
+connection.On("TrackStopped", async () =>
+{
+    try
+    {
+        Log("TrackStopped received");
+        await engine.OnTrackStopped();
+    }
+    catch (Exception ex)
+    {
+        Log($"Error in TrackStopped: {ex.Message}");
+    }
+});
+
 
 try
 {
