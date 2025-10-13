@@ -197,6 +197,24 @@ public sealed class SystemPlayer : IAudioPlayer, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        try { _process?.Dispose(); } catch { }
+        try
+        {
+            lock (_gate)
+            {
+                if (_process is { HasExited: false })
+                {
+                    // Ensure no orphan processes are left behind
+                    _stopRequested = true;
+                    try { _process.Kill(true); } catch { /* ignore */ }
+                }
+            }
+        }
+        catch { }
+        finally
+        {
+            try { _process?.Dispose(); } catch { }
+            _process = null;
+            IsPlaying = false;
+        }
     }
 }

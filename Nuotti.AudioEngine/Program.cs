@@ -156,6 +156,27 @@ catch (Exception ex)
 }
 finally
 {
-    try { await connection.DisposeAsync(); } catch { }
+    try
+    {
+        // Graceful shutdown: stop any playback and emit Ready before disconnecting
+        try
+        {
+            if (player.IsPlaying)
+            {
+                await player.StopAsync();
+            }
+        }
+        catch { }
+        try
+        {
+            await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready));
+        }
+        catch { }
+    }
+    finally
+    {
+        try { (player as IDisposable)?.Dispose(); } catch { }
+        try { await connection.DisposeAsync(); } catch { }
+    }
     Log("AudioEngine stopped.");
 }
