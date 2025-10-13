@@ -10,21 +10,31 @@ public sealed class EngineCoordinator
     private readonly IEngineStatusSink _sink;
     private readonly ISourcePreflight? _preflight;
     private readonly IProblemSink? _problemSink;
+    private readonly IClickSource? _click;
 
     public EngineCoordinator(IAudioPlayer player, IEngineStatusSink sink)
-        : this(player, sink, preflight: null, problemSink: null)
+        : this(player, sink, preflight: null, problemSink: null, click: null)
     {
     }
 
-    public EngineCoordinator(IAudioPlayer player, IEngineStatusSink sink, ISourcePreflight? preflight, IProblemSink? problemSink)
+    public EngineCoordinator(IAudioPlayer player, IEngineStatusSink sink, ISourcePreflight? preflight, IProblemSink? problemSink, IClickSource? click = null)
     {
         _player = player;
         _sink = sink;
         _preflight = preflight;
         _problemSink = problemSink;
+        _click = click;
 
-        _player.Started += async (_, __) => await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Playing));
-        _player.Stopped += async (_, __) => await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Ready));
+        _player.Started += async (_, __) =>
+        {
+            try { if (_click?.Enabled == true) _click.Start(); } catch { /* ignore click errors for now */ }
+            await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Playing));
+        };
+        _player.Stopped += async (_, __) =>
+        {
+            try { _click?.Stop(); } catch { /* ignore */ }
+            await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Ready));
+        };
         _player.Error += async (_, __) => await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Error));
     }
 
