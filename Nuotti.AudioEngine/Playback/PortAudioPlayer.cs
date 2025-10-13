@@ -74,6 +74,15 @@ public sealed class PortAudioPlayer : IAudioPlayer, IDisposable
             var src = new float[framesPerBuffer * inChannels];
             var dst = new float[framesPerBuffer * _deviceChannels];
 
+            // Click bus setup
+            bool clickEnabled = _options.Click.Level > 0 && (_options.Routing?.Click?.Length ?? 0) > 0;
+            var clickRouter = clickEnabled ? new SimpleChannelRouter(_options.Routing.Click) : null;
+            var clickSrc = clickEnabled ? new float[framesPerBuffer] : Array.Empty<float>(); // mono click source
+            var clickDst = clickEnabled ? new float[framesPerBuffer * _deviceChannels] : Array.Empty<float>();
+            int samplesPerBeat = clickEnabled ? Math.Max(1, (int)Math.Round(sampleRate * 60.0 / Math.Max(1, _options.Click.Bpm))) : 1;
+            int pulseLen = clickEnabled ? Math.Max(1, sampleRate / 200) : 1; // ~5 ms pulse at 48kHz
+            int clickCounter = 0; // counts samples within beat
+
             _pa.Open(sampleRate, _deviceChannels);
             _pa.Start();
 
@@ -88,6 +97,28 @@ public sealed class PortAudioPlayer : IAudioPlayer, IDisposable
                     break; // end of stream
                 }
                 _router.Route(src, frames, inChannels, dst, _deviceChannels);
+
+                if (clickEnabled && clickRouter is not null)
+                {
+                    // generate mono click
+                    Array.Clear(clickSrc, 0, frames);
+                    int toGen = frames;
+                    for (int i = 0; i < toGen; i++)
+                    {
+                        // simple pulse at start of each beat; level per options
+                        clickSrc[i] = (clickCounter < pulseLen) ? (float)_options.Click.Level : 0f;
+                        clickCounter++;
+                        if (clickCounter >= samplesPerBeat)
+                        {
+                            clickCounter = 0;
+                        }
+                    }
+                    // route to physical channels using click map
+                    Array.Clear(clickDst, 0, frames * _deviceChannels);
+                    clickRouter.Route(clickSrc, frames, 1, clickDst, _deviceChannels);
+                    // mix into dst
+                    AudioMixer.MixInPlace(dst, clickDst, frames * _deviceChannels);
+                }
 
                 await _pa.WriteAsync(dst, frames, _deviceChannels, sampleRate, token);
             }
