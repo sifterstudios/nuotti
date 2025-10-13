@@ -9,6 +9,8 @@ public sealed class EngineOptions
     public RoutingOptions Routing { get; set; } = new();
     public ClickOptions Click { get; set; } = new();
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
+    // If true, the PortAudio backend will use the PortAudioSharp2 package for real audio output instead of the simulated engine.
+    public bool UsePortAudioSharp2 { get; set; } = false;
 
     public void Validate()
     {
