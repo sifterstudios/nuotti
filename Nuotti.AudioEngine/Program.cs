@@ -57,7 +57,10 @@ var connection = new HubConnectionBuilder()
 
 // Status sink that publishes to backend hub
 IEngineStatusSink sink = new HubStatusSink(connection, session);
-var engine = new EngineCoordinator(player, sink);
+IProblemSink problemSink = new HubProblemSink(connection, session);
+var httpClient = new HttpClient();
+ISourcePreflight preflight = new HttpFilePreflight(httpClient);
+var engine = new EngineCoordinator(player, sink, preflight, problemSink);
 
 // Back-compat: PlayTrack command
 connection.On<PlayTrack>("PlayTrack", async cmd =>
