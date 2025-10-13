@@ -17,9 +17,9 @@ public class EngineOptionsTests
           "PreferredPlayer": "Vlc",
           "OutputBackend": "Wasapi",
           "OutputDevice": "Speakers (Realtek)",
-          "Routes": {
-            "Tracks": "bus1",
-            "Click": "bus2"
+          "Routing": {
+            "tracks": [1,2],
+            "click": [3]
           },
           "LogLevel": "Debug"
         }
@@ -41,29 +41,27 @@ public class EngineOptionsTests
         opts.PreferredPlayer.Should().Be(PreferredPlayer.Vlc);
         opts.OutputBackend.Should().Be("Wasapi");
         opts.OutputDevice.Should().Be("Speakers (Realtek)");
-        opts.Routes.Tracks.Should().Be("bus1");
-        opts.Routes.Click.Should().Be("bus2");
+        opts.Routing.Tracks.Should().Equal(1, 2);
+        opts.Routing.Click.Should().Equal(3);
         opts.LogLevel.Should().Be(LogLevel.Debug);
     }
 
     [Fact]
-    public void Env_override_wins_over_json()
+    public void Env_override_wins_over_json_for_scalars()
     {
         // Arrange
         var json = """
         {
           "PreferredPlayer": "Vlc",
-          "Routes": { "Tracks": "jsonVal", "Click": "clickJson" },
+          "Routing": { "tracks": [1], "click": [2] },
           "LogLevel": "Information"
         }
         """;
 
-        // Set env var override
+        // Set env var override (only scalars to avoid array binding complexity)
         var envKey1 = "NUOTTI_ENGINE__PreferredPlayer";
-        var envKey2 = "NUOTTI_ENGINE__Routes__Tracks";
         var envKey3 = "NUOTTI_ENGINE__LogLevel";
         Environment.SetEnvironmentVariable(envKey1, "Ffplay");
-        Environment.SetEnvironmentVariable(envKey2, "envVal");
         Environment.SetEnvironmentVariable(envKey3, "Warning");
         try
         {
@@ -79,26 +77,25 @@ public class EngineOptionsTests
 
             // Assert overrides applied
             opts.PreferredPlayer.Should().Be(PreferredPlayer.Ffplay);
-            opts.Routes.Tracks.Should().Be("envVal");
             opts.LogLevel.Should().Be(LogLevel.Warning);
-            // Non-overridden values fall back to JSON
-            opts.Routes.Click.Should().Be("clickJson");
+            // Routing remains from JSON
+            opts.Routing.Tracks.Should().Equal(1);
+            opts.Routing.Click.Should().Equal(2);
         }
         finally
         {
             // Cleanup env vars
             Environment.SetEnvironmentVariable(envKey1, null);
-            Environment.SetEnvironmentVariable(envKey2, null);
             Environment.SetEnvironmentVariable(envKey3, null);
         }
     }
 
     [Fact]
-    public void Validate_throws_when_routes_missing()
+    public void Validate_throws_when_routing_missing()
     {
         var opts = new EngineOptions
         {
-            Routes = new RoutesOptions { Tracks = "", Click = "" }
+            Routing = new RoutingOptions { Tracks = null!, Click = null! }
         };
         var act = () => opts.Validate();
         act.Should().Throw<ArgumentException>();

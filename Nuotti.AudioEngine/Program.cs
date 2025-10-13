@@ -83,6 +83,19 @@ try
     {
         Log($" - {d.Name} (Id={d.Id}, Channels={d.Channels})");
     }
+
+    // Validate routing against selected device channels
+    var selectedDeviceId = string.IsNullOrWhiteSpace(engineOptions.OutputDevice)
+        ? devices.DefaultDeviceId
+        : engineOptions.OutputDevice;
+    var selected = devices.Devices.FirstOrDefault(d => string.Equals(d.Id, selectedDeviceId, StringComparison.OrdinalIgnoreCase))
+        ?? devices.Devices.First();
+    var routingCheck = RoutingValidator.ValidateAgainstDeviceChannels(engineOptions.Routing, selected.Channels);
+    if (!routingCheck.IsValid)
+    {
+        foreach (var err in routingCheck.Errors)
+            Log($"[Routing ERROR] {err}");
+    }
 }
 catch (Exception ex)
 {
