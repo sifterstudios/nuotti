@@ -40,6 +40,10 @@ configuration.Bind(engineOptions);
 engineOptions.Validate();
 Log("Engine effective config:\n" + JsonSerializer.Serialize(engineOptions, new JsonSerializerOptions { WriteIndented = true }));
 
+// Metrics setup
+var metrics = new AudioEngineMetrics();
+_ = MetricsHost.RunIfEnabledAsync(engineOptions.Metrics, metrics, CancellationToken.None);
+
 var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5240");
 var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "dev");
 
@@ -55,9 +59,9 @@ var provider = services.BuildServiceProvider();
 var optsFromDi = provider.GetRequiredService<IOptions<EngineOptions>>().Value;
 var audioBackend = provider.GetRequiredService<IAudioBackend>();
 IAudioPlayer player = audioBackend.CreatePlayer(optsFromDi);
-player.Started += (_, __) => Log("Playback started.");
-player.Stopped += (_, cancelled) => Log($"Playback stopped. Cancelled={cancelled}");
-player.Error += (_, ex) => Log($"Playback error: {ex.Message}");
+player.Started += (_, __) => { Log("Playback started."); metrics.SetPlaying(currentFile: null); };
+player.Stopped += (_, cancelled) => { Log($"Playback stopped. Cancelled={cancelled}"); metrics.SetStopped(); };
+player.Error += (_, ex) => { Log($"Playback error: {ex.Message}"); metrics.SetError(ex.Message); };
 
 var connection = new HubConnectionBuilder()
     .WithUrl(new Uri(new Uri(backend), "/hub"))
@@ -122,11 +126,13 @@ connection.On<PlayTrack>("PlayTrack", async cmd =>
     try
     {
         Log($"PlayTrack received: {cmd.FileUrl}");
+        metrics.SetPlaying(cmd.FileUrl);
         await engine.OnTrackPlayRequested(cmd.FileUrl);
     }
     catch (Exception ex)
     {
         Log($"Error attempting to play: {ex.Message}");
+        metrics.SetError(ex.Message);
     }
 });
 
@@ -136,11 +142,13 @@ connection.On<string>("TrackPlayRequested", async url =>
     try
     {
         Log($"TrackPlayRequested: {url}");
+        metrics.SetPlaying(url);
         await engine.OnTrackPlayRequested(url);
     }
     catch (Exception ex)
     {
         Log($"Error in TrackPlayRequested: {ex.Message}");
+        metrics.SetError(ex.Message);
     }
 });
 
@@ -149,6 +157,7 @@ connection.On("TrackStopped", async () =>
     try
     {
         Log("TrackStopped received");
+        metrics.SetStopped();
         await engine.OnTrackStopped();
     }
     catch (Exception ex)
@@ -162,7 +171,12 @@ connection.On<long>("Ping", async clientTicks =>
 {
     try
     {
-        var engineTicks = DateTimeOffset.UtcNow.Ticks;
+        var now = DateTimeOffset.UtcNow;
+        // Estimate RTT by doubling one-way delay (approximate)
+        var clientTime = new DateTimeOffset(clientTicks, TimeSpan.Zero);
+        var oneWayMs = Math.Max(0, (now - clientTime).TotalMilliseconds);
+        metrics.AddRttSample(oneWayMs * 2);
+        var engineTicks = now.Ticks;
         await connection.InvokeAsync("Echo", session, clientTicks, engineTicks);
     }
     catch (Exception ex)

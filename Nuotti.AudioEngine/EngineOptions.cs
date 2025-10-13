@@ -15,6 +15,9 @@ public sealed class EngineOptions
     // Optional safety options for sources (path allowlist, HTTP size limit)
     public AudioEngineSafetyOptions Safety { get; set; } = new();
 
+    // Optional metrics exposure (/metrics via HTTP or console dump on signal)
+    public MetricsOptions Metrics { get; set; } = new();
+
     public void Validate()
     {
         // Ensure Routing present and arrays initialized (can be empty)
