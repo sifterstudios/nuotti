@@ -96,11 +96,11 @@ file sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, IEve
     public void SetClients(IHubCallerClients clients) => Clients = clients;
 }
 
-public class IdempotencyAndRateLimitAcceptanceTests : IClassFixture<WebApplicationFactory<Program>>
+public class IdempotencyAndRateLimitAcceptanceTests : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory;
+    readonly WebApplicationFactory<QuizHub> _factory;
 
-    public IdempotencyAndRateLimitAcceptanceTests(WebApplicationFactory<Program> factory)
+    public IdempotencyAndRateLimitAcceptanceTests(WebApplicationFactory<QuizHub> factory)
     {
         _factory = factory.WithWebHostBuilder(_ => { });
     }

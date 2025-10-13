@@ -9,11 +9,11 @@ using System.Net.Http.Json;
 using Xunit;
 namespace Nuotti.Backend.Tests;
 
-public class BackendCommandFlowTests : IClassFixture<WebApplicationFactory<Program>>
+public class BackendCommandFlowTests : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory;
+    readonly WebApplicationFactory<QuizHub> _factory;
 
-    public BackendCommandFlowTests(WebApplicationFactory<Program> factory)
+    public BackendCommandFlowTests(WebApplicationFactory<QuizHub> factory)
     {
         _factory = factory.WithWebHostBuilder(_ => { });
     }

@@ -9,9 +9,9 @@ using System.Net.Http.Json;
 using Xunit;
 namespace Nuotti.Backend.Tests;
 
-public class ApiEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory = factory.WithWebHostBuilder(_ => { });
+    readonly WebApplicationFactory<QuizHub> _factory = factory.WithWebHostBuilder(_ => { });
 
     [Fact]
     public async Task PushQuestion_Performer_Returns202()
