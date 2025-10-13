@@ -1,0 +1,72 @@
+﻿@inject IServiceProvider Services
+
+<div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;">
+    <MudPaper Class="pa-4" Style="max-width: 720px; width: 92%;">
+        @if (_step == 0)
+        {
+            <MudText Typo="Typo.h5" Class="mb-2">Welcome to Nuotti Performer</MudText>
+            <MudText Typo="Typo.body1">This quick tour will show you the header, main controls, and safeguards.</MudText>
+        }
+        else if (_step == 1)
+        {
+            <MudText Typo="Typo.h6" Class="mb-2">Header</MudText>
+            <MudText Typo="Typo.body2">The top bar shows menu, session status, and engine connectivity. Use the moon/sun to toggle theme and the history icon to review recent commands.</MudText>
+        }
+        else if (_step == 2)
+        {
+            <MudText Typo="Typo.h6" Class="mb-2">Flow Controls</MudText>
+            <ul>
+                <li><b>Start Set</b> begins your performance.</li>
+                <li><b>Next Song</b> advances to the next entry.</li>
+                <li><b>Give Hint</b> reveals a hint to the audience.</li>
+                <li><b>Lock Answers</b> stops new submissions.</li>
+                <li><b>Reveal</b> shows the correct answer.</li>
+                <li><b>End Song</b> ends the current song.</li>
+            </ul>
+        }
+        else if (_step == 3)
+        {
+            <MudText Typo="Typo.h6" Class="mb-2">Safeguards</MudText>
+            <MudText Typo="Typo.body2">For fairness, you must select the correct answer after locking and before revealing. Keyboard shortcuts (S, N, H, L, R, E) speed up control.</MudText>
+        }
+        else if (_step == 4)
+        {
+            <MudText Typo="Typo.h6" Class="mb-2">Help</MudText>
+            <MudText Typo="Typo.body2">You can reopen this tour anytime from the Help menu in the side drawer.</MudText>
+        }
+        <div class="mt-4" style="display:flex;gap:8px;justify-content:flex-end;">
+            <MudButton Variant="Variant.Text" Disabled="@(_step==0)" OnClick="Prev">Back</MudButton>
+            @if (_step < _lastStep)
+            {
+                <MudButton Color="Color.Primary" OnClick="Next">Next</MudButton>
+            }
+            else
+            {
+                <MudButton Color="Color.Primary" OnClick="Finish">Done</MudButton>
+            }
+        </div>
+    </MudPaper>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    private int _step = 0;
+    private readonly int _lastStep = 4;
+    private ITourService? _tour;
+
+    protected override void OnInitialized()
+    {
+        _tour = Services.GetService(typeof(ITourService)) as ITourService;
+    }
+
+    void Next() => _step = Math.Min(_lastStep, _step + 1);
+    void Prev() => _step = Math.Max(0, _step - 1);
+
+    async Task Finish()
+    {
+        if (_tour is not null)
+            await _tour.SetSeenAsync(true);
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+}

@@ -12,6 +12,7 @@
 @inject CommandPaletteService Palette
 @inject PerformerCommands Commands
 @inject IDialogService Dialogs
+@inject IServiceProvider Services
 
 <div @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
     <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
@@ -73,6 +74,9 @@
                     @(_isDarkMode ? "Light" : "Dark") Mode
                 </MudNavLink>
             </MudNavGroup>
+            <MudNavGroup Title="Help" Icon="@Material.Filled.HelpOutline" Expanded="false">
+                <MudNavLink Icon="@Material.Filled.Tour" OnClick="OpenTour">Show Tour</MudNavLink>
+            </MudNavGroup>
         </MudNavMenu>
     </MudDrawer>
 
@@ -91,6 +95,10 @@
             @Body
         </MudContainer>
     </MudMainContent>
+    @if (_tourOpen)
+    {
+        <TourOverlay OnClose="CloseTour" />
+    }
 </MudLayout>
 
 @code {
@@ -108,6 +116,23 @@
         State.Changed += OnStateChanged;
         OfflineQueue.Changed += OnQueueChanged;
         Palette.ExecuteRequested += OnPaletteExecuteRequested;
+        _tour = Services.GetService(typeof(ITourService)) as ITourService;
+    }
+
+    private bool _tourCheckedOnce;
+    private bool _tourOpen;
+    private ITourService? _tour;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_tourCheckedOnce)
+        {
+            _tourCheckedOnce = true;
+            if (_tour is not null && !await _tour.GetSeenAsync())
+            {
+                await OpenTourAsync();
+            }
+        }
     }
 
     private void OnStateChanged()
@@ -159,6 +184,21 @@
     private void ToggleTheme()
     {
         ThemeService.ToggleTheme();
+    }
+
+    private Task OpenTourAsync()
+    {
+        _tourOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void OpenTour() => _ = OpenTourAsync();
+
+    private void CloseTour()
+    {
+        _tourOpen = false;
+        StateHasChanged();
     }
 
     private void OnKeyDown(KeyboardEventArgs e)

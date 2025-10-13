@@ -18,6 +18,7 @@ builder.Services.AddSingleton<KeyboardShortcutsService>();
 builder.Services.AddSingleton<OfflineCommandQueue>();
 builder.Services.AddScoped<CommandPaletteService>();
 builder.Services.AddSingleton<IEnvironmentService, EnvironmentService>();
+builder.Services.AddScoped<ITourService, TourService>();
 
 var app = builder.Build();
 
