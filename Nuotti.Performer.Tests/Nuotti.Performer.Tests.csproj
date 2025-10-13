@@ -15,10 +15,12 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="bunit" Version="1.27.15" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.49.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nuotti.Backend\Nuotti.Backend.csproj" />
     <ProjectReference Include="..\Nuotti.Performer\Nuotti.Performer.csproj" />
     <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
+    <ProjectReference Include="..\Nuotti.SimKit\Nuotti.SimKit.csproj" />
   </ItemGroup>
 </Project>

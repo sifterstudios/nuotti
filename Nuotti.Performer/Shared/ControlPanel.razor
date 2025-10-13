@@ -10,6 +10,7 @@
     <MudGrid>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
+                       data-testid="btn-start-set"
                        StartIcon="@Material.Filled.PlayArrow" 
                        OnClick="@(e => StartSet(e))" Disabled="@(!CanStartSet)">
                 Start Set (S)
@@ -17,6 +18,7 @@
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" 
+                       data-testid="btn-next-song"
                        StartIcon="@Material.Filled.SkipNext" 
                        OnClick="@(e => NextSong(e))" Disabled="@(!CanNextSong)">
                 Next Song (N)
@@ -24,6 +26,7 @@
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Info" FullWidth="true" 
+                       data-testid="btn-give-hint"
                        StartIcon="@Material.Filled.Lightbulb" 
                        OnClick="@(e => GiveHint(e))" Disabled="@(!CanGiveHint)">
                 Give Hint (H)
@@ -31,6 +34,7 @@
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" 
+                       data-testid="btn-lock"
                        StartIcon="@Material.Filled.Lock" 
                        OnClick="@(e => LockAnswers(e))" Disabled="@(!CanLock)">
                 Lock Answers (L)
@@ -38,6 +42,7 @@
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" 
+                       data-testid="btn-reveal"
                        StartIcon="@Material.Filled.Visibility" 
                        OnClick="@(e => Reveal(e))" Disabled="@(!CanReveal)">
                 Reveal (R)
@@ -45,6 +50,7 @@
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" 
+                       data-testid="btn-end-song"
                        StartIcon="@Material.Filled.Stop" 
                        OnClick="@(e => EndSong(e))" Disabled="@(!CanEndSong)">
                 End Song (E)
