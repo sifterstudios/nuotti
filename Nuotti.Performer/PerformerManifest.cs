@@ -30,6 +30,10 @@ public sealed class PerformerManifest
         [JsonPropertyName("hints")]
         public List<string> Hints { get; set; } = new();
 
+        // Band-only performance notes & cues; persisted locally but never uploaded.
+        [JsonPropertyName("notes")]
+        public string? Notes { get; set; }
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
             if (string.IsNullOrWhiteSpace(Title))

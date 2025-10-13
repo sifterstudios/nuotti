@@ -61,6 +61,16 @@
     </MudPaper>
 }
 
+@if ((State.Phase == Phase.Start || State.Phase == Phase.Guessing) && CurrentEntry is not null)
+{
+    <MudPaper Elevation="1" Class="pa-4 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Performance Notes (band-only)</MudText>
+        <MudTextField @bind-Value="CurrentEntry.Notes" Lines="4" Placeholder="Key, cues, medley notes..." 
+                      Variant="Variant.Outlined" FullWidth="true" OnBlur="SaveNotesAsync" />
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Notes are saved locally and are not sent to audience or projector.</MudText>
+    </MudPaper>
+}
+
 @if (State.Phase == Phase.Lock && State.Choices.Count > 0)
 {
     <MudPaper Elevation="1" Class="pa-4 mt-3">
@@ -77,11 +87,35 @@
 
 @code {
     private KeyboardShortcutsService _keybd = new();
-    protected override void OnInitialized()
+    private PerformerManifest _manifest = new();
+    private IManifestService? _manifestSvc;
+
+    protected override async Task OnInitializedAsync()
     {
         var resolved = Services.GetService(typeof(KeyboardShortcutsService)) as KeyboardShortcutsService;
         if (resolved is not null) _keybd = resolved;
+        _manifestSvc = Services.GetService(typeof(IManifestService)) as IManifestService;
+        if (_manifestSvc is not null)
+        {
+            _manifest = await _manifestSvc.LoadAsync();
+        }
+        State.Changed += OnStateChanged;
     }
+
+    void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    PerformerManifest.SongEntry? CurrentEntry =>
+        State.CurrentSong is null ? null :
+        _manifest.Songs.FirstOrDefault(s =>
+            string.Equals(s.Title, State.CurrentSong.Title, StringComparison.Ordinal) &&
+            string.Equals(s.Artist ?? string.Empty, State.CurrentSong.Artist ?? string.Empty, StringComparison.Ordinal));
+
+    async Task SaveNotesAsync(FocusEventArgs _)
+    {
+        if (_manifestSvc is null) return; // no-op in tests without registration
+        await _manifestSvc.SaveAsync(_manifest);
+    }
+
     // State helpers
     bool HasSelection => State.SelectedCorrectIndex.HasValue;
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
