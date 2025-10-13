@@ -68,7 +68,7 @@ var connection = new HubConnectionBuilder()
 IEngineStatusSink sink = new HubStatusSink(connection, session);
 IProblemSink problemSink = new HubProblemSink(connection, session);
 var httpClient = new HttpClient();
-ISourcePreflight preflight = new HttpFilePreflight(httpClient);
+ISourcePreflight preflight = new HttpFilePreflight(httpClient, options: engineOptions.Safety);
 var engine = new EngineCoordinator(player, sink, preflight, problemSink);
 
 // Audio device enumeration (foundation)

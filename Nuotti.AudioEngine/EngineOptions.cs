@@ -12,6 +12,9 @@ public sealed class EngineOptions
     // If true, the PortAudio backend will use the PortAudioSharp2 package for real audio output instead of the simulated engine.
     public bool UsePortAudioSharp2 { get; set; } = false;
 
+    // Optional safety options for sources (path allowlist, HTTP size limit)
+    public AudioEngineSafetyOptions Safety { get; set; } = new();
+
     public void Validate()
     {
         // Ensure Routing present and arrays initialized (can be empty)
