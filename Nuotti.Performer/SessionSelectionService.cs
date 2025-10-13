@@ -95,4 +95,9 @@ public sealed class SessionSelectionService
         State = UiState.Control; // switch to control view
         return code;
     }
+
+    public void GoToSelect()
+    {
+        State = UiState.Select;
+    }
 }
