@@ -1,6 +1,10 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Nuotti.AudioEngine;
+using Nuotti.AudioEngine.AudioDevices;
+using Nuotti.AudioEngine.Output;
 using Nuotti.AudioEngine.Playback;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
@@ -44,8 +48,13 @@ Log($"AudioEngine starting. Backend={backend}, Session={session}");
 var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
-// Create the audio player (system-backed)
-IAudioPlayer player = new SystemPlayer(engineOptions.PreferredPlayer);
+// Setup DI for audio backends and create the audio player based on config
+var services = new ServiceCollection();
+services.AddAudioBackends(configuration);
+var provider = services.BuildServiceProvider();
+var optsFromDi = provider.GetRequiredService<IOptions<EngineOptions>>().Value;
+var audioBackend = provider.GetRequiredService<IAudioBackend>();
+IAudioPlayer player = audioBackend.CreatePlayer(optsFromDi);
 player.Started += (_, __) => Log("Playback started.");
 player.Stopped += (_, cancelled) => Log($"Playback stopped. Cancelled={cancelled}");
 player.Error += (_, ex) => Log($"Playback error: {ex.Message}");
@@ -61,6 +70,38 @@ IProblemSink problemSink = new HubProblemSink(connection, session);
 var httpClient = new HttpClient();
 ISourcePreflight preflight = new HttpFilePreflight(httpClient);
 var engine = new EngineCoordinator(player, sink, preflight, problemSink);
+
+// Audio device enumeration (foundation)
+IAudioDeviceEnumerator deviceEnumerator = new BasicAudioDeviceEnumerator();
+
+// Log devices on startup
+try
+{
+    var devices = await deviceEnumerator.EnumerateAsync(cts.Token);
+    Log($"Audio devices (default={devices.DefaultDeviceId}):");
+    foreach (var d in devices.Devices)
+    {
+        Log($" - {d.Name} (Id={d.Id}, Channels={d.Channels})");
+    }
+}
+catch (Exception ex)
+{
+    Log($"Device enumeration failed: {ex.Message}");
+}
+
+// Command: DeviceList — reply with current devices
+connection.On("DeviceList", async () =>
+{
+    try
+    {
+        var devices = await deviceEnumerator.EnumerateAsync();
+        await connection.InvokeAsync("DeviceListResult", session, devices);
+    }
+    catch (Exception ex)
+    {
+        Log($"Error in DeviceList: {ex.Message}");
+    }
+});
 
 // Back-compat: PlayTrack command
 connection.On<PlayTrack>("PlayTrack", async cmd =>
@@ -176,6 +217,7 @@ finally
     finally
     {
         try { (player as IDisposable)?.Dispose(); } catch { }
+        try { provider?.Dispose(); } catch { }
         try { await connection.DisposeAsync(); } catch { }
     }
     Log("AudioEngine stopped.");
