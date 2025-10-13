@@ -4,6 +4,7 @@
     "phase": "Lobby",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -21,6 +22,7 @@
     "phase": "Start",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -38,6 +40,7 @@
     "phase": "Play",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -55,6 +58,7 @@
     "phase": "Hint",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -72,6 +76,7 @@
     "phase": "Guessing",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -89,6 +94,7 @@
     "phase": "Lock",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -106,6 +112,7 @@
     "phase": "Reveal",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"
@@ -123,6 +130,7 @@
     "phase": "Intermission",
     "songIndex": 0,
     "currentSong": null,
+    "catalog": [],
     "choices": [
       "A",
       "B"

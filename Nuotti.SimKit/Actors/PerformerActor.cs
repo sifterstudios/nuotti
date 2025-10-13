@@ -46,7 +46,7 @@ public sealed class PerformerActor(IHubClientFactory hubClientFactory, Uri baseU
                     IssuedByRole = RoleEnum.Performer,
                     IssuedById = issuedById
                 },
-                StepKind.RevealAnswer => new RevealAnswer(step.RequireSongRef())
+                StepKind.RevealAnswer => new RevealAnswer(step.RequireSongRef(), 0)
                 {
                     SessionCode = SessionCode,
                     IssuedByRole = RoleEnum.Performer,

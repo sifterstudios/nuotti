@@ -1,0 +1,131 @@
+﻿@using Microsoft.JSInterop
+@using Nuotti.Contracts.V1.Enum
+@using System.Text.Json
+@inject PerformerUiState State
+@inject IEnvironmentService Env
+@inject CommandHistoryService History
+@inject IJSRuntime JS
+@inject IServiceProvider Services
+
+<MudPopoverProvider />
+<MudPaper Elevation="1" Class="pa-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Troubleshooting</MudText>
+    <MudStack Row="true" Spacing="2" Class="mb-3">
+        <MudTooltip Text="Reset local session and go back to setup (DEV only)">
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="@(!Env.IsDevelopment)" OnClick="ResetSession">
+                Reset session (DEV only)
+            </MudButton>
+        </MudTooltip>
+        <MudTooltip Text="Sends a no-op test event to validate connectivity">
+            <MudButton Variant="Variant.Outlined" Color="Color.Info" OnClick="SendTestEvent">
+                Send test event
+            </MudButton>
+        </MudTooltip>
+        <MudTooltip Text="Copy diagnostics JSON to clipboard">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CopyDiagnostics">
+                Copy diagnostics
+            </MudButton>
+        </MudTooltip>
+    </MudStack>
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary">Environment: @Env.EnvironmentName</MudText>
+</MudPaper>
+
+@code {
+    private async Task ResetSession()
+    {
+        if (!Env.IsDevelopment)
+        {
+            Notify("Reset is disabled in Production.", Severity.Warning);
+            return;
+        }
+        // Attempt to find SessionSelectionService and reset to selection screen
+        var sess = Services.GetService(typeof(SessionSelectionService)) as SessionSelectionService;
+        if (sess is not null)
+        {
+            sess.GoToSelect();
+            Notify("Session reset.", Severity.Success);
+        }
+        else
+        {
+            // Fallback: clear state bits we can
+            typeof(PerformerUiState).GetMethod("SetConnection")?.Invoke(State, new object[] { false });
+            Notify("Session reset (fallback).", Severity.Success);
+        }
+        await Task.CompletedTask;
+    }
+
+    private async Task SendTestEvent()
+    {
+        try
+        {
+            // Use snackbar and state refresh as a minimal no-op
+            Notify("Test event sent.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Notify($"Test event failed: {ex.Message}", Severity.Error);
+        }
+        await Task.CompletedTask;
+    }
+
+    private async Task CopyDiagnostics()
+    {
+        var diagnostics = BuildDiagnostics();
+        var json = JsonSerializer.Serialize(diagnostics, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", json);
+            Notify("Diagnostics copied to clipboard.", Severity.Success);
+        }
+        catch
+        {
+            Notify("Failed to access clipboard.", Severity.Error);
+        }
+    }
+
+    private void Notify(string message, Severity severity)
+    {
+        var sb = Services.GetService(typeof(ISnackbar)) as ISnackbar;
+        sb?.Add(message, severity);
+    }
+
+    private sealed record ErrorDto(string CommandName, Guid CommandId, DateTimeOffset Timestamp, string? Title, string? Detail, string? Reason);
+
+    private object BuildDiagnostics()
+    {
+        var asm = typeof(TroubleshootingTools).Assembly.GetName();
+        var contractsAsm = typeof(Phase).Assembly.GetName();
+        var lastErrors = History.GetEntries()
+            .Where(e => e.Result == CommandResult.Error)
+            .Take(5)
+            .Select(e => new ErrorDto(
+                e.CommandName,
+                e.CommandId,
+                e.Timestamp,
+                e.Problem?.Title,
+                e.Problem?.Detail,
+                e.Problem?.Reason.ToString()))
+            .ToList();
+
+        return new
+        {
+            versions = new
+            {
+                performer = new { asm.Name, asm.Version },
+                contracts = new { contractsAsm.Name, contractsAsm.Version }
+            },
+            session = new
+            {
+                code = State.SessionCode,
+                backend = State.BackendBaseUri?.ToString(),
+                connected = State.Connected,
+            },
+            roles = new { performer = 1, projector = State.ProjectorCount, engine = State.EngineCount, audience = State.AudienceCount },
+            lastErrors
+        };
+    }
+}

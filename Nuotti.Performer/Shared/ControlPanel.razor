@@ -1,0 +1,338 @@
+﻿@using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Model
+@inject PerformerUiState State
+@inject PerformerCommands Commands
+@inject IDialogService Dialogs
+@inject IServiceProvider Services
+
+<MudPaper Elevation="2" Class="pa-4" @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
+    <MudText Typo="Typo.h6" Class="mb-4">Flow Controls</MudText>
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
+                       data-testid="btn-start-set"
+                       StartIcon="@Material.Filled.PlayArrow" 
+                       OnClick="@(e => StartSet(e))" Disabled="@(!CanStartSet)">
+                Start Set (S)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" 
+                       data-testid="btn-next-song"
+                       StartIcon="@Material.Filled.SkipNext" 
+                       OnClick="@(e => NextSong(e))" Disabled="@(!CanNextSong)">
+                Next Song (N)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Info" FullWidth="true" 
+                       data-testid="btn-give-hint"
+                       StartIcon="@Material.Filled.Lightbulb" 
+                       OnClick="@(e => GiveHint(e))" Disabled="@(!CanGiveHint)">
+                Give Hint (H)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" 
+                       data-testid="btn-lock"
+                       StartIcon="@Material.Filled.Lock" 
+                       OnClick="@(e => LockAnswers(e))" Disabled="@(!CanLock)">
+                Lock Answers (L)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" 
+                       data-testid="btn-reveal"
+                       StartIcon="@Material.Filled.Visibility" 
+                       OnClick="@(e => Reveal(e))" Disabled="@(!CanReveal)">
+                Reveal (R)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true" 
+                       data-testid="btn-end-song"
+                       StartIcon="@Material.Filled.Stop" 
+                       OnClick="@(e => EndSong(e))" Disabled="@(!CanEndSong)">
+                End Song (E)
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (EndPending)
+{
+    <MudPaper Elevation="1" Class="pa-4 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2" Color="Color.Error">Ending song in @_endRemaining…</MudText>
+        <MudButton Color="Color.Error" Variant="Variant.Outlined" OnClick="CancelEndSong">Cancel</MudButton>
+    </MudPaper>
+}
+
+@if ((State.Phase == Phase.Start || State.Phase == Phase.Guessing) && CurrentEntry is not null)
+{
+    <MudPaper Elevation="1" Class="pa-4 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Performance Notes (band-only)</MudText>
+        <MudTextField @bind-Value="CurrentEntry.Notes" Lines="4" Placeholder="Key, cues, medley notes..." 
+                      Variant="Variant.Outlined" FullWidth="true" OnBlur="SaveNotesAsync" />
+        <MudText Typo="Typo.caption" Color="Color.Secondary">Notes are saved locally and are not sent to audience or projector.</MudText>
+    </MudPaper>
+}
+
+@if (State.Phase == Phase.Lock && State.Choices.Count > 0)
+{
+    <MudPaper Elevation="1" Class="pa-4 mt-3">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Select Correct Answer</MudText>
+        <MudRadioGroup T="int?" ValueChanged="OnCorrectChanged" Value="@State.SelectedCorrectIndex">
+            @for (var i = 0; i < State.Choices.Count; i++)
+            {
+                <MudRadio T="int?" Value="@i">@State.Choices[i]</MudRadio>
+            }
+        </MudRadioGroup>
+        <MudText Typo="Typo.caption" Color="Color.Error" Hidden="@HasSelection">Please select the correct answer before revealing.</MudText>
+    </MudPaper>
+}
+
+@code {
+    private KeyboardShortcutsService _keybd = new();
+    private PerformerManifest _manifest = new();
+    private IManifestService? _manifestSvc;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var resolved = Services.GetService(typeof(KeyboardShortcutsService)) as KeyboardShortcutsService;
+        if (resolved is not null) _keybd = resolved;
+        _manifestSvc = Services.GetService(typeof(IManifestService)) as IManifestService;
+        if (_manifestSvc is not null)
+        {
+            _manifest = await _manifestSvc.LoadAsync();
+        }
+        State.Changed += OnStateChanged;
+    }
+
+    void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    PerformerManifest.SongEntry? CurrentEntry =>
+        State.CurrentSong is null ? null :
+        _manifest.Songs.FirstOrDefault(s =>
+            string.Equals(s.Title, State.CurrentSong.Title, StringComparison.Ordinal) &&
+            string.Equals(s.Artist ?? string.Empty, State.CurrentSong.Artist ?? string.Empty, StringComparison.Ordinal));
+
+    async Task SaveNotesAsync(FocusEventArgs _)
+    {
+        if (_manifestSvc is null) return; // no-op in tests without registration
+        await _manifestSvc.SaveAsync(_manifest);
+    }
+
+    // State helpers
+    bool HasSelection => State.SelectedCorrectIndex.HasValue;
+    bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
+    bool CanNextSong => State.Phase is Phase.Guessing && State.EngineCount > 0; // NextRound requires Engine
+    bool CanGiveHint => State.Phase is Phase.Start or Phase.Hint or Phase.Guessing;
+    bool CanLock => State.Phase is Phase.Guessing;
+    bool CanReveal => State.Phase is Phase.Lock && HasSelection;
+    bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
+
+    // Debounce: prevent double-triggers within 500ms for all flow buttons
+    readonly Dictionary<string, DateTime> _lastInvoke = new();
+    bool Debounced(string key)
+    {
+        var now = DateTime.UtcNow;
+        if (_lastInvoke.TryGetValue(key, out var last))
+        {
+            if ((now - last).TotalMilliseconds < 500) return true;
+        }
+        _lastInvoke[key] = now;
+        return false;
+    }
+
+    // End Song countdown state
+    CancellationTokenSource? _endCts;
+    int _endRemaining;
+    bool EndPending => _endCts is not null;
+
+    async Task StartSet(MouseEventArgs _)
+    {
+        if (Debounced(nameof(StartSet))) return;
+        await Commands.StartSetAsync();
+    }
+
+    async Task NextSong(MouseEventArgs e)
+    {
+        if (Debounced(nameof(NextSong))) return;
+        var songId = State.CurrentSong?.Id ?? new SongId("song-1");
+        var proceed = e.ShiftKey;
+        if (!proceed)
+        {
+            try
+            {
+                _keybd.Suspended = true;
+                proceed = await Dialogs.ShowMessageBox(
+                    title: "Next Song",
+                    markupMessage: (MarkupString)$"Proceed to the next song? Hold Shift to bypass this confirmation.",
+                    yesText: "Next",
+                    cancelText: "Cancel") == true;
+            }
+            finally
+            {
+                _keybd.Suspended = false;
+            }
+        }
+        if (proceed)
+        {
+            await Commands.NextSongAsync(songId);
+        }
+    }
+
+    async Task GiveHint(MouseEventArgs _)
+    {
+        if (Debounced(nameof(GiveHint))) return;
+        var songId = State.CurrentSong?.Id ?? new SongId("song-1");
+        var nextIndex = State.NextHintIndex;
+        var hint = new Hint(nextIndex, null, null, songId);
+        await Commands.GiveHintAsync(hint);
+        // Optimistically increment; server snapshot will sync if different
+        State.IncrementHintIndex();
+    }
+
+    async Task LockAnswers(MouseEventArgs _)
+    {
+        if (Debounced(nameof(LockAnswers))) return;
+        await Commands.LockAnswersAsync();
+    }
+
+    void OnCorrectChanged(int? index)
+    {
+        State.SetSelectedCorrectIndex(index);
+    }
+
+    async Task Reveal(MouseEventArgs _)
+    {
+        if (Debounced(nameof(Reveal))) return;
+        if (State.CurrentSong is null || !State.SelectedCorrectIndex.HasValue) return;
+        var idx = State.SelectedCorrectIndex.Value;
+        var label = idx >= 0 && idx < State.Choices.Count ? State.Choices[idx] : $"Index {idx}";
+        bool? confirmed;
+        try
+        {
+            _keybd.Suspended = true;
+            confirmed = await Dialogs.ShowMessageBox(
+                title: "Reveal Answer",
+                markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?",
+                yesText: "Reveal",
+                cancelText: "Cancel");
+        }
+        finally
+        {
+            _keybd.Suspended = false;
+        }
+        if (confirmed == true)
+        {
+            await Commands.RevealAsync(State.CurrentSong, idx);
+        }
+    }
+
+    async Task EndSong(MouseEventArgs e)
+    {
+        if (Debounced(nameof(EndSong))) return;
+        if (State.CurrentSong is null) return;
+        var proceed = e.ShiftKey;
+        if (!proceed)
+        {
+            try
+            {
+                _keybd.Suspended = true;
+                proceed = await Dialogs.ShowMessageBox(
+                    title: "End Song",
+                    markupMessage: (MarkupString)$"Are you sure you want to end the current song? Hold Shift to bypass this confirmation.",
+                    yesText: "End Song",
+                    cancelText: "Cancel") == true;
+            }
+            finally
+            {
+                _keybd.Suspended = false;
+            }
+        }
+        if (!proceed) return;
+
+        // start countdown 3..2..1 cancellable
+        _endCts?.Cancel();
+        _endCts?.Dispose();
+        _endRemaining = 3;
+        _endCts = new CancellationTokenSource();
+        StateHasChanged();
+        try
+        {
+            while (_endRemaining > 0)
+            {
+                await Task.Delay(1000, _endCts.Token);
+                _endRemaining--;
+                StateHasChanged();
+            }
+            await Commands.EndSongAsync(State.CurrentSong.Id);
+        }
+        catch (OperationCanceledException)
+        {
+            // canceled by user
+        }
+        finally
+        {
+            _endCts?.Dispose();
+            _endCts = null;
+            StateHasChanged();
+        }
+    }
+
+    void CancelEndSong()
+    {
+        _endCts?.Cancel();
+    }
+
+    void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (_keybd.Suspended) return;
+        var key = (e.Key ?? string.Empty).ToLowerInvariant();
+
+        // Space handling: prefer Stop if possible, otherwise Start
+        if (key == " " || key == "space" || key == "spacebar")
+        {
+            if (CanEndSong)
+            {
+                // Pass through Shift state to allow bypassing confirmation
+                _ = EndSong(new MouseEventArgs { ShiftKey = e.ShiftKey });
+                return;
+            }
+            if (CanStartSet)
+            {
+                _ = StartSet(new MouseEventArgs());
+                return;
+            }
+        }
+
+        switch (key)
+        {
+            case "s":
+                if (CanStartSet)
+                    _ = StartSet(new MouseEventArgs());
+                break;
+            case "n":
+                if (CanNextSong)
+                    _ = NextSong(new MouseEventArgs { ShiftKey = e.ShiftKey });
+                break;
+            case "h":
+                if (CanGiveHint)
+                    _ = GiveHint(new MouseEventArgs());
+                break;
+            case "l":
+                if (CanLock)
+                    _ = LockAnswers(new MouseEventArgs());
+                break;
+            case "r":
+                if (CanReveal)
+                    _ = Reveal(new MouseEventArgs());
+                break;
+            case "e":
+                if (CanEndSong)
+                    _ = EndSong(new MouseEventArgs { ShiftKey = e.ShiftKey });
+                break;
+        }
+    }
+}

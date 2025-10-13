@@ -3,6 +3,7 @@
   "phase": "Reveal",
   "songIndex": 0,
   "currentSong": null,
+  "catalog": [],
   "choices": [],
   "hintIndex": 0,
   "tallies": [],

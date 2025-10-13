@@ -1,0 +1,157 @@
+﻿@inject PerformerUiState State
+@inject PerformerCommands Commands
+@inject IDialogService Dialogs
+@inject KeyboardShortcutsService Keybd
+@inject CommandPaletteService Palette
+@inherits ComponentBase
+@using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Model
+@implements IDisposable
+
+<MudDialog>
+    <DialogContent>
+        <div @onkeydown="OnInputKeyDown">
+            <MudTextField T="string" Value="_query" ValueChanged="OnQueryChanged" ValueExpression="() => _query" Placeholder="Type a command…" Immediate="true" DebounceInterval="50" AutoFocus="true" Adornment="Adornment.Start" AdornmentIcon="@Material.Filled.Search" OnKeyDown="OnInputKeyDown" />
+            <MudList Dense="true" Class="mt-2" @bind-SelectedValue="_selectedKey">
+            @foreach (var a in _filtered)
+            {
+                <MudListItem Value="@a.Key" Disabled="@(!a.Enabled)">
+                    <MudText>@a.Title</MudText>
+                    @if (!string.IsNullOrWhiteSpace(a.Shortcut))
+                    {
+                        <MudChip Class="ml-auto" Color="Color.Default" Variant="Variant.Outlined">@a.Shortcut</MudChip>
+                    }
+                </MudListItem>
+            }
+        </MudList>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    string _query = string.Empty;
+    string? _selectedKey;
+
+    record PaletteAction(string Key, string Title, Func<Task> Execute, Func<bool> CanExecute, string? Shortcut = null)
+    {
+        public bool Enabled => CanExecute();
+    }
+
+    List<PaletteAction> _all = new();
+    List<PaletteAction> _filtered = new();
+
+    protected override void OnInitialized()
+    {
+        // Suspend global shortcuts while palette is open
+        Keybd.Suspended = true;
+
+        _all = new List<PaletteAction>
+        {
+            new("start", "Start Set", async () => await StartSetAsync(), () => State.Phase is Phase.Lobby or Phase.Finished, "S"),
+            new("next", "Next Song", async () => await NextSongAsync(), () => State.Phase is Phase.Guessing && State.EngineCount > 0, "N"),
+            new("hint", "Give Hint", async () => await GiveHintAsync(), () => State.Phase is Phase.Start or Phase.Hint or Phase.Guessing, "H"),
+            new("lock", "Lock Answers", async () => await LockAnswersAsync(), () => State.Phase is Phase.Guessing, "L"),
+            new("reveal", "Reveal", async () => await RevealAsync(), () => State.Phase is Phase.Lock && State.SelectedCorrectIndex.HasValue, "R"),
+            new("end", "End Song", async () => await EndSongAsync(), () => State.Phase is Phase.Play && State.EngineCount > 0, "E"),
+        };
+        Filter();
+    }
+
+    public void Dispose()
+    {
+        Keybd.Suspended = false;
+    }
+
+    void Filter()
+    {
+        var q = (_query ?? string.Empty).Trim().ToLowerInvariant();
+        _filtered = string.IsNullOrEmpty(q)
+            ? _all
+            : _all.Where(a => a.Title.ToLowerInvariant().Contains(q) || (a.Shortcut ?? string.Empty).ToLowerInvariant().Contains(q)).ToList();
+        _selectedKey = _filtered.FirstOrDefault(a => a.Enabled)?.Key ?? _filtered.FirstOrDefault()?.Key;
+        StateHasChanged();
+    }
+
+    void OnInputKeyDown(KeyboardEventArgs e)
+    {
+        var key = (e.Key ?? string.Empty).ToLowerInvariant();
+        if (key == "escape") { return; }
+        if (key == "enter") { _ = Task.Run(async () => { await Task.Delay(1); await InvokeAsync(ExecuteSelectedAsync); }); return; }
+        if (e.Key == "ArrowDown") { MoveSelection(1); return; }
+        if (e.Key == "ArrowUp") { MoveSelection(-1); return; }
+        // Other keys update query automatically (allow input binding to update first)
+        _ = Task.Run(async () => { await Task.Delay(1); await InvokeAsync(Filter); });
+    }
+
+    void OnQueryChanged(string value)
+    {
+        _query = value;
+        Filter();
+    }
+
+    void MoveSelection(int delta)
+    {
+        if (_filtered.Count == 0) return;
+        var idx = Math.Max(0, _filtered.FindIndex(a => a.Key == _selectedKey));
+        idx = (idx + delta + _filtered.Count) % _filtered.Count;
+        _selectedKey = _filtered[idx].Key;
+        StateHasChanged();
+    }
+
+    async Task ExecuteSelectedAsync()
+    {
+        var action = _filtered.FirstOrDefault(a => a.Key == _selectedKey);
+        if (action is null || !action.Enabled) return;
+        await action.Execute();
+    }
+
+    // Guarded implementations mirroring ControlPanel logic
+    async Task StartSetAsync()
+    {
+        await Commands.StartSetAsync();
+    }
+
+    async Task NextSongAsync()
+    {
+        var songId = State.CurrentSong?.Id ?? new SongId("song-1");
+        var proceed = await Dialogs.ShowMessageBox(title: "Next Song", markupMessage: (MarkupString)$"Proceed to the next song?", yesText: "Next", cancelText: "Cancel") == true;
+        if (proceed)
+            await Commands.NextSongAsync(songId);
+    }
+
+    async Task GiveHintAsync()
+    {
+        var songId = State.CurrentSong?.Id ?? new SongId("song-1");
+        var nextIndex = State.NextHintIndex;
+        var hint = new Hint(nextIndex, null, null, songId);
+        await Commands.GiveHintAsync(hint);
+        State.IncrementHintIndex();
+    }
+
+    async Task LockAnswersAsync()
+    {
+        await Commands.LockAnswersAsync();
+    }
+
+    async Task RevealAsync()
+    {
+        if (State.CurrentSong is null || !State.SelectedCorrectIndex.HasValue) return;
+        var idx = State.SelectedCorrectIndex.Value;
+        var label = idx >= 0 && idx < State.Choices.Count ? State.Choices[idx] : $"Index {idx}";
+        var confirmed = await Dialogs.ShowMessageBox(title: "Reveal Answer", markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?", yesText: "Reveal", cancelText: "Cancel");
+        if (confirmed == true)
+        {
+            await Commands.RevealAsync(State.CurrentSong, idx);
+        }
+    }
+
+    async Task EndSongAsync()
+    {
+        if (State.CurrentSong is null) return;
+        var proceed = await Dialogs.ShowMessageBox(title: "End Song", markupMessage: (MarkupString)$"Are you sure you want to end the current song?", yesText: "End Song", cancelText: "Cancel") == true;
+        if (proceed)
+        {
+            await Commands.EndSongAsync(State.CurrentSong.Id);
+        }
+    }
+}

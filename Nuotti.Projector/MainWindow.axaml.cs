@@ -1,7 +1,10 @@
+using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Event;
@@ -24,6 +27,7 @@ public partial class MainWindow : Window
     readonly TextBlock[] _choiceCounts;
     readonly Border[] _rows;
     readonly ListBox _logList;
+    readonly Button _themeToggleButton;
     readonly AvaloniaList<string> _logs = new();
 
     readonly string _backend = "http://localhost:5240";
@@ -39,7 +43,11 @@ public partial class MainWindow : Window
         _sessionCodeText = this.FindControl<TextBlock>("SessionCodeText")!;
         _questionText = this.FindControl<TextBlock>("QuestionText")!;
         _logList = this.FindControl<ListBox>("LogList")!;
+        _themeToggleButton = this.FindControl<Button>("ThemeToggleButton")!;
         _logList.ItemsSource = _logs;
+        
+        // Update theme toggle button icon based on current theme
+        UpdateThemeToggleButton();
         _choiceTexts = new[]
         {
             this.FindControl<TextBlock>("Choice0Text")!,
@@ -113,7 +121,7 @@ public partial class MainWindow : Window
     {
         await _connection.StartAsync();
         AppendLocal("[hub] start ok");
-        await _connection.InvokeAsync("Join", _sessionCode, "projector");
+        await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
     }
@@ -145,7 +153,15 @@ public partial class MainWindow : Window
                 _rows[i].IsVisible = false;
             }
             _choiceCounts[i].Text = "0";
-            _rows[i].Background = new SolidColorBrush(Color.Parse("#222"));
+            // Reset to default background using application resources with theme support
+            if (Application.Current?.Resources.TryGetResource("OptionBackgroundBrush", Application.Current?.ActualThemeVariant, out var optionBgObj) == true && optionBgObj is IBrush optionBg)
+            {
+                _rows[i].Background = optionBg;
+            }
+            else
+            {
+                _rows[i].Background = new SolidColorBrush(Color.Parse("#F5F5F5"));
+            }
         }
     }
 
@@ -163,11 +179,39 @@ public partial class MainWindow : Window
     void HighlightLeaders()
     {
         int max = _tally.Max();
+        IBrush? successBrush = null;
+        IBrush? defaultBrush = null;
+        if (Application.Current?.Resources.TryGetResource("SuccessBrush", Application.Current?.ActualThemeVariant, out var successObj) == true && successObj is IBrush s)
+            successBrush = s;
+        if (Application.Current?.Resources.TryGetResource("OptionBackgroundBrush", Application.Current?.ActualThemeVariant, out var defaultObj) == true && defaultObj is IBrush d)
+            defaultBrush = d;
+        successBrush ??= new SolidColorBrush(Color.Parse("#46B283"));
+        defaultBrush ??= new SolidColorBrush(Color.Parse("#F5F5F5"));
+        
         for (int i = 0; i < _tally.Length; i++)
         {
-            var color = _tally[i] == max && max > 0 ? "#2e7d32" : "#222"; // green for leaders
-            _rows[i].Background = new SolidColorBrush(Color.Parse(color));
+            _rows[i].Background = _tally[i] == max && max > 0 ? successBrush : defaultBrush;
         }
+    }
+
+    private void ToggleTheme(object? sender, RoutedEventArgs e)
+    {
+        var currentTheme = Application.Current?.ActualThemeVariant;
+        var newTheme = currentTheme == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
+        
+        if (Application.Current != null)
+        {
+            Application.Current.RequestedThemeVariant = newTheme;
+        }
+        
+        UpdateThemeToggleButton();
+        AppendLocal($"[Theme] Switched to {newTheme}");
+    }
+
+    private void UpdateThemeToggleButton()
+    {
+        var isDark = Application.Current?.ActualThemeVariant == ThemeVariant.Dark;
+        _themeToggleButton.Content = isDark ? "☀️" : "🌙";
     }
 
     private async Task ForwardPlayToBackend(PlayTrack p)

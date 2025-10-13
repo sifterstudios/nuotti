@@ -1,0 +1,30 @@
+﻿@page "/"
+@namespace Nuotti.Performer.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nuotti Performer</title>
+    <base href="~/" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="css/site.css" />
+</head>
+<body>
+    <app>
+        <component type="typeof(App)" render-mode="ServerPrerendered" />
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div style="text-align: center;">
+                <div class="loading-spinner"></div>
+                <h1 style="color: white; font-family: 'Roboto', sans-serif; font-weight: 300; margin-top: 20px;">Nuotti Performer</h1>
+                <p style="color: rgba(255, 255, 255, 0.8); font-family: 'Roboto', sans-serif;">Loading...</p>
+            </div>
+        </div>
+    </app>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="_framework/blazor.server.js"></script>
+</body>
+</html>

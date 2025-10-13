@@ -1,0 +1,279 @@
+﻿@using Microsoft.AspNetCore.Components.Routing
+@using Nuotti.Contracts.V1
+@using Nuotti.Contracts.V1.Model
+@inherits LayoutComponentBase
+@inject PerformerUiState State
+@inject OfflineCommandQueue OfflineQueue
+@inject ISnackbar Snackbar
+@inject CommandHistoryService History
+@inject KeyboardShortcutsService Keybd
+@inject PerformerCommands Commands
+@inject IDialogService Dialogs
+@inject IServiceProvider Services
+
+<div @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
+    <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider Position="SnackbarPosition.BottomRight" MaxDisplayedSnackbars="5" PreventDuplicates="true" />
+
+    <MudLayout>
+    <MudAppBar Elevation="0" Dense="true" Style="backdrop-filter: blur(10px);">
+        <MudIconButton Icon="@Material.Filled.Menu" 
+                       Color="Color.Inherit" 
+                       Edge="Edge.Start" 
+                       OnClick="@ToggleDrawer"
+                       Size="Size.Large" />
+        <MudText Typo="Typo.h5" Style="font-weight: 700; margin-left: 12px;">
+            🎵 Nuotti Performer
+        </MudText>
+        <MudSpacer />
+        <LiveHeader />
+        <MudTooltip Text="Show command history">
+            <MudIconButton Icon="@Material.Filled.History"
+                           Color="Color.Inherit"
+                           OnClick="ToggleHistory"
+                           Size="Size.Large"
+                           Class="ml-2" />
+        </MudTooltip>
+        <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+            <MudIconButton Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+                           Color="Color.Inherit"
+                           OnClick="ToggleTheme"
+                           Size="Size.Large"
+                           Class="ml-2" />
+        </MudTooltip>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" ClipMode="DrawerClipMode.Docked">
+        <MudDrawerHeader>
+            <div>
+                <MudText Typo="Typo.h5" Style="font-weight: 700;">🎵 Nuotti</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Performance Control</MudText>
+            </div>
+        </MudDrawerHeader>
+        <MudNavMenu>
+            <MudNavLink Href="/" 
+                        Match="NavLinkMatch.All" 
+                        Icon="@Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+            <MudNavLink Href="/setlist" 
+                        Match="NavLinkMatch.Prefix" 
+                        Icon="@Material.Filled.QueueMusic">
+                Setlist Manager
+            </MudNavLink>
+            <MudDivider Class="my-2" />
+            <MudNavGroup Title="Settings" Icon="@Material.Filled.Settings" Expanded="false">
+                <MudNavLink Icon="@Material.Filled.Info">About</MudNavLink>
+                <MudNavLink Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+                            OnClick="ToggleTheme">
+                    @(_isDarkMode ? "Light" : "Dark") Mode
+                </MudNavLink>
+            </MudNavGroup>
+            <MudNavGroup Title="Help" Icon="@Material.Filled.HelpOutline" Expanded="false">
+                <a class="mud-nav-link" href="#" @onclick="OpenTour">
+                    <span class="mud-nav-link-text">Show Tour</span>
+                </a>
+            </MudNavGroup>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudDrawer Anchor="Anchor.Right" @bind-Open="_historyOpen" Elevation="2">
+        <CommandHistoryDrawer />
+    </MudDrawer>
+
+    <MudMainContent Class="mt-2">
+        @if (OfflineQueue.IsOffline && OfflineQueue.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Elevation="0" Dense="true" Class="mx-4 my-2">
+                Offline – commands queued
+            </MudAlert>
+        }
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+    @if (_tourOpen)
+    {
+        <TourOverlay OnClose="CloseTour" />
+    }
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _historyOpen = false;
+    private MudThemeProvider? _mudThemeProvider;
+    private MudTheme _theme = null!;
+    private bool _isDarkMode;
+    private CommandPaletteService? _palette;
+    private ThemeService _themeService = new ThemeService();
+
+    protected override void OnInitialized()
+    {
+        if (Services.GetService(typeof(ThemeService)) is ThemeService ts)
+        {
+            _themeService = ts;
+        }
+        _theme = _themeService.GetTheme();
+        _isDarkMode = _themeService.IsDarkMode;
+        _themeService.OnThemeChanged += OnThemeChanged;
+        State.Changed += OnStateChanged;
+        OfflineQueue.Changed += OnQueueChanged;
+        _palette = Services.GetService(typeof(CommandPaletteService)) as CommandPaletteService;
+        if (_palette is not null) _palette.ExecuteRequested += OnPaletteExecuteRequested;
+        _tour = Services.GetService(typeof(ITourService)) as ITourService;
+    }
+
+    private bool _tourCheckedOnce;
+    private bool _tourOpen;
+    private ITourService? _tour;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_tourCheckedOnce)
+        {
+            _tourCheckedOnce = true;
+            if (_tour is not null && !await _tour.GetSeenAsync())
+            {
+                await OpenTourAsync();
+            }
+        }
+    }
+
+    private void OnStateChanged()
+    {
+        // When connection is restored, attempt to flush queued commands
+        if (State.Connected && OfflineQueue.IsOffline)
+        {
+            OfflineQueue.SetOffline(false);
+            _ = FlushQueueAsync();
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnQueueChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task FlushQueueAsync()
+    {
+        if (State.BackendBaseUri is null) return;
+        var http = State.CreateClient();
+        await OfflineQueue.FlushAsync(async (route, cmd) =>
+        {
+            var url = $"/v1/message/phase/{route}/{Uri.EscapeDataString(State.SessionCode!)}";
+            return await http.PostAsJsonAsync(url, cmd, ContractsJson.RestOptions);
+        },
+        Snackbar,
+        History);
+    }
+
+    private void OnThemeChanged()
+    {
+        _isDarkMode = _themeService.IsDarkMode;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void ToggleHistory()
+    {
+        _historyOpen = !_historyOpen;
+    }
+
+    private void ToggleTheme()
+    {
+        _themeService.ToggleTheme();
+    }
+
+    private Task OpenTourAsync()
+    {
+        _tourOpen = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void OpenTour() => _ = OpenTourAsync();
+
+    private void CloseTour()
+    {
+        _tourOpen = false;
+        StateHasChanged();
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (Keybd.Suspended) return;
+        var key = (e.Key ?? string.Empty).ToLowerInvariant();
+        if (e.CtrlKey && key == "k")
+        {
+            _palette?.Open();
+            // Prevent further handling
+        }
+    }
+
+    private async Task OnPaletteExecuteRequested(string key)
+    {
+        switch (key)
+        {
+            case "start":
+                await Commands.StartSetAsync();
+                break;
+            case "next":
+                {
+                    var songId = State.CurrentSong?.Id is SongId id1 ? id1 : new SongId("song-1");
+                    var proceed = await Dialogs.ShowMessageBox(title: "Next Song", markupMessage: (MarkupString)$"Proceed to the next song?", yesText: "Next", cancelText: "Cancel") == true;
+                    if (proceed) await Commands.NextSongAsync(songId);
+                }
+                break;
+            case "hint":
+                {
+                    var songId = State.CurrentSong?.Id is SongId id2 ? id2 : new SongId("song-1");
+                    var nextIndex = State.NextHintIndex;
+                    var hint = new Hint(nextIndex, null, null, songId);
+                    await Commands.GiveHintAsync(hint);
+                    State.IncrementHintIndex();
+                }
+                break;
+            case "lock":
+                await Commands.LockAnswersAsync();
+                break;
+            case "reveal":
+                {
+                    if (State.CurrentSong is null || !State.SelectedCorrectIndex.HasValue) return;
+                    var idx = State.SelectedCorrectIndex.Value;
+                    var label = idx >= 0 && idx < State.Choices.Count ? State.Choices[idx] : $"Index {idx}";
+                    var confirmed = await Dialogs.ShowMessageBox(title: "Reveal Answer", markupMessage: (MarkupString)$"Reveal '<strong>{label}</strong>' as the correct answer?", yesText: "Reveal", cancelText: "Cancel");
+                    if (confirmed == true)
+                    {
+                        await Commands.RevealAsync(State.CurrentSong, idx);
+                    }
+                }
+                break;
+            case "end":
+                {
+                    if (State.CurrentSong is null) return;
+                    var proceed = await Dialogs.ShowMessageBox(title: "End Song", markupMessage: (MarkupString)$"Are you sure you want to end the current song?", yesText: "End Song", cancelText: "Cancel") == true;
+                    if (proceed)
+                    {
+                        await Commands.EndSongAsync(State.CurrentSong.Id);
+                    }
+                }
+                break;
+        }
+    }
+
+    public void Dispose()
+    {
+        _themeService.OnThemeChanged -= OnThemeChanged;
+        State.Changed -= OnStateChanged;
+        OfflineQueue.Changed -= OnQueueChanged;
+        if (_palette is not null) _palette.ExecuteRequested -= OnPaletteExecuteRequested;
+    }
+}
+</div>

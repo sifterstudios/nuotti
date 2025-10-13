@@ -1,29 +1,100 @@
 ﻿@inherits LayoutComponentBase
+@inject ThemeService ThemeService
+@inject AudienceHubClient Hub
 
 <MudLayout>
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="DrawerToggle" />
-        <MudText Typo="Typo.h6">Nuotti Audience</MudText>
+    <MudAppBar Elevation="0" Dense="true" Style="backdrop-filter: blur(10px);">
+        <MudIconButton Icon="@Material.Filled.Menu" 
+                       Color="Color.Inherit" 
+                       Edge="Edge.Start" 
+                       OnClick="DrawerToggle" 
+                       Size="Size.Large" />
+        <MudText Typo="Typo.h5" Style="font-weight: 700;">
+            🎵 Nuotti
+        </MudText>
         <MudSpacer />
+        
+        @if (!string.IsNullOrWhiteSpace(Hub.SessionCode))
+        {
+            <MudChip T="string" Color="Color.Primary" 
+                     Size="Size.Small" 
+                     Variant="Variant.Filled"
+                     Class="mr-2">
+                @Hub.SessionCode
+            </MudChip>
+        }
+        
+        <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+            <MudIconButton Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+                           Color="Color.Inherit"
+                           OnClick="ToggleTheme"
+                           Size="Size.Large" />
+        </MudTooltip>
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1">
+    
+    <MudDrawer @bind-Open="_drawerOpen" 
+               Elevation="2" 
+               ClipMode="DrawerClipMode.Always">
         <MudDrawerHeader>
-            <MudText Typo="Typo.h6">Navigation</MudText>
+            <MudText Typo="Typo.h5" Style="font-weight: 700;">
+                🎵 Nuotti
+            </MudText>
         </MudDrawerHeader>
         <NavMenu />
+        
+        <MudSpacer />
+        
+        <MudDivider Class="mb-2" />
+        <div class="px-4 pb-4">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                @if (!string.IsNullOrWhiteSpace(Hub.SessionCode))
+                {
+                    <div>Session: <strong>@Hub.SessionCode</strong></div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Hub.AudienceName))
+                {
+                    <div>Name: <strong>@Hub.AudienceName</strong></div>
+                }
+                <div class="mt-2">Backend: @Hub.BackendBaseUrl</div>
+            </MudText>
+        </div>
     </MudDrawer>
+    
     <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Large" Class="my-16pt">
+        <div style="min-height: calc(100vh - 64px);">
             @Body
-        </MudContainer>
+        </div>
     </MudMainContent>
 </MudLayout>
 
 @code {
     bool _drawerOpen;
+    bool _isDarkMode;
+
+    protected override void OnInitialized()
+    {
+        _isDarkMode = ThemeService.IsDarkMode;
+        ThemeService.OnThemeChanged += OnThemeChanged;
+    }
 
     void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    async Task ToggleTheme()
+    {
+        await ThemeService.ToggleThemeAsync();
+    }
+
+    private void OnThemeChanged()
+    {
+        _isDarkMode = ThemeService.IsDarkMode;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        ThemeService.OnThemeChanged -= OnThemeChanged;
     }
 }

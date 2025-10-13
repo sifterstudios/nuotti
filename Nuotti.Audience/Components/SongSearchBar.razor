@@ -1,0 +1,130 @@
+@using Nuotti.Contracts.V1.Model
+@namespace Nuotti.Audience.Components
+
+<div class="song-search-container @Class">
+    <MudAutocomplete T="SongRef"
+                     @bind-Value="SelectedSong"
+                     SearchFunc="SearchSongs"
+                     ToStringFunc="@(song => song?.Title ?? string.Empty)"
+                     Label="@Label"
+                     Placeholder="@Placeholder"
+                     Variant="@Variant"
+                     Adornment="Adornment.Start"
+                     AdornmentIcon="@Material.Filled.Search"
+                     Clearable="true"
+                     Dense="@Dense"
+                     Immediate="true"
+                     DebounceInterval="150"
+                     MaxItems="@MaxResults"
+                     Class="@InputClass">
+        <ItemTemplate Context="song">
+            <div class="d-flex align-items-center pa-2 song-search-item">
+                <MudIcon Icon="@Material.Filled.MusicNote" 
+                         Color="Color.Primary" 
+                         Class="mr-3" />
+                <div class="flex-grow-1">
+                    <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                        @song.Title
+                    </MudText>
+                    @if (!string.IsNullOrWhiteSpace(song.Artist))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @song.Artist
+                        </MudText>
+                    }
+                </div>
+            </div>
+        </ItemTemplate>
+        <NoItemsTemplate>
+            <div class="pa-4 text-center">
+                <MudIcon Icon="@Material.Filled.SearchOff" 
+                         Size="Size.Large" 
+                         Color="Color.Secondary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    No songs found
+                </MudText>
+            </div>
+        </NoItemsTemplate>
+    </MudAutocomplete>
+</div>
+
+<style>
+    .song-search-container {
+        width: 100%;
+    }
+    
+    .song-search-item {
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        border-radius: 8px;
+    }
+    
+    .song-search-item:hover {
+        background-color: rgba(var(--mud-palette-primary-rgb), 0.08);
+    }
+</style>
+
+@code {
+    [Parameter]
+    public List<SongRef> Songs { get; set; } = new();
+    
+    [Parameter]
+    public SongRef? SelectedSong { get; set; }
+    
+    [Parameter]
+    public EventCallback<SongRef?> SelectedSongChanged { get; set; }
+    
+    [Parameter]
+    public string Label { get; set; } = "Search for a song";
+    
+    [Parameter]
+    public string Placeholder { get; set; } = "Type to search...";
+    
+    [Parameter]
+    public Variant Variant { get; set; } = Variant.Outlined;
+    
+    [Parameter]
+    public bool Dense { get; set; } = false;
+    
+    [Parameter]
+    public int MaxResults { get; set; } = 10;
+    
+    [Parameter]
+    public string Class { get; set; } = string.Empty;
+    
+    [Parameter]
+    public string InputClass { get; set; } = string.Empty;
+
+    private async Task<IEnumerable<SongRef>> SearchSongs(string? searchText, CancellationToken cancellationToken)
+    {
+        // If search is empty, return top results
+        if (string.IsNullOrWhiteSpace(searchText))
+        {
+            return Songs.Take(MaxResults);
+        }
+
+        var search = searchText.ToLowerInvariant();
+        
+        // Search by title and artist with fuzzy matching
+        var query = Songs
+            .Where(s => 
+                s.Title.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (s.Artist?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderBy(s => 
+            {
+                // Prioritize exact matches at the start
+                if (s.Title.StartsWith(searchText, StringComparison.OrdinalIgnoreCase))
+                    return 0;
+                if (s.Artist?.StartsWith(searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+                    return 1;
+                return 2;
+            })
+            .ThenBy(s => s.Title)
+            .Take(MaxResults);
+
+        // Honor cancellation if requested
+        await Task.Delay(50, cancellationToken).ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        return query;
+    }
+}
+

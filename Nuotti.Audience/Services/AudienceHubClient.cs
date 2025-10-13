@@ -21,12 +21,17 @@ public class AudienceHubClient : IAsyncDisposable
     public string? AudienceName { get; private set; }
 
     public QuestionPushed? CurrentQuestion { get; private set; }
+    
+    // Track participants in the session
+    private readonly List<string> _participants = new();
+    public IReadOnlyList<string> Participants => _participants.AsReadOnly();
 
     public event Action<QuestionPushed>? QuestionPushed;
     public event Action<PlayTrack>? PlayTrack;
     public event Action<JoinedAudience>? JoinedAudience;
     public event Action<AnswerSubmitted>? AnswerSubmitted;
     public event Action<NuottiProblem>? ProblemReceived;
+    public event Action? ParticipantsChanged;
     public NuottiProblem? LastProblem { get; private set; }
 
     public AudienceHubClient(NavigationManager nav, HttpClient http)
@@ -81,6 +86,15 @@ public class AudienceHubClient : IAsyncDisposable
             _connection.On<JoinedAudience>("JoinedAudience", j =>
             {
                 Log($"[Audience] JoinedAudience: {j.ConnectionId} {j.Name}");
+                
+                // Add participant to the list if not already present
+                var name = string.IsNullOrWhiteSpace(j.Name) ? $"Guest {j.ConnectionId.Substring(0, 4)}" : j.Name;
+                if (!_participants.Contains(name))
+                {
+                    _participants.Add(name);
+                    ParticipantsChanged?.Invoke();
+                }
+                
                 JoinedAudience?.Invoke(j);
             });
 
@@ -104,6 +118,15 @@ public class AudienceHubClient : IAsyncDisposable
         await EnsureConnectedAsync();
         SessionCode = sessionCode;
         AudienceName = audienceName;
+        
+        // Add ourselves to the participants list
+        var displayName = string.IsNullOrWhiteSpace(audienceName) ? "You" : audienceName;
+        if (!_participants.Contains(displayName))
+        {
+            _participants.Add(displayName);
+            ParticipantsChanged?.Invoke();
+        }
+        
         Log($"[Audience] Invoking Join: session={sessionCode} name={audienceName}");
         await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName);
     }

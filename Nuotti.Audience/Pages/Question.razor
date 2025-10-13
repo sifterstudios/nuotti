@@ -1,94 +1,304 @@
 ﻿@page "/question"
-@using Nuotti.Audience.Services
-@using Nuotti.Contracts.V1.Message
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@using Nuotti.Contracts.V1.Message
 @implements IDisposable
 
-<PageTitle>Question</PageTitle>
+<PageTitle>@(_isWaiting ? "Waiting Room" : "Question") - Nuotti</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
-    @if (Hub.CurrentQuestion is QuestionPushed q)
-    {
-        <MudText Typo="Typo.h4" GutterBottom="true">@q.Text</MudText>
+<div class="question-container">
+    <MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
+        @if (Hub.CurrentQuestion is QuestionPushed q)
+        {
+            <!-- Active Question View -->
+            <div class="question-active">
+                <MudText Typo="Typo.h3" 
+                         Align="Align.Center" 
+                         Class="mb-6 bounce-in"
+                         Style="font-weight: 700; line-height: 1.3;">
+                    @q.Text
+                </MudText>
 
-        <MudStack Spacing="3">
-            @for (var i = 0; i < q.Options.Length; i++)
+                <MudGrid Spacing="3" Class="mb-4">
+                    @for (var i = 0; i < q.Options.Length; i++)
+                    {
+                        var idx = i;
+                        var color = GetOptionColor(idx);
+                        var icon = GetOptionIcon(idx);
+                        
+                        <MudItem xs="12" sm="6">
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="@color" 
+                                       Size="Size.Large"
+                                       FullWidth="true"
+                                       StartIcon="@icon"
+                                       OnClick="(() => Submit(idx))"
+                                       Disabled="@_hasAnswered"
+                                       Class="option-button slide-up"
+                                       Style="@($"min-height: 80px; border-radius: 16px; font-size: 1.1rem; font-weight: 600; animation-delay: {idx * 0.1}s;")">
+                                <div class="d-flex flex-column align-items-start text-start">
+                                    <MudText Typo="Typo.caption" Style="opacity: 0.8; text-transform: uppercase; font-weight: 700;">
+                                        Option @(idx + 1)
+                                    </MudText>
+                                    <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                                        @q.Options[idx]
+                                    </MudText>
+                                </div>
+                            </MudButton>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                @if (_hasAnswered)
+                {
+                    <MudAlert Severity="Severity.Success" 
+                              Class="mt-4" 
+                              Variant="Variant.Filled"
+                              Icon="@Material.Filled.CheckCircle">
+                        Answer submitted! Waiting for others...
+                    </MudAlert>
+                }
+            </div>
+        }
+        else
+        {
+            <!-- Waiting Room View -->
+            <div class="waiting-room">
+                <div class="text-center mb-6">
+                    <div class="waiting-icon mb-4 pulse">
+                        🎵
+                    </div>
+                    <MudText Typo="Typo.h3" Style="font-weight: 700;" Class="mb-2">
+                        Waiting Room
+                    </MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Secondary">
+                        Get ready! The quiz will start soon...
+                    </MudText>
+                </div>
+
+                <!-- Session Info Card -->
+                <MudPaper Elevation="4" Class="pa-4 mb-4" Style="border-radius: 16px; background: linear-gradient(135deg, rgba(var(--mud-palette-primary-rgb), 0.1) 0%, rgba(var(--mud-palette-secondary-rgb), 0.1) 100%);">
+                    <div class="d-flex align-items-center justify-space-between">
+                        <div>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; font-weight: 700;">
+                                Session Code
+                            </MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight: 800; letter-spacing: 2px;">
+                                @Hub.SessionCode
+                            </MudText>
+                        </div>
+                        <MudIcon Icon="@Material.Filled.QrCode2" 
+                                 Size="Size.Large" 
+                                 Color="Color.Primary" />
+                    </div>
+                </MudPaper>
+
+                <!-- Participants List -->
+                <ParticipantsList Participants="@_participantsList" 
+                                  Title="In the Room"
+                                  EmptyMessage="Be the first to join!" 
+                                  Class="mb-4" />
+
+                <!-- Tips Card -->
+                <MudPaper Elevation="0" Class="pa-4" Style="background: transparent; border: 2px dashed var(--mud-palette-divider); border-radius: 16px;">
+                    <div class="d-flex align-items-center mb-3">
+                        <MudIcon Icon="@Material.Filled.Lightbulb" Color="Color.Warning" Class="mr-2" />
+                        <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                            Quick Tips
+                        </MudText>
+                    </div>
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.body2">
+                            <MudIcon Icon="@Material.Filled.Speed" Size="Size.Small" Class="mr-1" />
+                            Answer quickly for bonus points!
+                        </MudText>
+                        <MudText Typo="Typo.body2">
+                            <MudIcon Icon="@Material.Filled.MusicNote" Size="Size.Small" Class="mr-1" />
+                            Listen carefully to the audio clips
+                        </MudText>
+                        <MudText Typo="Typo.body2">
+                            <MudIcon Icon="@Material.Filled.EmojiEvents" Size="Size.Small" Class="mr-1" />
+                            Compete with others for the top score!
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </div>
+        }
+
+        <!-- Action Buttons -->
+        <div class="mt-6 d-flex justify-space-between align-items-center">
+            <MudButton Variant="Variant.Text" 
+                       StartIcon="@Material.Filled.ExitToApp"
+                       OnClick="GoHome"
+                       Color="Color.Default">
+                Leave Session
+            </MudButton>
+            
+            @if (_showDevTools)
             {
-                var idx = i;
-                <MudButton Variant="Variant.Outlined" 
-                           Color="Color.Primary" 
-                           Size="Size.Large"
-                           FullWidth="true"
-                           StartIcon="@($"{idx + 1}")"
-                           OnClick="(() => Submit(idx))"
-                           Class="text-start justify-start"
-                           Style="min-height: 64px;">
-                    @q.Options[idx]
+                <MudButton Variant="Variant.Text" 
+                           StartIcon="@Material.Filled.BugReport"
+                           OnClick="@(() => _showDevPanel = !_showDevPanel)"
+                           Color="Color.Secondary">
+                    Dev Tools
                 </MudButton>
             }
-        </MudStack>
-    }
-    else
-    {
-        <MudContainer Class="py-5 text-center">
-            <MudText Typo="Typo.body1" Color="Color.Secondary">Waiting for a question...</MudText>
-        </MudContainer>
-    }
+            else
+            {
+                <MudLink Typo="Typo.caption" OnClick="@(() => _showDevTools = true)">
+                    Show dev tools
+                </MudLink>
+            }
+        </div>
 
-    <MudStack Row="true" Class="mt-4">
-        <MudButton Variant="Variant.Text" OnClick="GoHome">Change session</MudButton>
-    </MudStack>
+        <!-- Developer Panel (Collapsible) -->
+        @if (_showDevPanel && _showDevTools)
+        {
+            <MudPaper Class="mt-4 pa-4" Elevation="2" Style="border-radius: 12px;">
+                <MudText Typo="Typo.subtitle1" GutterBottom="true" Style="font-weight: 600;">
+                    🛠️ Developer Tools
+                </MudText>
+                <MudDivider Class="mb-3" />
+                
+                <MudText Typo="Typo.body2" Class="mb-2" Style="font-weight: 600;">Test Audio Playback</MudText>
+                <MudStack Row="true" Spacing="2" Class="mb-3">
+                    <MudTextField @bind-Value="fileUrl" 
+                                  Variant="Variant.Outlined" 
+                                  Label="Audio URL"
+                                  FullWidth="true"
+                                  Dense="true" />
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Success" 
+                               OnClick="RequestPlay"
+                               Style="min-width: 120px;">
+                        Play
+                    </MudButton>
+                </MudStack>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Sends play request to projector via backend. AudioEngine in the same session will play it.
+                </MudText>
+            </MudPaper>
+        }
+    </MudContainer>
+</div>
 
-    <MudPaper Class="mt-5 pa-4" Elevation="1">
-        <MudText Typo="Typo.subtitle1" GutterBottom="true">Test audio (asks projector to play)</MudText>
-        <MudStack Row="true" Spacing="2" Justify="Justify.Center">
-            <MudTextField @bind-Value="fileUrl" 
-                          Variant="Variant.Outlined" 
-                          FullWidth="true" />
-            <MudButton Variant="Variant.Filled" 
-                       Color="Color.Success" 
-                       OnClick="RequestPlay">
-                Play on projector
-            </MudButton>
-        </MudStack>
-        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
-            Projector will call backend /api/play. AudioEngine in same session should play.
-        </MudText>
-    </MudPaper>
-</MudContainer>
+<style>
+    .question-container {
+        min-height: calc(100vh - 64px);
+        padding: 24px 0;
+    }
+    
+    .waiting-icon {
+        font-size: 5rem;
+        line-height: 1;
+    }
+    
+    .option-button {
+        text-transform: none !important;
+        letter-spacing: normal !important;
+    }
+    
+    @@media (max-width: 600px) {
+        .waiting-icon {
+            font-size: 3.5rem;
+        }
+    }
+</style>
 
 @code {
     private string fileUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+    private bool _hasAnswered = false;
+    private bool _showDevPanel = false;
+    private bool _showDevTools = false;
+    private List<string> _participantsList = new();
+    private bool _isWaiting => Hub.CurrentQuestion is null;
 
     protected override void OnInitialized()
     {
         Hub.QuestionPushed += OnQuestionPushed;
+        Hub.ParticipantsChanged += OnParticipantsChanged;
+        UpdateParticipantsList();
     }
 
     private async void OnQuestionPushed(QuestionPushed _)
     {
+        _hasAnswered = false; // Reset for new question
         await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnParticipantsChanged()
+    {
+        UpdateParticipantsList();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateParticipantsList()
+    {
+        _participantsList = Hub.Participants.ToList();
     }
 
     public void Dispose()
     {
         Hub.QuestionPushed -= OnQuestionPushed;
+        Hub.ParticipantsChanged -= OnParticipantsChanged;
     }
 
     private async Task Submit(int index)
     {
-        await Hub.SubmitAnswerAsync(index);
+        if (_hasAnswered) return;
+        
+        try
+        {
+            await Hub.SubmitAnswerAsync(index);
+            _hasAnswered = true;
+            Snackbar.Add("Answer submitted successfully!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to submit answer: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task RequestPlay()
     {
-        await Hub.RequestPlayAsync(fileUrl);
+        try
+        {
+            await Hub.RequestPlayAsync(fileUrl);
+            Snackbar.Add("Play request sent to projector", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to send play request: {ex.Message}", Severity.Error);
+        }
     }
 
     private void GoHome()
     {
-        // Navigate back to join page
         Nav.NavigateTo("/");
+    }
+
+    private Color GetOptionColor(int index)
+    {
+        return index switch
+        {
+            0 => Color.Primary,
+            1 => Color.Secondary,
+            2 => Color.Tertiary,
+            3 => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private string GetOptionIcon(int index)
+    {
+        return index switch
+        {
+            0 => Material.Filled.LooksOne,
+            1 => Material.Filled.LooksTwo,
+            2 => Material.Filled.Looks3,
+            3 => Material.Filled.Looks4,
+            _ => Material.Filled.CheckCircle
+        };
     }
 }

@@ -1,0 +1,102 @@
+﻿@using Nuotti.Contracts.V1.Enum
+@inject PerformerUiState State
+
+<MudChip T="string" Color="@GetPhaseColor()" Size="Size.Small" Class="mr-2">@State.Phase</MudChip>
+
+@if (State.CurrentSong is not null)
+{
+    <MudText Typo="Typo.body2" Class="mr-2">@State.CurrentSong.Title - @State.CurrentSong.Artist</MudText>
+}
+
+<MudSpacer />
+
+<MudChip T="string" Icon="@Material.Filled.Tv" Color="@(State.ProjectorCount > 0 ? Color.Success : Color.Error)" Size="Size.Small" Class="mr-1">@State.ProjectorCount</MudChip>
+<MudChip T="string" Icon="@Material.Filled.VolumeUp" Color="@(State.EngineCount > 0 ? Color.Success : Color.Error)" Size="Size.Small" Class="mr-1">@State.EngineCount</MudChip>
+<MudChip T="string" Icon="@Material.Filled.People" Color="@(State.AudienceCount > 0 ? Color.Success : Color.Default)" Size="Size.Small" Class="mr-2">@State.AudienceCount</MudChip>
+
+<MudTooltip Text="@_lastMessage">
+    <MudIconButton Icon="@Material.Filled.Refresh" Color="Color.Inherit" Size="Size.Small" OnClick="PingAsync" Disabled="@_isPinging" />
+</MudTooltip>
+<MudText Typo="Typo.caption" Class="ml-2 d-inline-block">@_lastMessage</MudText>
+
+@code {
+    EngineStatus _status = EngineStatus.Ready;
+    string? _lastMessage = "Ready";
+    bool _isPinging;
+
+    protected override void OnInitialized()
+    {
+        State.Changed += OnStateChanged;
+    }
+
+    void OnStateChanged()
+    {
+        if (State.EngineCount > 0)
+        {
+            _status = State.Phase == Phase.Play ? EngineStatus.Playing : EngineStatus.Ready;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    Color GetPhaseColor() => State.Phase switch
+    {
+        Phase.Lobby => Color.Default,
+        Phase.Start => Color.Info,
+        Phase.Hint => Color.Info,
+        Phase.Guessing => Color.Warning,
+        Phase.Lock => Color.Warning,
+        Phase.Play => Color.Success,
+        Phase.Finished => Color.Default,
+        _ => Color.Default
+    };
+
+    async Task PingAsync()
+    {
+        if (State.BackendBaseUri is null || string.IsNullOrWhiteSpace(State.SessionCode))
+        {
+            _lastMessage = "Backend or session not set.";
+            _status = EngineStatus.Error;
+            StateHasChanged();
+            return;
+        }
+        _isPinging = true;
+        _lastMessage = "Pinging...";
+        StateHasChanged();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try
+        {
+            var http = State.CreateClient();
+            var resp = await http.GetAsync($"/api/sessions/{Uri.EscapeDataString(State.SessionCode!)}/counts", cts.Token);
+            if (resp.IsSuccessStatusCode)
+            {
+                _status = State.Phase == Phase.Play ? EngineStatus.Playing : (State.EngineCount > 0 ? EngineStatus.Ready : EngineStatus.Error);
+                _lastMessage = "Connection OK";
+            }
+            else
+            {
+                _status = EngineStatus.Error;
+                _lastMessage = $"Ping failed: {(int)resp.StatusCode}";
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            _status = EngineStatus.Error;
+            _lastMessage = "Ping timeout";
+        }
+        catch (Exception ex)
+        {
+            _status = EngineStatus.Error;
+            _lastMessage = ex.Message;
+        }
+        finally
+        {
+            _isPinging = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= OnStateChanged;
+    }
+}

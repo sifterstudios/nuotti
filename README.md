@@ -132,6 +132,13 @@ You can run projects individually in separate terminals.
   - `dotnet run --project Nuotti.Audience`
   - Navigate to the URL shown in the console (typically http://localhost:5xxx).
 
+- Performer (Blazor Server app):
+  - `dotnet run --project Nuotti.Performer`
+  - Then open the shown URL and enter your Backend URL (e.g., http://localhost:5240) and Session code (or create a new session).
+  - The Performer UI was scaffolded following patterns from HAVIT's NewProjectTemplate-Blazor:
+    - Repo: https://github.com/havit/NewProjectTemplate-Blazor
+    - Docs: https://github.com/havit/NewProjectTemplate-Blazor/blob/master/doc/README.md
+
 - Projector:
   - `dotnet run --project Nuotti.Projector`
 

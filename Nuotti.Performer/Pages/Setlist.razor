@@ -1,0 +1,387 @@
+﻿@page "/setlist"
+@using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Message
+@using System.ComponentModel.DataAnnotations
+@inject IManifestService Manifest
+@inject HttpClient Http
+@inject PerformerUiState State
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Class="mb-4">Setlist Manager</MudText>
+
+<MudPaper Elevation="3" Class="pa-4">
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="6" lg="4">
+            <MudTextField @bind-Value="SessionCode" Label="Session Code" Variant="Variant.Outlined" 
+                          Placeholder="Enter session code" />
+        </MudItem>
+        <MudItem xs="12" md="6" lg="8">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Style="height: 100%">
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Class="btn btn-secondary"
+                           StartIcon="@Material.Filled.Add"
+                           OnClick="Add">
+                    Add Row
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="btn btn-primary"
+                           StartIcon="@Material.Filled.Save"
+                           OnClick="SaveAsync" Disabled="@HasInvalidRows">
+                    Save
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" 
+                           StartIcon="@Material.Filled.Refresh"
+                           OnClick="ReloadAsync">
+                    Reload
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                           StartIcon="@Material.Filled.Upload"
+                           OnClick="UploadAsync" 
+                           Disabled="@(HasInvalidRows || string.IsNullOrWhiteSpace(SessionCode))">
+                    Upload
+                </MudButton>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+
+    @if (HasInvalidRows)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">Fix validation errors before saving.</MudAlert>
+    }
+
+    @if (!string.IsNullOrEmpty(ServerError))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" CloseIcon="@Material.Filled.Close" CloseIconClicked="@(() => ServerError = null)">
+            @ServerError
+        </MudAlert>
+    }
+
+    <MudTable Items="@Items" Dense="true" Hover="true" Striped="true" FixedHeader="true" Height="calc(100vh - 400px)">
+        <HeaderContent>
+            <MudTh>#</MudTh>
+            <MudTh>Title</MudTh>
+            <MudTh>Artist</MudTh>
+            <MudTh Style="width:100px">BPM</MudTh>
+            <MudTh>File URL/Path</MudTh>
+            <MudTh Style="width:300px">Hints</MudTh>
+            <MudTh Style="width:80px">Status</MudTh>
+            <MudTh Style="width:200px">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            @{
+                var index = Items.IndexOf(context);
+                var hasErrors = RowErrors.Count > index && RowErrors[index].Count > 0;
+            }
+            <MudTd DataLabel="#">@(index + 1)</MudTd>
+            <MudTd DataLabel="Title">
+                <MudTextField @bind-Value="context.Title" Variant="Variant.Outlined" Dense="true" 
+                             Margin="Margin.Dense" Error="@hasErrors" />
+            </MudTd>
+            <MudTd DataLabel="Artist">
+                <MudTextField @bind-Value="context.Artist" Variant="Variant.Outlined" Dense="true" 
+                              Margin="Margin.Dense" />
+            </MudTd>
+            <MudTd DataLabel="BPM">
+                <MudNumericField @bind-Value="context.Bpm" Variant="Variant.Outlined" Dense="true" 
+                                 Margin="Margin.Dense" Min="0" Max="300" />
+            </MudTd>
+            <MudTd DataLabel="File">
+                <MudTextField @bind-Value="context.File" Variant="Variant.Outlined" Dense="true" 
+                             Margin="Margin.Dense" Error="@hasErrors" />
+            </MudTd>
+            <MudTd DataLabel="Hints">
+                <MudStack Spacing="1">
+                    @for (int h = 0; h < (context.Hints?.Count ?? 0); h++)
+                    {
+                        var hintIdx = h;
+                        <MudStack Row="true" Spacing="1">
+                            <MudTextField Value="@context.Hints[hintIdx]" 
+                                          ValueChanged="@((string val) => { context.Hints[hintIdx] = val; UpdateHintsJoined(index); Revalidate(); })"
+                                          Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense" />
+                            <MudIconButton Title="Up" Icon="@Material.Filled.ArrowUpward" Size="Size.Small" 
+                                           OnClick="@(() => MoveHintUp(index, hintIdx))" 
+                                           Disabled="@(hintIdx == 0)" />
+                            <MudIconButton Title="Down" Icon="@Material.Filled.ArrowDownward" Size="Size.Small" 
+                                           OnClick="@(() => MoveHintDown(index, hintIdx))" 
+                                           Disabled="@(hintIdx == context.Hints.Count - 1)" />
+                            <MudIconButton Title="Delete" Icon="@Material.Filled.Delete" Size="Size.Small" Color="Color.Error" 
+                                           OnClick="@(() => RemoveHint(index, hintIdx))" />
+                        </MudStack>
+                    }
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" 
+                               StartIcon="@Material.Filled.Add"
+                               OnClick="@(() => AddHint(index))">
+                        Add Hint
+                    </MudButton>
+                </MudStack>
+            </MudTd>
+            <MudTd DataLabel="Status">
+                @if (IsAvailable(context))
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Material.Filled.Check">OK</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Material.Filled.Error">Missing</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Actions">
+                <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined">
+                    <MudIconButton Icon="@Material.Filled.ArrowUpward" 
+                                   OnClick="@(() => MoveUp(index))" 
+                                   Disabled="@(index == 0)" />
+                    <MudIconButton Icon="@Material.Filled.ArrowDownward" 
+                                   OnClick="@(() => MoveDown(index))" 
+                                   Disabled="@(index == Items.Count - 1)" />
+                    <MudIconButton Icon="@Material.Filled.Delete" Color="Color.Error" 
+                                   OnClick="@(() => Remove(index))" />
+                    <MudIconButton Class="btn btn-sm btn-success" Icon="@Material.Filled.PlayArrow" Color="Color.Success" 
+                                   OnClick="@(() => PlayAsync(context))" 
+                                   Disabled="@(!CanPlay(context))" />
+                    <MudIconButton Class="btn btn-sm btn-outline-danger" Icon="@Material.Filled.Stop" Color="Color.Error" 
+                                   OnClick="StopAsync" 
+                                   Disabled="@(!CanStop)" />
+                </MudButtonGroup>
+                @if (hasErrors)
+                {
+                    <MudTooltip Text="@string.Join(", ", RowErrors[index].Select(e => e.ErrorMessage))">
+                        <MudIcon Icon="@Material.Filled.Warning" Color="Color.Warning" Size="Size.Small" />
+                    </MudTooltip>
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudPaper>
+
+@code {
+    public List<PerformerManifest.SongEntry> Items { get; set; } = new();
+    public List<string> HintsJoined { get; set; } = new();
+    public List<List<ValidationResult>> RowErrors { get; set; } = new();
+
+    public string? Status { get; set; }
+    public string? ServerError { get; set; }
+    public string SessionCode { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+    }
+
+    void ComputeRowErrors()
+    {
+        RowErrors = new List<List<ValidationResult>>(Items.Count);
+        for (int i = 0; i < Items.Count; i++)
+        {
+            var item = Items[i];
+            var results = new List<ValidationResult>();
+            Validator.TryValidateObject(item, new ValidationContext(item), results, true);
+            RowErrors.Add(results);
+        }
+    }
+
+    void Revalidate()
+    {
+        ComputeRowErrors();
+        StateHasChanged();
+    }
+
+    bool HasInvalidRows => RowErrors.Any(list => list.Count > 0);
+
+    void Add()
+    {
+        Items.Add(new PerformerManifest.SongEntry());
+        HintsJoined.Add(string.Empty);
+        RowErrors.Add(new());
+        Revalidate();
+    }
+
+    void Remove(int index)
+    {
+        Items.RemoveAt(index);
+        HintsJoined.RemoveAt(index);
+        if (RowErrors.Count > index) RowErrors.RemoveAt(index);
+        Revalidate();
+    }
+
+    void MoveUp(int index)
+    {
+        if (index <= 0) return;
+        (Items[index-1], Items[index]) = (Items[index], Items[index-1]);
+        (HintsJoined[index-1], HintsJoined[index]) = (HintsJoined[index], HintsJoined[index-1]);
+        if (RowErrors.Count == Items.Count)
+            (RowErrors[index-1], RowErrors[index]) = (RowErrors[index], RowErrors[index-1]);
+        Revalidate();
+    }
+
+    void MoveDown(int index)
+    {
+        if (index >= Items.Count - 1) return;
+        (Items[index+1], Items[index]) = (Items[index], Items[index+1]);
+        (HintsJoined[index+1], HintsJoined[index]) = (HintsJoined[index], HintsJoined[index+1]);
+        if (RowErrors.Count == Items.Count)
+            (RowErrors[index+1], RowErrors[index]) = (RowErrors[index], RowErrors[index+1]);
+        Revalidate();
+    }
+
+    void UpdateHintsJoined(int index)
+    {
+        HintsJoined[index] = string.Join(", ", Items[index].Hints ?? new());
+    }
+
+    void AddHint(int songIndex)
+    {
+        Items[songIndex].Hints ??= new();
+        Items[songIndex].Hints.Add(string.Empty);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    void RemoveHint(int songIndex, int hintIndex)
+    {
+        if (Items[songIndex].Hints is null) return;
+        if (hintIndex < 0 || hintIndex >= Items[songIndex].Hints.Count) return;
+        Items[songIndex].Hints.RemoveAt(hintIndex);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    void MoveHintUp(int songIndex, int hintIndex)
+    {
+        if (Items[songIndex].Hints is null) return;
+        if (hintIndex <= 0 || hintIndex >= Items[songIndex].Hints.Count) return;
+        (Items[songIndex].Hints[hintIndex-1], Items[songIndex].Hints[hintIndex]) = (Items[songIndex].Hints[hintIndex], Items[songIndex].Hints[hintIndex-1]);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    void MoveHintDown(int songIndex, int hintIndex)
+    {
+        if (Items[songIndex].Hints is null) return;
+        if (hintIndex < 0 || hintIndex >= Items[songIndex].Hints.Count - 1) return;
+        (Items[songIndex].Hints[hintIndex+1], Items[songIndex].Hints[hintIndex]) = (Items[songIndex].Hints[hintIndex], Items[songIndex].Hints[hintIndex+1]);
+        UpdateHintsJoined(songIndex);
+        Revalidate();
+    }
+
+    async Task ReloadAsync()
+    {
+        var manifest = await Manifest.LoadAsync();
+        Items = manifest.Songs;
+        HintsJoined = manifest.Songs.Select(s => string.Join(", ", s.Hints ?? new())).ToList();
+        ComputeRowErrors();
+        Snackbar.Add($"Loaded {Items.Count} song(s).", Severity.Info);
+        StateHasChanged();
+    }
+
+    bool IsAvailable(PerformerManifest.SongEntry song) => AudioStorage.IsAvailable(song);
+
+    async Task SaveAsync()
+    {
+        ComputeRowErrors();
+        if (HasInvalidRows)
+        {
+            Snackbar.Add("Cannot save: invalid rows detected.", Severity.Error);
+            return;
+        }
+        var manifest = new PerformerManifest { Songs = Items };
+        await Manifest.SaveAsync(manifest);
+        Snackbar.Add("Saved successfully.", Severity.Success);
+    }
+
+    bool IsEnginePlaying => State.Phase == Phase.Play && State.EngineCount > 0;
+    bool CanPlay(PerformerManifest.SongEntry song) => !string.IsNullOrWhiteSpace(SessionCode) && IsAvailable(song) && State.EngineCount > 0;
+    bool CanStop => State.EngineCount > 0 && IsEnginePlaying;
+
+    async Task PlayAsync(PerformerManifest.SongEntry song)
+    {
+        if (!CanPlay(song)) return;
+        try
+        {
+            var cmd = new PlayTrack(song.File)
+            {
+                IssuedByRole = Role.Performer,
+                IssuedById = "performer-ui",
+                SessionCode = SessionCode
+            };
+            var resp = await Http.PostAsJsonAsync($"/api/play/{Uri.EscapeDataString(SessionCode)}", cmd);
+            if ((int)resp.StatusCode == 202)
+            {
+                Snackbar.Add($"Playing: {song.Title}", Severity.Success);
+            }
+            else
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                ServerError = $"Play failed ({(int)resp.StatusCode}): {text}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ServerError = ex.Message;
+        }
+    }
+
+    async Task StopAsync()
+    {
+        if (!CanStop) return;
+        try
+        {
+            var cmd = new StopTrack
+            {
+                IssuedByRole = Role.Performer,
+                IssuedById = "performer-ui",
+                SessionCode = SessionCode
+            };
+            var resp = await Http.PostAsJsonAsync($"/api/stop/{Uri.EscapeDataString(SessionCode)}", cmd);
+            if ((int)resp.StatusCode == 202)
+            {
+                Snackbar.Add("Stopped.", Severity.Success);
+            }
+            else
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                ServerError = $"Stop failed ({(int)resp.StatusCode}): {text}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ServerError = ex.Message;
+        }
+    }
+
+    async Task UploadAsync()
+    {
+        ServerError = null;
+        ComputeRowErrors();
+        if (HasInvalidRows)
+        {
+            Snackbar.Add("Cannot upload: invalid rows detected.", Severity.Error);
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(SessionCode))
+        {
+            ServerError = "Session code is required.";
+            return;
+        }
+
+        try
+        {
+            var payload = new
+            {
+                songs = Items.Select(s => new { title = s.Title, artist = s.Artist, file = s.File, hints = (IEnumerable<string>)(s.Hints ?? new()) }).ToList()
+            };
+            var resp = await Http.PostAsJsonAsync($"/api/manifest/{SessionCode}", payload);
+            if ((int)resp.StatusCode == 202)
+            {
+                Snackbar.Add($"Uploaded {Items.Count} song(s) to session {SessionCode}.", Severity.Success);
+                ServerError = null;
+            }
+            else
+            {
+                var text = await resp.Content.ReadAsStringAsync();
+                ServerError = $"Upload failed ({(int)resp.StatusCode}): {text}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ServerError = ex.Message;
+        }
+    }
+}

@@ -1,0 +1,23 @@
+﻿@using Microsoft.AspNetCore.Components.Routing
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16">
+                <MudPaper Elevation="3" Class="pa-8" Style="text-align: center;">
+                    <MudIcon Icon="@Material.Filled.SearchOff" Size="Size.Large" Color="Color.Error" Style="font-size: 4rem;" />
+                    <MudText Typo="Typo.h4" Class="mt-4">Page Not Found</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+                        Sorry, there's nothing at this address.
+                    </MudText>
+                    <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" Class="mt-6" StartIcon="@Material.Filled.Home">
+                        Go to Dashboard
+                    </MudButton>
+                </MudPaper>
+            </MudContainer>
+        </LayoutView>
+    </NotFound>
+</Router>

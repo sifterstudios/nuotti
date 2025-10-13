@@ -1,0 +1,257 @@
+﻿@page "/"
+@inject SessionSelectionService SessionSvc
+@inject PerformerUiState LiveState
+@using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Model
+@implements IAsyncDisposable
+
+<MudText Typo="Typo.h3" Class="mb-4">Dashboard</MudText>
+
+@if (SessionSvc.State == UiState.Select)
+{
+    <MudGrid>
+        <MudItem xs="12" md="8" lg="6">
+            <MudPaper Elevation="3" Class="pa-6">
+                <MudText Typo="Typo.h5" Class="mb-4">Session Setup</MudText>
+                <MudText Typo="Typo.body1" Class="mb-6">Select an existing session or create a new one for the show.</MudText>
+
+                <MudTextField @bind-Value="backendUrl" Label="Backend URL" Variant="Variant.Outlined" 
+                              Placeholder="http://localhost:5000" Class="mb-4" />
+
+                @if (!string.IsNullOrWhiteSpace(SessionSvc.LastSessionCode))
+                {
+                    <MudSelect T="string" Label="Session Picker" Variant="Variant.Outlined" 
+                               ValueChanged="OnSessionSelected" Class="mb-4">
+                        <MudSelectItem T="string" Value="@string.Empty">-- choose --</MudSelectItem>
+                        <MudSelectItem T="string" Value="@SessionSvc.LastSessionCode">Last: @SessionSvc.LastSessionCode</MudSelectItem>
+                    </MudSelect>
+                }
+
+                <MudTextField @bind-Value="sessionCode" Label="Or Enter Session Code" Variant="Variant.Outlined" 
+                              Placeholder="e.g. ABC123" Class="mb-4" />
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                               StartIcon="@Material.Filled.Add"
+                               OnClick="CreateSessionAsync" Disabled="@isBusy">
+                        Create Session
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                               StartIcon="@Material.Filled.Link"
+                               OnClick="ConnectAsync" 
+                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl))">
+                        Use Selected / Connect
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4" lg="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Quick Tips</MudText>
+                <MudList T="string" Dense="true">
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Enter your backend server URL</MudListItem>
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Create a new session or use an existing code</MudListItem>
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Ensure all performers are ready before starting</MudListItem>
+                </MudList>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" lg="8">
+            <MudPaper Elevation="3" Class="pa-6 mb-4">
+                <MudText Typo="Typo.h5" Class="mb-3">Session Control</MudText>
+                
+                <MudAlert Severity="@(isConnected ? Severity.Success : Severity.Info)" Class="mb-4">
+                    <MudText>Session: <strong>@(sessionCode ?? SessionSvc.LastSessionCode)</strong></MudText>
+                    <MudText>Status: <strong>@(isConnected ? "Connected" : "Disconnected")</strong></MudText>
+                </MudAlert>
+
+                <MudStack Row="true" Spacing="2" Class="mb-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                               StartIcon="@Material.Filled.Link"
+                               OnClick="ConnectAsync" 
+                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode) || string.IsNullOrWhiteSpace(backendUrl))">
+                        Connect
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning" 
+                               StartIcon="@Material.Filled.LinkOff"
+                               OnClick="DisconnectAsync" 
+                               Disabled="@(!isConnected)">
+                        Disconnect
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+
+            <ControlPanel />
+        </MudItem>
+
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="2">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">Session Statistics</MudText>
+                    <MudStack Spacing="2">
+                        <MudChip T="string" Icon="@Material.Filled.Tv" Color="@(LiveState.ProjectorCount > 0 ? Color.Success : Color.Default)">
+                            Projectors: @LiveState.ProjectorCount
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.VolumeUp" Color="@(LiveState.EngineCount > 0 ? Color.Success : Color.Default)">
+                            Engines: @LiveState.EngineCount
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.People" Color="@(LiveState.AudienceCount > 0 ? Color.Success : Color.Default)">
+                            Audience: @LiveState.AudienceCount
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.MusicNote" Color="Color.Info">
+                            Song: @LiveState.SongIndex
+                        </MudChip>
+                        <MudChip T="string" Icon="@Material.Filled.Lightbulb" Color="Color.Info">
+                            Hint: @LiveState.HintIndex
+                        </MudChip>
+                    </MudStack>
+                </MudPaper>
+
+                <TroubleshootingTools />
+                <ProjectorPreview />
+
+                @if (LiveState.CurrentSong is not null)
+                {
+                    <MudPaper Elevation="2" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-2">Current Song</MudText>
+                        <MudText Typo="Typo.body2"><strong>@LiveState.CurrentSong.Title</strong></MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@LiveState.CurrentSong.Artist</MudText>
+                    </MudPaper>
+                }
+
+                @if (LiveState.Phase == Phase.Lobby || LiveState.Phase == Phase.Start || LiveState.Phase == Phase.Finished)
+                {
+                    <ScoreboardPanel />
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+@if (!string.IsNullOrWhiteSpace(status))
+{
+    <MudAlert Severity="@(isConnected ? Severity.Success : Severity.Info)" Class="mt-4">@status</MudAlert>
+}
+
+@code {
+    string? backendUrl;
+    string? sessionCode;
+
+    bool isBusy;
+    bool isConnected;
+    string? status;
+
+    PerformerClient? client;
+
+    protected override void OnInitialized()
+    {
+        backendUrl = Environment.GetEnvironmentVariable("NUOTTI_BACKEND");
+        sessionCode = Environment.GetEnvironmentVariable("NUOTTI_SESSION") ?? SessionSvc.LastSessionCode;
+    }
+
+    void OnSessionSelected(string value)
+    {
+        sessionCode = value;
+    }
+
+    async Task CreateSessionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(backendUrl))
+        {
+            status = "Please enter Backend URL first.";
+            return;
+        }
+        try
+        {
+            isBusy = true;
+            StateHasChanged();
+            using var http = new HttpClient { BaseAddress = new Uri(backendUrl!, UriKind.Absolute) };
+            sessionCode = await SessionSvc.CreateNewSessionAsync(http, sessionCode);
+            status = $"Created session: {sessionCode}";
+        }
+        catch (Exception ex)
+        {
+            status = $"Failed to create session: {ex.Message}";
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    async Task ConnectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(backendUrl) || string.IsNullOrWhiteSpace(sessionCode))
+        {
+            status = "Enter Backend URL and Session code.";
+            return;
+        }
+
+        try
+        {
+            isBusy = true;
+            _ = client?.DisposeAsync().AsTask();
+            var backendUri = new Uri(backendUrl!, UriKind.Absolute);
+            client = new PerformerClient(backendUri, sessionCode!);
+            client.ConnectedChanged += OnConnectedChanged;
+            client.GameStateChanged += OnGameStateChanged;
+            LiveState.SetSession(sessionCode!, backendUri);
+            await client.EnsureConnectedAsync();
+            _ = LiveState.RefreshCountsAsync();
+            status = "Connected.";
+            SessionSvc.SelectExistingSession(sessionCode!);
+        }
+        catch (Exception ex)
+        {
+            status = $"Connection failed: {ex.Message}";
+            isConnected = false;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    async Task DisconnectAsync()
+    {
+        if (client is null)
+        {
+            status = "Not connected.";
+            return;
+        }
+        await client.DisconnectAsync();
+        status = "Disconnected.";
+    }
+
+    void OnConnectedChanged(bool connected)
+    {
+        isConnected = connected;
+        LiveState.SetConnection(connected);
+        if (connected)
+        {
+            _ = LiveState.RefreshCountsAsync();
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    void OnGameStateChanged(GameStateSnapshot snapshot)
+    {
+        LiveState.UpdateGameState(snapshot);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (client is not null)
+        {
+            client.ConnectedChanged -= OnConnectedChanged;
+            client.GameStateChanged -= OnGameStateChanged;
+            await client.DisposeAsync();
+        }
+    }
+}

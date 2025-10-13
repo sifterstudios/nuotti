@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <Sdk Name="Aspire.AppHost.Sdk" Version="9.1.0" />
+    <Sdk Name="Aspire.AppHost.Sdk" Version="9.4.2" />
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -12,9 +12,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Aspire.Hosting.AppHost" Version="9.1.0" />
+        <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.2" />
         <PackageReference Include="Avalonia.Desktop" Version="11.2.4" />
-        <PackageVersion Update="Aspire.Dashboard.Sdk.win-x64" Version="9.1.0" />
+        <PackageVersion Update="Aspire.Dashboard.Sdk.win-x64" Version="9.4.2" />
     </ItemGroup>
 
     <ItemGroup>
@@ -22,6 +22,7 @@
       <ProjectReference Include="..\Nuotti.AudioEngine\Nuotti.AudioEngine.csproj" />
       <ProjectReference Include="..\Nuotti.Backend\Nuotti.Backend.csproj" />
       <ProjectReference Include="..\Nuotti.Projector\Nuotti.Projector.csproj" />
+      <ProjectReference Include="..\Nuotti.Performer\Nuotti.Performer.csproj" />
     </ItemGroup>
 
 </Project>
