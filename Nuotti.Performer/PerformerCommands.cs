@@ -9,15 +9,13 @@ namespace Nuotti.Performer;
 
 public sealed class PerformerCommands
 {
-    private readonly IHttpClientFactory _httpFactory;
     private readonly ISnackbar _snackbar;
     private readonly PerformerUiState _state;
     private readonly CommandHistoryService _history;
     private readonly OfflineCommandQueue _offline;
 
-    public PerformerCommands(IHttpClientFactory httpFactory, ISnackbar snackbar, PerformerUiState state, CommandHistoryService history, OfflineCommandQueue offline)
+    public PerformerCommands(ISnackbar snackbar, PerformerUiState state, CommandHistoryService history, OfflineCommandQueue offline)
     {
-        _httpFactory = httpFactory;
         _snackbar = snackbar;
         _state = state;
         _history = history;

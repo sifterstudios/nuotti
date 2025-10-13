@@ -2,14 +2,11 @@
 @using Nuotti.Contracts.V1
 @using Nuotti.Contracts.V1.Model
 @inherits LayoutComponentBase
-@inject ThemeService ThemeService
 @inject PerformerUiState State
 @inject OfflineCommandQueue OfflineQueue
-@inject IHttpClientFactory HttpFactory
 @inject ISnackbar Snackbar
 @inject CommandHistoryService History
 @inject KeyboardShortcutsService Keybd
-@inject CommandPaletteService Palette
 @inject PerformerCommands Commands
 @inject IDialogService Dialogs
 @inject IServiceProvider Services
@@ -75,7 +72,9 @@
                 </MudNavLink>
             </MudNavGroup>
             <MudNavGroup Title="Help" Icon="@Material.Filled.HelpOutline" Expanded="false">
-                <MudNavLink Icon="@Material.Filled.Tour" OnClick="OpenTour">Show Tour</MudNavLink>
+                <a class="mud-nav-link" href="#" @onclick="OpenTour">
+                    <span class="mud-nav-link-text">Show Tour</span>
+                </a>
             </MudNavGroup>
         </MudNavMenu>
     </MudDrawer>
@@ -107,15 +106,22 @@
     private MudThemeProvider? _mudThemeProvider;
     private MudTheme _theme = null!;
     private bool _isDarkMode;
+    private CommandPaletteService? _palette;
+    private ThemeService _themeService = new ThemeService();
 
     protected override void OnInitialized()
     {
-        _theme = ThemeService.GetTheme();
-        _isDarkMode = ThemeService.IsDarkMode;
-        ThemeService.OnThemeChanged += OnThemeChanged;
+        if (Services.GetService(typeof(ThemeService)) is ThemeService ts)
+        {
+            _themeService = ts;
+        }
+        _theme = _themeService.GetTheme();
+        _isDarkMode = _themeService.IsDarkMode;
+        _themeService.OnThemeChanged += OnThemeChanged;
         State.Changed += OnStateChanged;
         OfflineQueue.Changed += OnQueueChanged;
-        Palette.ExecuteRequested += OnPaletteExecuteRequested;
+        _palette = Services.GetService(typeof(CommandPaletteService)) as CommandPaletteService;
+        if (_palette is not null) _palette.ExecuteRequested += OnPaletteExecuteRequested;
         _tour = Services.GetService(typeof(ITourService)) as ITourService;
     }
 
@@ -154,8 +160,7 @@
     private async Task FlushQueueAsync()
     {
         if (State.BackendBaseUri is null) return;
-        var http = HttpFactory.CreateClient();
-        http.BaseAddress = State.BackendBaseUri;
+        var http = State.CreateClient();
         await OfflineQueue.FlushAsync(async (route, cmd) =>
         {
             var url = $"/v1/message/phase/{route}/{Uri.EscapeDataString(State.SessionCode!)}";
@@ -167,7 +172,7 @@
 
     private void OnThemeChanged()
     {
-        _isDarkMode = ThemeService.IsDarkMode;
+        _isDarkMode = _themeService.IsDarkMode;
         InvokeAsync(StateHasChanged);
     }
 
@@ -183,7 +188,7 @@
 
     private void ToggleTheme()
     {
-        ThemeService.ToggleTheme();
+        _themeService.ToggleTheme();
     }
 
     private Task OpenTourAsync()
@@ -207,7 +212,7 @@
         var key = (e.Key ?? string.Empty).ToLowerInvariant();
         if (e.CtrlKey && key == "k")
         {
-            Palette.Open();
+            _palette?.Open();
             // Prevent further handling
         }
     }
@@ -265,10 +270,10 @@
 
     public void Dispose()
     {
-        ThemeService.OnThemeChanged -= OnThemeChanged;
+        _themeService.OnThemeChanged -= OnThemeChanged;
         State.Changed -= OnStateChanged;
         OfflineQueue.Changed -= OnQueueChanged;
-        Palette.ExecuteRequested -= OnPaletteExecuteRequested;
+        if (_palette is not null) _palette.ExecuteRequested -= OnPaletteExecuteRequested;
     }
 }
 </div>

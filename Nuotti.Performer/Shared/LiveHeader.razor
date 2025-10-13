@@ -1,6 +1,5 @@
 ﻿@using Nuotti.Contracts.V1.Enum
 @inject PerformerUiState State
-@inject IHttpClientFactory HttpFactory
 
 <MudChip T="string" Color="@GetPhaseColor()" Size="Size.Small" Class="mr-2">@State.Phase</MudChip>
 
@@ -66,8 +65,7 @@
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         try
         {
-            var http = HttpFactory.CreateClient();
-            http.BaseAddress = State.BackendBaseUri;
+            var http = State.CreateClient();
             var resp = await http.GetAsync($"/api/sessions/{Uri.EscapeDataString(State.SessionCode!)}/counts", cts.Token);
             if (resp.IsSuccessStatusCode)
             {
