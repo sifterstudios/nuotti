@@ -1,12 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using Xunit;
-
 namespace Nuotti.Backend.Tests;
 
-public class HealthEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class HealthEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory = factory.WithWebHostBuilder(_ => { });
+    readonly WebApplicationFactory<QuizHub> _factory = factory.WithWebHostBuilder(_ => { });
 
     [Fact]
     public async Task Liveness_Returns200()

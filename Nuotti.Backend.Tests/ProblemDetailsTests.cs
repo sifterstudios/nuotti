@@ -10,9 +10,9 @@ using System.Text.Json;
 using Xunit;
 namespace Nuotti.Backend.Tests;
 
-public class ProblemDetailsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class ProblemDetailsTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory = factory.WithWebHostBuilder(_ => { });
+    readonly WebApplicationFactory<QuizHub> _factory = factory.WithWebHostBuilder(_ => { });
 
     [Theory]
     [InlineData("400", 400, ReasonCode.InvalidStateTransition, "name", "Invalid input")]

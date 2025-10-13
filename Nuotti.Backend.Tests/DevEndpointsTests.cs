@@ -1,15 +1,14 @@
-﻿using System.Net;
+﻿using Microsoft.AspNetCore.Mvc.Testing;
+using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
-
 namespace Nuotti.Backend.Tests;
 
-public class DevEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public class DevEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory;
+    readonly WebApplicationFactory<QuizHub> _factory;
 
-    public DevEndpointsTests(WebApplicationFactory<Program> factory)
+    public DevEndpointsTests(WebApplicationFactory<QuizHub> factory)
     {
         _factory = factory.WithWebHostBuilder(_ => { }); // default env (Development in tests)
     }

@@ -4,9 +4,9 @@ using System.Net;
 using Xunit;
 namespace Nuotti.Backend.Tests;
 
-public class CorsAndSignalRTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class CorsAndSignalRTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory = factory.WithWebHostBuilder(_ => { /* ensure default Development env */ });
+    readonly WebApplicationFactory<QuizHub> _factory = factory.WithWebHostBuilder(_ => { /* ensure default Development env */ });
 
     [Fact]
     public async Task Dev_Preflight_Allows_Localhost_Origin_And_Credentials()

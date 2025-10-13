@@ -5,14 +5,13 @@ using Nuotti.Contracts.V1.Model;
 using System.Net;
 using System.Net.Http.Json;
 using Xunit;
-
 namespace Nuotti.Backend.Tests;
 
-public class StatusEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
+public class StatusEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly WebApplicationFactory<QuizHub> _factory;
 
-    public StatusEndpointsTests(WebApplicationFactory<Program> factory)
+    public StatusEndpointsTests(WebApplicationFactory<QuizHub> factory)
     {
         _factory = factory.WithWebHostBuilder(_ => { });
     }

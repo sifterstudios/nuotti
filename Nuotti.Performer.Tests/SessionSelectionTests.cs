@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Nuotti.Backend;
 using Xunit;
 namespace Nuotti.Performer.Tests;
 
-public class SessionSelectionTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class SessionSelectionTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory = factory.WithWebHostBuilder(_ => { /* default dev env */ });
+    readonly WebApplicationFactory<QuizHub> _factory = factory.WithWebHostBuilder(_ => { /* default dev env */ });
 
     [Fact]
     public async Task CreateNewSession_ReturnsCode_And_SwitchesToControlView()

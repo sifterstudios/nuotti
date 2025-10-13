@@ -5,9 +5,9 @@ using System.Net.Http.Json;
 using Xunit;
 namespace Nuotti.Backend.Tests;
 
-public class ManifestEndpointsTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class ManifestEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>
 {
-    readonly WebApplicationFactory<Program> _factory = factory.WithWebHostBuilder(_ => { });
+    readonly WebApplicationFactory<QuizHub> _factory = factory.WithWebHostBuilder(_ => { });
 
     [Fact]
     public async Task Manifest_Invalid_EmptySongs_Returns422()
