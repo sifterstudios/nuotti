@@ -27,7 +27,7 @@ jobs:
         run: dotnet build Nuotti.SimKit/Nuotti.SimKit.csproj -c Release --no-restore
 
       - name: Run tests
-        run: dotnet test Nuotti.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
+        run: dotnet test Nuotti.sln -c Release --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults"
 
       - name: Run SimKit baseline (headless)
         run: |

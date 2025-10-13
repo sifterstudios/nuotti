@@ -22,8 +22,17 @@ jobs:
       - name: Install Playwright Browsers
         shell: pwsh
         run: |
-          $env:Path += ";$env:USERPROFILE\.dotnet\tools"
-          dotnet playwright install
+          # Ensure the global tool path is available and invoke Playwright via absolute path
+          $toolPath = Join-Path $env:USERPROFILE ".dotnet/tools"
+          $playwrightCmd = Join-Path $toolPath "playwright.cmd"
+          if (-not (Test-Path $playwrightCmd)) {
+            Write-Host "Playwright CLI not found at $playwrightCmd. Listing tools directory contents for debugging:"
+            Get-ChildItem -Path $toolPath -Force | Format-List -Property Name,FullName
+            throw "Playwright CLI shim not found. Ensure the previous 'Install Playwright CLI' step succeeded."
+          }
+          & $playwrightCmd install --with-deps
+          # Persist tools path for subsequent steps if needed
+          "$toolPath" | Out-File -FilePath $env:GITHUB_PATH -Append
       - name: Test
         env:
           PATH: ${{ env.PATH }};${{ runner.tool_cache }}\playwright\win32_x64;${{ runner.temp }}
