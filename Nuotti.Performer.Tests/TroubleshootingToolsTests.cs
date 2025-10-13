@@ -55,7 +55,6 @@ public class TroubleshootingToolsTests : MudTestContext
         typeof(PerformerUiState).GetProperty("EngineCount")!.SetValue(state, 1);
         typeof(PerformerUiState).GetProperty("AudienceCount")!.SetValue(state, 5);
         Services.AddSingleton(state);
-        Services.AddMudServices();
 
         var cut = RenderComponent<TroubleshootingTools>();
         var copyBtn = cut.FindAll("button").First(b => b.TextContent.Contains("Copy diagnostics"));
