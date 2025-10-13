@@ -103,6 +103,38 @@ connection.On("TrackStopped", async () =>
     }
 });
 
+// Ping/Echo: respond quickly with engine timestamp
+connection.On<long>("Ping", async clientTicks =>
+{
+    try
+    {
+        var engineTicks = DateTimeOffset.UtcNow.Ticks;
+        await connection.InvokeAsync("Echo", session, clientTicks, engineTicks);
+    }
+    catch (Exception ex)
+    {
+        Log($"Error replying to Ping: {ex.Message}");
+    }
+});
+
+// Heartbeat: every 5s emit current engine status (Ready|Playing)
+async Task RunHeartbeatAsync(CancellationToken token)
+{
+    while (!token.IsCancellationRequested)
+    {
+        try
+        {
+            var status = player.IsPlaying ? EngineStatus.Playing : EngineStatus.Ready;
+            await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(status), token);
+        }
+        catch (TaskCanceledException) { }
+        catch (Exception ex)
+        {
+            Log($"Heartbeat error: {ex.Message}");
+        }
+        try { await Task.Delay(TimeSpan.FromSeconds(5), token); } catch { }
+    }
+}
 
 try
 {
@@ -110,6 +142,7 @@ try
     await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
     // Emit initial status: Ready
     await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready), cancellationToken: cts.Token);
+    _ = RunHeartbeatAsync(cts.Token);
     Log("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
     await Task.Delay(-1, cts.Token);
 }
