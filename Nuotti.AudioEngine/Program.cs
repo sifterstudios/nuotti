@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -123,7 +124,9 @@ connection.On<PlayTrack>("PlayTrack", cmd =>
 try
 {
     await connection.StartAsync(cts.Token);
-    await connection.InvokeAsync("Join", session,"performer", null,  cancellationToken: cts.Token);
+    await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
+    // Emit initial status: Ready
+    await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready), cancellationToken: cts.Token);
     Log("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
     await Task.Delay(-1, cts.Token);
 }
