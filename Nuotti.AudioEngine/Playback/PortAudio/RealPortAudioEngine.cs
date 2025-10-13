@@ -11,6 +11,8 @@ public sealed class RealPortAudioEngine : IPortAudioEngine
 {
     private readonly SimulatedPortAudioEngine _fallback = new();
 
+    public double ReportedLatencyMs => 0d;
+
     // Reflection-captured members
     private Assembly? _paAssembly;
     private Type? _paType; // e.g. PortAudioSharp.PortAudio

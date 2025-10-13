@@ -179,7 +179,8 @@ async Task RunHeartbeatAsync(CancellationToken token)
         try
         {
             var status = player.IsPlaying ? EngineStatus.Playing : EngineStatus.Ready;
-            await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(status), token);
+            var lat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
+            await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(status, lat), token);
         }
         catch (TaskCanceledException) { }
         catch (Exception ex)
@@ -195,7 +196,8 @@ try
     await connection.StartAsync(cts.Token);
     await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
     // Emit initial status: Ready
-    await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready), cancellationToken: cts.Token);
+    var initLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
+    await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, initLat), cancellationToken: cts.Token);
     _ = RunHeartbeatAsync(cts.Token);
     Log("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
     await Task.Delay(-1, cts.Token);
@@ -223,7 +225,8 @@ finally
         catch { }
         try
         {
-            await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready));
+            var shutLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
+            await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, shutLat));
         }
         catch { }
     }

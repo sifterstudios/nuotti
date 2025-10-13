@@ -28,14 +28,15 @@ public sealed class EngineCoordinator
         _player.Started += async (_, __) =>
         {
             try { if (_click?.Enabled == true) _click.Start(); } catch { /* ignore click errors for now */ }
-            await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Playing));
+            var lat = (_player as IHasLatency)?.OutputLatencyMs ?? 0d;
+            await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Playing, lat));
         };
         _player.Stopped += async (_, __) =>
         {
             try { _click?.Stop(); } catch { /* ignore */ }
-            await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Ready));
+            await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Ready, 0));
         };
-        _player.Error += async (_, __) => await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Error));
+        _player.Error += async (_, __) => await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Error, 0));
     }
 
     public async Task OnTrackPlayRequested(string fileUrl, CancellationToken cancellationToken = default)
@@ -53,7 +54,7 @@ public sealed class EngineCoordinator
                 {
                     try { await _problemSink.PublishAsync(problem, cancellationToken); } catch { /* ignore */ }
                 }
-                await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Error), cancellationToken);
+                await _sink.PublishAsync(new EngineStatusChanged(EngineStatus.Error, 0), cancellationToken);
                 return;
             }
             if (!string.IsNullOrWhiteSpace(pre.NormalizedUrl))

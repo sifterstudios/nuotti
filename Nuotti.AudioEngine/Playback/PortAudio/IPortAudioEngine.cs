@@ -28,4 +28,9 @@ public interface IPortAudioEngine
 
     /// <summary>Closes/releases any resources.</summary>
     void Close();
+
+    /// <summary>
+    /// Reported stream latency from the underlying API in milliseconds, if available; otherwise 0.
+    /// </summary>
+    double ReportedLatencyMs { get; }
 }

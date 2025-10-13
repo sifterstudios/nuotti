@@ -4,7 +4,7 @@ using Nuotti.AudioEngine.Playback.Routing;
 namespace Nuotti.AudioEngine.Playback;
 
 // Minimal in-process player that uses a pluggable PortAudio engine (simulated or real).
-public sealed class PortAudioPlayer : IAudioPlayer, IDisposable
+public sealed class PortAudioPlayer : IAudioPlayer, IHasLatency, IDisposable
 {
     private readonly IAudioDecoder _decoder;
     private readonly IChannelRouter _router;
@@ -16,6 +16,14 @@ public sealed class PortAudioPlayer : IAudioPlayer, IDisposable
     private CancellationTokenSource? _playCts;
     private Task? _playTask;
     private bool _disposed;
+
+    private int _framesPerBufferForLatency;
+    private int _sampleRateForLatency;
+
+    public double OutputLatencyMs
+        => (_framesPerBufferForLatency > 0 && _sampleRateForLatency > 0)
+            ? (double)_framesPerBufferForLatency / _sampleRateForLatency * 1000.0 + _pa.ReportedLatencyMs
+            : 0d;
 
     public event EventHandler? Started;
     public event EventHandler<bool>? Stopped; // bool = cancelled
@@ -71,6 +79,8 @@ public sealed class PortAudioPlayer : IAudioPlayer, IDisposable
             int inChannels = _decoder.Channels > 0 ? _decoder.Channels : 2;
 
             int framesPerBuffer = 512;
+            _framesPerBufferForLatency = framesPerBuffer;
+            _sampleRateForLatency = sampleRate;
             var src = new float[framesPerBuffer * inChannels];
             var dst = new float[framesPerBuffer * _deviceChannels];
 
@@ -88,6 +98,7 @@ public sealed class PortAudioPlayer : IAudioPlayer, IDisposable
 
             lock (_gate) { IsPlaying = true; }
             Started?.Invoke(this, EventArgs.Empty);
+            try { Console.WriteLine($"[AudioEngine] Output latency: {OutputLatencyMs:F2} ms (buffer + reported)"); } catch { }
 
             while (!token.IsCancellationRequested)
             {

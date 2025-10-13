@@ -70,9 +70,9 @@ public class EngineCoordinatorTests
 
         // Expected sequence: Playing (first), Ready (stop), Playing (second)
         sink.Events.Should().ContainInOrder(
-            new EngineStatusChanged(EngineStatus.Playing),
-            new EngineStatusChanged(EngineStatus.Ready),
-            new EngineStatusChanged(EngineStatus.Playing)
+            new EngineStatusChanged(EngineStatus.Playing, 0),
+            new EngineStatusChanged(EngineStatus.Ready, 0),
+            new EngineStatusChanged(EngineStatus.Playing, 0)
         );
     }
 

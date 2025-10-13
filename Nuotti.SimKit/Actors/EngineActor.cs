@@ -32,7 +32,7 @@ public sealed class EngineActor : BaseActor
     {
         var failed = _random.NextDouble() < _failureRate;
         var status = failed ? EngineStatus.Error : EngineStatus.Playing;
-        Emit(new EngineStatusChanged(status));
+        Emit(new EngineStatusChanged(status, 0));
     }
 
     /// <summary>
@@ -40,7 +40,7 @@ public sealed class EngineActor : BaseActor
     /// </summary>
     public void OnTrackStopped()
     {
-        Emit(new EngineStatusChanged(EngineStatus.Ready));
+        Emit(new EngineStatusChanged(EngineStatus.Ready, 0));
     }
 
     void Emit(EngineStatusChanged evt)

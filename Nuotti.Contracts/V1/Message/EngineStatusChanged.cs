@@ -5,4 +5,5 @@ namespace Nuotti.Contracts.V1.Message;
 /// Event broadcast when the Audio Engine status changes.
 /// </summary>
 /// <param name="Status">The new engine status.</param>
-public record EngineStatusChanged(EngineStatus Status);
+/// <param name="LatencyMs">Measured output latency in milliseconds (device buffer + reported stream latency).</param>
+public record EngineStatusChanged(EngineStatus Status, double LatencyMs);

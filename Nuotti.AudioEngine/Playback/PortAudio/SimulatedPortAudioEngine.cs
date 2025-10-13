@@ -10,6 +10,8 @@ public sealed class SimulatedPortAudioEngine : IPortAudioEngine
     private int _channels;
     private bool _started;
 
+    public double ReportedLatencyMs => 0;
+
     public void Open(int sampleRate, int channels)
     {
         _sampleRate = sampleRate > 0 ? sampleRate : 48000;
