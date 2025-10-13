@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Configuration;
+using Nuotti.AudioEngine;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.Json;
 static string GetArg(string[] args, string name, string? envVar = null, string? fallback = null)
 {
     for (int i = 0; i < args.Length; i++)
@@ -22,29 +25,53 @@ static void Log(string message)
     Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
 }
 
-static (string fileName, string args)? BuildPlayerCommand(string url)
+static (string fileName, string args)? BuildPlayerCommand(string url, PreferredPlayer preferred)
 {
     // Try a few simple options cross-platform. Keep it dead simple for MVP.
     var quotedUrl = '"' + url + '"';
 
+    // Helper local function to map enum to command attempt
+    static (string file, string args)? TryMap(PreferredPlayer p, string q)
+    {
+        return p switch
+        {
+            PreferredPlayer.Afplay => ("afplay", q),
+            PreferredPlayer.Ffplay => ("ffplay", $"-nodisp -autoexit {q}"),
+            PreferredPlayer.Vlc => ("vlc", $"--play-and-exit {q}"),
+            _ => null
+        };
+    }
+
+    // Ordered attempts depending on OS and preferred
+    List<(string file, string args)> attempts = new();
+
+    var pref = TryMap(preferred, quotedUrl);
+    if (pref is not null) attempts.Add(pref.Value);
+
     if (OperatingSystem.IsMacOS())
     {
-        // Prefer afplay
-        return ("afplay", quotedUrl);
+        attempts.Add(("afplay", quotedUrl));
+        attempts.Add(("ffplay", $"-nodisp -autoexit {quotedUrl}"));
+        attempts.Add(("vlc", $"--play-and-exit {quotedUrl}"));
     }
-    if (OperatingSystem.IsWindows())
+    else if (OperatingSystem.IsWindows())
     {
-        // Try ffplay first (if available), else VLC, else let Shell open the URL
-        // ffplay: hide video window, auto exit when done
-        var ffArgs = $"-nodisp -autoexit {quotedUrl}";
-        if (CanStart("ffplay")) return ("ffplay", ffArgs);
-        if (CanStart("vlc")) return ("vlc", $"--play-and-exit {quotedUrl}");
+        attempts.Add(("ffplay", $"-nodisp -autoexit {quotedUrl}"));
+        attempts.Add(("vlc", $"--play-and-exit {quotedUrl}"));
         // Fallback: powershell start (may open default handler)
-        return ("powershell", $"-Command Start-Process {quotedUrl}");
+        attempts.Add(("powershell", $"-Command Start-Process {quotedUrl}"));
     }
-    // Linux and others: prefer ffplay, else vlc
-    if (CanStart("ffplay")) return ("ffplay", $"-nodisp -autoexit {quotedUrl}");
-    if (CanStart("vlc")) return ("vlc", $"--play-and-exit {quotedUrl}");
+    else
+    {
+        // Linux and others: prefer ffplay, else vlc
+        attempts.Add(("ffplay", $"-nodisp -autoexit {quotedUrl}"));
+        attempts.Add(("vlc", $"--play-and-exit {quotedUrl}"));
+    }
+
+    foreach (var a in attempts)
+    {
+        if (CanStart(a.file)) return (a.file, a.args);
+    }
     return null;
 }
 
@@ -79,6 +106,17 @@ static bool CanStart(string fileName)
     }
 }
 
+// Load engine options from engine.json and environment (NUOTTI_ENGINE__*)
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("engine.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables(prefix: "NUOTTI_ENGINE__")
+    .Build();
+var engineOptions = new EngineOptions();
+configuration.Bind(engineOptions);
+engineOptions.Validate();
+Log("Engine effective config:\n" + JsonSerializer.Serialize(engineOptions, new JsonSerializerOptions { WriteIndented = true }));
+
 var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5240");
 var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "dev");
 
@@ -97,7 +135,7 @@ connection.On<PlayTrack>("PlayTrack", cmd =>
     try
     {
         Log($"PlayTrack received: {cmd.FileUrl}");
-        var spec = BuildPlayerCommand(cmd.FileUrl);
+        var spec = BuildPlayerCommand(cmd.FileUrl, engineOptions.PreferredPlayer);
         if (spec is null)
         {
             Log("No supported player found (afplay/ffplay/vlc). Skipping.");
