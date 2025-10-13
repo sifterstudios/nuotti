@@ -13,6 +13,18 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore se
     const string SessionKey = "session";
     const string RoleKey = "role";
 
+    // Engine reports status changes via hub; broadcast to entire session
+    public Task EngineStatusChanged(string session, EngineStatusChanged evt)
+        => Clients.Group(session).SendAsync("EngineStatusChanged", evt);
+
+    // Performer can ping engine; relay to engine group
+    public Task Ping(string session, long clientTicks)
+        => Clients.Group($"{session}:engine").SendAsync("Ping", clientTicks);
+
+    // Engine echoes back; relay to performer group
+    public Task Echo(string session, long clientTicks, long engineTicks)
+        => Clients.Group($"{session}:performer").SendAsync("Echo", clientTicks, engineTicks);
+
     public async Task Join(string session, string role, string? name = null)
     {
         if (string.IsNullOrWhiteSpace(session))

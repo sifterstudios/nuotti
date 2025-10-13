@@ -1,4 +1,5 @@
 ﻿@using Nuotti.Contracts.V1.Enum
+@using System.Diagnostics
 @inject PerformerUiState State
 
 <MudChip T="string" Color="@GetPhaseColor()" Size="Size.Small" Class="mr-2">@State.Phase</MudChip>
@@ -66,11 +67,13 @@
         try
         {
             var http = State.CreateClient();
+            var sw = Stopwatch.StartNew();
             var resp = await http.GetAsync($"/api/sessions/{Uri.EscapeDataString(State.SessionCode!)}/counts", cts.Token);
+            sw.Stop();
             if (resp.IsSuccessStatusCode)
             {
                 _status = State.Phase == Phase.Play ? EngineStatus.Playing : (State.EngineCount > 0 ? EngineStatus.Ready : EngineStatus.Error);
-                _lastMessage = "Connection OK";
+                _lastMessage = $"RTT {sw.ElapsedMilliseconds} ms";
             }
             else
             {
