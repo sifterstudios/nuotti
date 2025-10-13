@@ -6,7 +6,8 @@ public sealed class SystemPlayer : IAudioPlayer, IDisposable
 {
     private readonly PreferredPlayer _preferred;
     private readonly Func<string, PreferredPlayer, (string fileName, string args)?> _resolver;
-    private Process? _process;
+    private readonly IProcessRunner _runner;
+    private IProcessHandle? _process;
     private readonly object _gate = new();
     private bool _disposed;
     private volatile bool _stopRequested;
@@ -17,9 +18,10 @@ public sealed class SystemPlayer : IAudioPlayer, IDisposable
 
     public bool IsPlaying { get; private set; }
 
-    public SystemPlayer(PreferredPlayer preferred = PreferredPlayer.Auto, Func<string, PreferredPlayer, (string fileName, string args)?>? resolver = null)
+    public SystemPlayer(PreferredPlayer preferred = PreferredPlayer.Auto, Func<string, PreferredPlayer, (string fileName, string args)?>? resolver = null, IProcessRunner? runner = null)
     {
         _preferred = preferred;
+        _runner = runner ?? new RealProcessRunner();
         _resolver = resolver ?? ((url, p) => BuildPlayerCommand(url, p));
     }
 
@@ -52,7 +54,7 @@ public sealed class SystemPlayer : IAudioPlayer, IDisposable
             CreateNoWindow = true,
         };
 
-        var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var p = _runner.Create(psi, enableRaisingEvents: true);
         p.Exited += (_, __) =>
         {
             bool cancelledByStop;
@@ -119,7 +121,7 @@ public sealed class SystemPlayer : IAudioPlayer, IDisposable
         return Task.CompletedTask;
     }
 
-    private static (string fileName, string args)? BuildPlayerCommand(string url, PreferredPlayer preferred)
+    private (string fileName, string args)? BuildPlayerCommand(string url, PreferredPlayer preferred)
     {
         var quotedUrl = '"' + url + '"';
 
@@ -155,38 +157,11 @@ public sealed class SystemPlayer : IAudioPlayer, IDisposable
 
         foreach (var a in attempts)
         {
-            if (CanStart(a.file)) return (a.file, a.args);
+            if (_runner.CanStart(a.file)) return (a.file, a.args);
         }
         return null;
     }
 
-    private static bool CanStart(string fileName)
-    {
-        try
-        {
-            using var p = new Process();
-            p.StartInfo = new ProcessStartInfo
-            {
-                FileName = fileName,
-                Arguments = "--version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            };
-            if (!p.Start()) return false;
-            try { if (!p.WaitForExit(300)) p.Kill(true); } catch { }
-            return true;
-        }
-        catch (Win32Exception)
-        {
-            return false;
-        }
-        catch
-        {
-            return true;
-        }
-    }
 
     private void ThrowIfDisposed()
     {

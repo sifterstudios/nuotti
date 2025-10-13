@@ -1,6 +1,6 @@
 ﻿using FluentAssertions;
 using Nuotti.AudioEngine.Playback;
-using System;
+using Nuotti.AudioEngine.Tests.Fakes;
 using System.Threading.Tasks;
 using Xunit;
 namespace Nuotti.AudioEngine.Tests;
@@ -10,20 +10,11 @@ public class SystemPlayerTests
     [Fact]
     public async Task StopAsync_KillsLongRunningProcess()
     {
-        // Arrange: inject a resolver that starts a long-running sleep depending on OS
-        (string file, string args)? Resolver(string url, PreferredPlayer p)
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                return ("powershell", "-NoProfile -Command Start-Sleep -Seconds 60");
-            }
-            else
-            {
-                return ("bash", "-lc 'sleep 60'");
-            }
-        }
+        // Arrange: use fake process runner that never exits until killed
+        var fakeRunner = new FakeProcessRunner();
+        (string file, string args)? Resolver(string url, PreferredPlayer p) => ("mockplayer", "--dummy");
 
-        using var player = new SystemPlayer(PreferredPlayer.Auto, Resolver);
+        using var player = new SystemPlayer(PreferredPlayer.Auto, Resolver, fakeRunner);
         bool started = false;
         bool? cancelled = null;
         var startedEvent = new TaskCompletionSource();
@@ -33,12 +24,12 @@ public class SystemPlayerTests
 
         // Act: start and ensure it's playing, then stop
         await player.PlayAsync("ignored://url");
-        await Task.WhenAny(startedEvent.Task, Task.Delay(3000));
+        await Task.WhenAny(startedEvent.Task, Task.Delay(100));
         started.Should().BeTrue("process should start");
         player.IsPlaying.Should().BeTrue();
 
         await player.StopAsync();
-        await Task.WhenAny(stoppedEvent.Task, Task.Delay(5000));
+        await Task.WhenAny(stoppedEvent.Task, Task.Delay(100));
 
         // Assert
         cancelled.Should().BeTrue("stop should be treated as cancelled");
@@ -47,20 +38,11 @@ public class SystemPlayerTests
     [Fact]
     public async Task Dispose_KillsLongRunningProcessWithoutExplicitStop()
     {
-        // Arrange: start a long-running process
-        (string file, string args)? Resolver(string url, PreferredPlayer p)
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                return ("powershell", "-NoProfile -Command Start-Sleep -Seconds 60");
-            }
-            else
-            {
-                return ("bash", "-lc 'sleep 60'");
-            }
-        }
+        // Arrange: start a long-running process using fake runner
+        var fakeRunner = new FakeProcessRunner();
+        (string file, string args)? Resolver(string url, PreferredPlayer p) => ("mockplayer", "--dummy");
 
-        var player = new SystemPlayer(PreferredPlayer.Auto, Resolver);
+        var player = new SystemPlayer(PreferredPlayer.Auto, Resolver, fakeRunner);
         bool started = false;
         bool? cancelled = null;
         var startedEvent = new TaskCompletionSource();
@@ -69,14 +51,14 @@ public class SystemPlayerTests
         player.Stopped += (_, c) => { cancelled = c; stoppedEvent.TrySetResult(); };
 
         await player.PlayAsync("ignored://url");
-        await Task.WhenAny(startedEvent.Task, Task.Delay(3000));
+        await Task.WhenAny(startedEvent.Task, Task.Delay(100));
         started.Should().BeTrue();
 
         // Act: Dispose without calling StopAsync
         player.Dispose();
 
         // Assert: process should be killed, raising Stopped with cancelled=true
-        await Task.WhenAny(stoppedEvent.Task, Task.Delay(5000));
+        await Task.WhenAny(stoppedEvent.Task, Task.Delay(100));
         cancelled.Should().BeTrue();
     }
 }
