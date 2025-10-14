@@ -1,28 +1,27 @@
-name: Build and Push Docker Images
+name: Build and Push (native per-arch, fast)
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+    branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/sifterstudios/nuotti
+  # Build only amd64 on PRs for speed
+  BUILD_ARM_ON_PR: "false"
 
 jobs:
-  build-and-push:
-    runs-on: [self-hosted, unraid, docker]
-
+  build-amd64:
+    # Your current runner; add label "amd64" in compose (see section 2)
+    runs-on: [self-hosted, unraid, docker, amd64]
+    if: github.event_name != 'pull_request' || env.BUILD_ARM_ON_PR == 'true'
     permissions:
       contents: read
       packages: write
-    
     strategy:
       matrix:
         include:
@@ -30,56 +29,42 @@ jobs:
             context: .
             dockerfile: Nuotti.Backend/Dockerfile
             image: backend
-          
           - service: audience
             context: .
             dockerfile: Nuotti.Audience/Dockerfile
             image: audience
-          
           - service: web
             context: web
             dockerfile: web/Dockerfile
             image: web
-    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           install: true
-          cleanup: true
+          cleanup: false
           driver-opts: |
-            image=moby/buildkit:latest
-            network=host
-          buildkitd-config-inline: |
-            debug = true
-            [worker.oci]
-              gc = true
-              gckeepstorage = "20GB"
-      
-      - name: Log in to GitHub Container Registry
+            image=moby/buildkit:v0.13.2
+
+      - name: Login to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Pre-build cleanup (free disk space)
-        run: |
-          echo "Before prune:" && df -h || true
-          docker buildx prune -af || true
-          docker builder prune -af || true
-          docker system prune -af --volumes || true
-          echo "After prune:" && df -h || true
-      
-      - name: Extract metadata (tags, labels)
+
+      - name: Extract metadata (tags/labels) with -amd64 suffix
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          flavor: |
+            suffix=-amd64,onlatest=false
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -88,27 +73,130 @@ jobs:
             type=semver,pattern={{major}}
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-      
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+
+      - name: Build & push (native amd64)
+        id: build
+        uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
+          # native arch → don't set platforms
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-      
-      - name: Post-build cleanup (prune caches and images)
-        if: always()
-        run: |
-          docker buildx prune -af || true
-          docker builder prune -af || true
-          docker system prune -af --volumes || true
-          df -h || true
-      
-      - name: Image digest
-        run: echo "Image built with digest ${{ steps.meta.outputs.digest }}"
+          cache-from: type=local,src=/runner/_work/buildx-cache
+          cache-to: type=local,dest=/runner/_work/buildx-cache,mode=max
 
+  build-arm64:
+    # Second machine: ARM64 runner; add label "arm64" (see section 3)
+    runs-on: [self-hosted, docker, arm64]
+    if: github.event_name != 'pull_request'  # skip on PRs for speed
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            context: .
+            dockerfile: Nuotti.Backend/Dockerfile
+            image: backend
+          - service: audience
+            context: .
+            dockerfile: Nuotti.Audience/Dockerfile
+            image: audience
+          - service: web
+            context: web
+            dockerfile: web/Dockerfile
+            image: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+          cleanup: false
+          driver-opts: |
+            image=moby/buildkit:v0.13.2
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags/labels) with -arm64 suffix
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          flavor: |
+            suffix=-arm64,onlatest=false
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push (native arm64)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=local,src=/runner/_work/buildx-cache
+          cache-to: type=local,dest=/runner/_work/buildx-cache,mode=max
+
+  merge-manifests:
+    name: Create multi-arch manifests
+    needs: [build-amd64, build-arm64]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: backend
+          - image: audience
+          - image: web
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags (no suffix)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Merge amd64+arm64 into multi-arch
+        run: |
+          set -euo pipefail
+          echo "${{ steps.meta.outputs.tags }}" | while read -r TAG; do
+            [ -z "$TAG" ] && continue
+            docker buildx imagetools create \
+              -t "$TAG" \
+              "${TAG}-amd64" \
+              "${TAG}-arm64"
+          done
