@@ -8,6 +8,8 @@ using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddEndpointsApiExplorer();
+builder.AddServiceDefaults();
 
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
 builder.Configuration
@@ -98,6 +100,7 @@ app.MapApiEndpoints();
 app.MapHealthEndpoints();
 app.MapStatusEndpoints();
 app.MapDevEndpoints();
+app.MapDefaultEndpoints();
 
 // Force creation of subscribers so they can attach to the bus
 _ = app.Services.GetRequiredService<StateApplySubscriber>();

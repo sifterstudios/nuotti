@@ -225,3 +225,35 @@ Feel free to open an issue or start a discussion.
 [license-url]: https://github.com/your-org/nuotti/blob/main/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin
 [linkedin-url]: https://www.linkedin.com/
+
+## Local Docker build & run
+
+You can test the exact same build that runs in CI on your machine.
+
+Prereqs:
+- Docker Desktop 4.x (Compose V2) or Docker Engine + docker compose plugin
+- PowerShell (recommended on Windows)
+
+Quick start (Windows):
+- Build only:
+  - powershell -ExecutionPolicy Bypass -File .\tools\build-local.ps1
+- Build and run:
+  - powershell -ExecutionPolicy Bypass -File .\tools\up-local.ps1
+- Stop and clean up:
+  - powershell -ExecutionPolicy Bypass -File .\tools\down-local.ps1
+  - Add -Prune to also prune dangling images.
+
+What this does:
+- Uses deploy/docker-compose.yml (same as CI) plus deploy/docker-compose.override.yml (local-only overrides)
+- Local override swaps env_file paths to in-repo .env.example files so you don’t need Unraid paths
+- For the Web app build, PUBLIC_API_BASE defaults to http://localhost:5210; override by setting an env var PUBLIC_API_BASE or editing deploy/docker-compose.override.yml
+
+Services and URLs after up:
+- API:      http://localhost:5210
+- Audience: http://localhost:5280
+- Web:      http://localhost:5380
+
+Troubleshooting:
+- If a port is in use, change the host port mapping in deploy/docker-compose.override.yml
+- If you want to use real secrets, copy each .env.example to .env and point env_file there in the override
+- See container logs: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml logs -f

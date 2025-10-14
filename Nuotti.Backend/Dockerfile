@@ -10,9 +10,9 @@ COPY Nuotti.Backend/Nuotti.Backend.csproj Nuotti.Backend/
 COPY Nuotti.Contracts/Nuotti.Contracts.csproj Nuotti.Contracts/
 RUN dotnet restore Nuotti.Backend/Nuotti.Backend.csproj
 
-# copy everything and publish
+# copy everything and publish (allow restore to ensure latest packages)
 COPY . .
-RUN dotnet publish Nuotti.Backend/Nuotti.Backend.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish Nuotti.Backend/Nuotti.Backend.csproj -c Release -o /app/publish
 
 # --- Runtime stage ---
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime

@@ -1,0 +1,17 @@
+﻿# Exclude dev/build artifacts from Docker context
+node_modules
+.svelte-kit
+build
+dist
+
+# VCS/editor
+.git
+.gitignore
+.vscode
+.idea
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

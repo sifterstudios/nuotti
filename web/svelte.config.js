@@ -1,12 +1,17 @@
 ﻿import adapter from '@sveltejs/adapter-static';
 
+const base = process.env.BASE_PATH || '';
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
   kit: {
-    adapter: adapter(),
+    adapter: adapter({
+      pages: 'build',
+      assets: 'build',
+      fallback: 'index.html'
+    }),
     paths: {
-      // Allow setting BASE_PATH at build time if needed
-      base: process.env.BASE_PATH || ''
+      base
     }
   }
 };

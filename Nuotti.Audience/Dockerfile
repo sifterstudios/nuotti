@@ -9,7 +9,8 @@ COPY Nuotti.Contracts/Nuotti.Contracts.csproj Nuotti.Contracts/
 RUN dotnet restore Nuotti.Audience/Nuotti.Audience.csproj
 
 COPY . .
-RUN dotnet publish Nuotti.Audience/Nuotti.Audience.csproj -c Release -o /out --no-restore
+# Allow publish to restore to ensure latest transitive packages/analyzers are available
+RUN dotnet publish Nuotti.Audience/Nuotti.Audience.csproj -c Release -o /out
 
 # --- Runtime stage ---
 FROM nginx:alpine AS runtime

@@ -24,5 +24,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
+      <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
     </ItemGroup>
 </Project>

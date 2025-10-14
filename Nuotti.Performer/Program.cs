@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddMudServices();
+builder.AddServiceDefaults();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SessionSelectionService>();
@@ -34,6 +35,7 @@ app.UseRouting();
 
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
+app.MapDefaultEndpoints();
 
 app.Run();
 

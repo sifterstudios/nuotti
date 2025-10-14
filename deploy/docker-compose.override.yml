@@ -1,0 +1,31 @@
+﻿# Local override for docker compose, safe to use on your dev machine
+# Usage:
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml build
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml up -d
+
+services:
+  api:
+    # Use example env file from repo for local runs (edit or copy to .env if desired)
+    env_file:
+      - ../Nuotti.Backend/.env.example
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5210
+    ports:
+      - "5210:5210"
+
+  audience:
+    env_file:
+      - ../Nuotti.Audience/.env.example
+    ports:
+      - "5280:80"
+
+  web:
+    env_file:
+      - ../web/.env.example
+    build:
+      args:
+        # If not provided via root .env, default to the local API
+        PUBLIC_API_BASE: ${PUBLIC_API_BASE:-http://localhost:5210}
+    ports:
+      - "5380:80"
