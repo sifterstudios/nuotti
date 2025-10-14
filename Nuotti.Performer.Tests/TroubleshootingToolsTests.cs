@@ -1,6 +1,7 @@
 ﻿using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
+using MudBlazor;
 using Nuotti.Performer.Services;
 using Nuotti.Performer.Shared;
 using Xunit;
@@ -36,6 +37,9 @@ public class TroubleshootingToolsTests : MudTestContext
         Services.AddSingleton<IEnvironmentService>(new FakeEnv { IsDevelopment = false, EnvironmentName = "Production" });
         Services.AddSingleton(new CommandHistoryService());
         Services.AddSingleton(new PerformerUiState(new DummyFactory()));
+
+        // Render provider after configuring services, before rendering component under test
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<TroubleshootingTools>();
         var resetBtn = cut.FindAll("button").First(b => b.TextContent.Contains("Reset session"));
         Assert.Contains("disabled", resetBtn.OuterHtml);
@@ -56,6 +60,8 @@ public class TroubleshootingToolsTests : MudTestContext
         typeof(PerformerUiState).GetProperty("AudienceCount")!.SetValue(state, 5);
         Services.AddSingleton(state);
 
+        // Render provider after configuring services, before rendering component under test
+        RenderComponent<MudPopoverProvider>();
         var cut = RenderComponent<TroubleshootingTools>();
         var copyBtn = cut.FindAll("button").First(b => b.TextContent.Contains("Copy diagnostics"));
         copyBtn.Click();

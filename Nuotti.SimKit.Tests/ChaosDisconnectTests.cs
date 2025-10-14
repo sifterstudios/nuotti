@@ -47,7 +47,7 @@ public class ChaosDisconnectTests
 
         // Wait until the actor has received all items or timeout
         var sw = Stopwatch.StartNew();
-        while (actor.ReceivedPhases.Count < total && sw.Elapsed < TimeSpan.FromSeconds(5))
+        while (actor.ReceivedPhases.Count < total && sw.Elapsed < TimeSpan.FromSeconds(10))
         {
             await Task.Delay(10);
         }

@@ -24,6 +24,8 @@ jobs:
       packages: write
     
     strategy:
+      fail-fast: false
+      max-parallel: 3
       matrix:
         include:
           - service: backend
@@ -47,6 +49,17 @@ jobs:
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+          cleanup: true
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
+          buildkitd-config-inline: |
+            debug = true
+            [worker.oci]
+              gc = true
+              gckeepstorage = "20GB"
       
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
@@ -55,6 +68,14 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Pre-build cleanup (free disk space)
+        run: |
+          echo "Before prune:" && df -h || true
+          docker buildx prune -af || true
+          docker builder prune -af || true
+          docker system prune -af --volumes || true
+          echo "After prune:" && df -h || true
       
       - name: Extract metadata (tags, labels)
         id: meta
@@ -81,6 +102,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+      
+      - name: Post-build cleanup (prune caches and images)
+        if: always()
+        run: |
+          docker buildx prune -af || true
+          docker builder prune -af || true
+          docker system prune -af --volumes || true
+          df -h || true
       
       - name: Image digest
         run: echo "Image built with digest ${{ steps.meta.outputs.digest }}"
