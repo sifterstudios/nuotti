@@ -19,8 +19,8 @@ RUN npm run build
 # --- Runtime stage ---
 FROM nginx:alpine AS runtime
 COPY --from=build /app/build /usr/share/nginx/html
-# Basic healthcheck endpoint
-RUN printf 'server {\n  listen 80;\n  location /health { return 200 "ok"; }\n  location / { try_files $uri $uri/ /index.html; }\n}\n' > /etc/nginx/conf.d/default.conf
+# Basic healthcheck endpoint and SPA routing
+RUN printf 'server {\n  listen 80;\n  root /usr/share/nginx/html;\n  index index.html;\n  location /health { return 200 "ok"; add_header Content-Type text/plain; }\n  location / { try_files $uri $uri/ /index.html =404; }\n}\n' > /etc/nginx/conf.d/default.conf
 EXPOSE 80
 HEALTHCHECK --interval=15s --timeout=3s --retries=10 CMD wget -qO- http://localhost/health || exit 1
 

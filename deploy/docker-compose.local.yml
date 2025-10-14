@@ -1,0 +1,78 @@
+# Local development docker-compose file
+# This is a standalone file for local builds that doesn't depend on docker-compose.yml
+# Usage:
+#   docker compose -f deploy/docker-compose.local.yml build
+#   docker compose -f deploy/docker-compose.local.yml up -d
+#
+# Or use the helper script:
+#   powershell -ExecutionPolicy Bypass -File .\tools\up-local.ps1
+
+networks:
+  nuotti:
+    name: nuotti
+    driver: bridge
+
+services:
+  # --- API (ASP.NET Core) ---
+  api:
+    build:
+      context: ..
+      dockerfile: Nuotti.Backend/Dockerfile
+    image: nuotti/api:local
+    container_name: nuotti-api-local
+    restart: unless-stopped
+    
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5210
+      # Development mode allows all localhost origins by default (see Program.cs)
+    
+    ports:
+      - "5210:5210"
+    
+    # Health checks disabled for local development to avoid dependency on curl/wget
+    # The API typically starts in 3-5 seconds
+    
+    networks:
+      - nuotti
+
+  # --- Audience (Blazor WASM static site via nginx) ---
+  audience:
+    build:
+      context: ..
+      dockerfile: Nuotti.Audience/Dockerfile
+    image: nuotti/audience:local
+    container_name: nuotti-audience-local
+    restart: unless-stopped
+    
+    ports:
+      - "5280:80"
+    
+    # Start with API (no health check dependency for local dev)
+    depends_on:
+      - api
+    
+    networks:
+      - nuotti
+
+  # --- Web (SvelteKit static site via nginx) ---
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+      args:
+        PUBLIC_API_BASE: ${PUBLIC_API_BASE:-http://localhost:5210}
+    image: nuotti/web:local
+    container_name: nuotti-web-local
+    restart: unless-stopped
+    
+    ports:
+      - "5380:80"
+    
+    # Start with API (no health check dependency for local dev)
+    depends_on:
+      - api
+    
+    networks:
+      - nuotti
+

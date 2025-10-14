@@ -1,0 +1,80 @@
+# Nuotti Production Deployment for Unraid with Cloudflare Tunnel
+# 
+# SIMPLE SETUP - Just 3 services, minimal configuration
+#
+# Prerequisites:
+# 1. Create /mnt/user/appdata/nuotti/ on Unraid
+# 2. Create ONE file: /mnt/user/appdata/nuotti/.env with your config (see below)
+#
+# Deploy:
+#   docker compose -f deploy/docker-compose.unraid.yml pull
+#   docker compose -f deploy/docker-compose.unraid.yml up -d
+#
+# Update:
+#   docker compose -f deploy/docker-compose.unraid.yml pull
+#   docker compose -f deploy/docker-compose.unraid.yml up -d
+
+networks:
+  nuotti:
+    name: nuotti
+
+services:
+  # Backend API - ASP.NET Core with SignalR
+  api:
+    image: ghcr.io/sifterstudios/nuotti-backend:latest
+    container_name: nuotti-api
+    restart: unless-stopped
+    
+    env_file:
+      - /mnt/user/appdata/nuotti/.env
+    
+    ports:
+      - "5210:5210"  # Cloudflare Tunnel → api.nuotti.app
+    
+    networks:
+      - nuotti
+
+  # Audience - Blazor WASM static site
+  audience:
+    image: ghcr.io/sifterstudios/nuotti-audience:latest
+    container_name: nuotti-audience
+    restart: unless-stopped
+    
+    # Mount your config file with the BackendUrl
+    volumes:
+      - /mnt/user/appdata/nuotti/audience-appsettings.json:/usr/share/nginx/html/appsettings.json:ro
+    
+    ports:
+      - "5280:80"  # Cloudflare Tunnel → audience.nuotti.app
+    
+    networks:
+      - nuotti
+
+  # Web - SvelteKit static site
+  web:
+    image: ghcr.io/sifterstudios/nuotti-web:latest
+    container_name: nuotti-web
+    restart: unless-stopped
+    
+    ports:
+      - "5380:80"  # Cloudflare Tunnel → nuotti.app
+    
+    networks:
+      - nuotti
+
+# OPTIONAL: Watchtower for automatic updates
+# Uncomment to enable (checks for new images every hour)
+#
+#  watchtower:
+#    image: containrrr/watchtower
+#    container_name: nuotti-watchtower
+#    restart: unless-stopped
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock
+#    environment:
+#      - WATCHTOWER_CLEANUP=true
+#      - WATCHTOWER_POLL_INTERVAL=3600
+#      - WATCHTOWER_INCLUDE_STOPPED=false
+#      - WATCHTOWER_REVIVE_STOPPED=false
+#    command: nuotti-api nuotti-audience nuotti-web
+

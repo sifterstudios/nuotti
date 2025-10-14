@@ -163,12 +163,40 @@ Developers can explore the eventing model in `Nuotti.Backend/Eventing` and share
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
+## Deployment
+
+Nuotti can be deployed to production using Docker Compose with pre-built images from GitHub Container Registry.
+
+### Quick Deploy to Unraid
+
+See [deploy/QUICKSTART.md](deploy/QUICKSTART.md) for a 5-minute setup guide.
+
+### Full Deployment Guide
+
+See [deploy/DEPLOYMENT.md](deploy/DEPLOYMENT.md) for comprehensive deployment documentation including:
+- Unraid setup with Docker Compose
+- Configuration options
+- Cloudflare Tunnel / reverse proxy setup
+- Monitoring and troubleshooting
+- Automatic updates
+
+### CI/CD
+
+GitHub Actions automatically builds and publishes Docker images to GHCR on every push to `main`:
+- `ghcr.io/sifterstudios/nuotti-backend:latest`
+- `ghcr.io/sifterstudios/nuotti-audience:latest`
+- `ghcr.io/sifterstudios/nuotti-web:latest`
+
+Images are multi-platform (amd64/arm64) for maximum compatibility.
+
+<p align="right">(<a href="#top">back to top</a>)</p>
+
 ## Roadmap
 
+- [x] Add Docker compose for one‑command startup.
+- [x] CI/CD pipeline (build, test, publish artifacts).
 - [ ] Implement full Simulator logic in Nuotti.SimKit (connect to hub, drive flows).
 - [ ] Expand documentation in /docs with diagrams and message flows.
-- [ ] Add Docker compose for one‑command startup.
-- [ ] CI/CD pipeline (build, test, publish artifacts).
 - [ ] More game modes and audience interactions.
 
 See the open issues for a full list of proposed features and known issues.
