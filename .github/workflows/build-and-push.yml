@@ -1,4 +1,4 @@
-name: Build and Push (native per-arch, fast)
+name: Build and Push (amd64 only)
 
 on:
   push:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-amd64:
-    # Matches your Unraid runners (add "amd64" label in compose)
+    # Matches your Unraid runner labels from compose
     runs-on: [self-hosted, unraid, docker, amd64]
     permissions:
       contents: read
@@ -85,127 +85,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/runner/_work/buildx-cache
           cache-to: type=local,dest=/runner/_work/buildx-cache,mode=max
-
-  build-arm64:
-    # Matches your ARM64 runner (label it "arm64")
-    runs-on: [self-hosted, docker, arm64]
-    if: github.event_name != 'pull_request'   # skip on PRs for speed
-    permissions:
-      contents: read
-      packages: write
-
-    strategy:
-      matrix:
-        include:
-          - service: backend
-            context: .
-            dockerfile: Nuotti.Backend/Dockerfile
-            image: backend
-          - service: audience
-            context: .
-            dockerfile: Nuotti.Audience/Dockerfile
-            image: audience
-          - service: web
-            context: web
-            dockerfile: web/Dockerfile
-            image: web
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
-          cleanup: false
-          driver-opts: |
-            image=moby/buildkit:v0.13.2
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags/labels) with -arm64 suffix
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
-          flavor: |
-            suffix=-arm64,onlatest=false
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build & push (native arm64)
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          # native build → no platforms key
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/runner/_work/buildx-cache
-          cache-to: type=local,dest=/runner/_work/buildx-cache,mode=max
-
-  merge-manifests:
-    name: Create multi-arch manifests
-    needs: [build-amd64, build-arm64]
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    strategy:
-      matrix:
-        include:
-          - image: backend
-          - image: audience
-          - image: web
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute tags (no suffix)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Merge amd64+arm64 into multi-arch
-        run: |
-          set -euo pipefail
-          # metadata-action outputs tags as newline-separated values
-          echo "${{ steps.meta.outputs.tags }}" | while read -r TAG; do
-            [ -z "$TAG" ] && continue
-            docker buildx imagetools create \
-              -t "$TAG" \
-              "${TAG}-amd64" \
-              "${TAG}-arm64"
-          done
