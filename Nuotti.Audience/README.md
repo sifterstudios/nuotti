@@ -126,11 +126,36 @@ All layouts adapt smoothly across these breakpoints.
 
 ## 🚀 Getting Started
 
-### Running the Application
+### Running with .NET Aspire (Recommended)
+
+The recommended way to run the Audience app is through the Aspire app host, which provides automatic service discovery:
+
+```bash
+cd Nuotti
+dotnet run
+```
+
+Then open the Aspire dashboard and access the Audience app from there. The backend connection will be configured automatically.
+
+**No query parameters needed!** The app now uses .NET Aspire service discovery to find the backend.
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
+
+### Running Standalone
+
+If running the Audience app standalone:
 
 ```bash
 cd Nuotti.Audience
 dotnet run
+```
+
+You must configure the backend URL in `wwwroot/appsettings.Development.json`:
+
+```json
+{
+  "BackendUrl": "http://localhost:5192"
+}
 ```
 
 The application will be available at `https://localhost:5001` (or the configured port).

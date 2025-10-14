@@ -125,3 +125,4 @@ To modify the color palette, edit the `GetTheme()` method in `Services/ThemeServ
 
 **Built with ❤️ using Blazor Server and MudBlazor**
 
+

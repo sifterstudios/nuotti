@@ -175,3 +175,4 @@ All colors are defined once in `App.axaml` and referenced throughout the applica
 
 **Built with ❤️ using Avalonia UI and .NET 9**
 
+

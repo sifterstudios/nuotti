@@ -5,13 +5,13 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
 using System.Diagnostics;
-using System.Web;
 namespace Nuotti.Audience.Services;
 
 public class AudienceHubClient : IAsyncDisposable
 {
     readonly NavigationManager _nav;
     readonly HttpClient _http;
+    readonly IConfiguration _configuration;
 
     HubConnection? _connection;
     HubConnection? _logConnection;
@@ -34,25 +34,40 @@ public class AudienceHubClient : IAsyncDisposable
     public event Action? ParticipantsChanged;
     public NuottiProblem? LastProblem { get; private set; }
 
-    public AudienceHubClient(NavigationManager nav, HttpClient http)
+    public AudienceHubClient(NavigationManager nav, HttpClient http, IConfiguration configuration)
     {
         _nav = nav;
         _http = http;
-        BackendBaseUrl = InferBackendBaseUrl();
+        _configuration = configuration;
+        BackendBaseUrl = ResolveBackendBaseUrl();
     }
 
-    string InferBackendBaseUrl()
+    string ResolveBackendBaseUrl()
     {
-        // Allow override via query string `backend` (e.g., ?backend=https%3A%2F%2Flocalhost%3A5192)
-        var uri = new Uri(_nav.Uri);
-        var query = HttpUtility.ParseQueryString(uri.Query);
-        var fromQuery = query["backend"];
-        if (!string.IsNullOrWhiteSpace(fromQuery))
+        // For Blazor WASM, check configuration for backend URL
+        // This can be set via appsettings.json or environment-specific config
+        var backendUrl = _configuration["services:backend:https:0"] 
+                        ?? _configuration["services:backend:http:0"]
+                        ?? _configuration["BackendUrl"];
+        
+        if (!string.IsNullOrWhiteSpace(backendUrl))
         {
-            return fromQuery!;
+            Log($"[Audience] Using backend URL from configuration: {backendUrl}");
+            return backendUrl.TrimEnd('/');
         }
-        // Default to same origin as the static site host
-        return $"{uri.Scheme}://{uri.Authority}";
+        
+        // Fallback to same origin as the static site host
+        // This works when WASM app and backend are behind the same reverse proxy
+        var uri = new Uri(_nav.Uri);
+        var fallbackUrl = $"{uri.Scheme}://{uri.Authority}";
+        Log($"[Audience] Using fallback backend URL (same origin): {fallbackUrl}");
+        return fallbackUrl;
+    }
+    
+    void Log(string message)
+    {
+        Debug.WriteLine(message);
+        _ = PublishLogAsync("Debug", "Audience", message);
     }
 
     public async Task EnsureConnectedAsync()
@@ -163,12 +178,6 @@ public class AudienceHubClient : IAsyncDisposable
             IssuedByRole = Role.Audience,
             IssuedById = AudienceName ?? "anonymous"
         });
-    }
-
-    void Log(string message)
-    {
-        Debug.WriteLine(message);
-        _ = PublishLogAsync("Debug", "Audience", message);
     }
 
     async Task PublishLogAsync(string level, string source, string message)
