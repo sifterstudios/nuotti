@@ -20,7 +20,7 @@
   <h3 align="center">Nuotti</h3>
 
   <p align="center">
-    A modular, real‑time quiz and show platform built on .NET 9.
+    A modular, real‑time quiz and show platform built on .NET 9, and Svelte.
     <br />
     <a href="#about-the-project"><strong>Explore the docs »</strong></a>
     <br />
