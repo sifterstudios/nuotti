@@ -11,17 +11,15 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/sifterstudios/nuotti
-  # Build only amd64 on PRs for speed
-  BUILD_ARM_ON_PR: "false"
 
 jobs:
   build-amd64:
-    # Your current runner; add label "amd64" in compose (see section 2)
+    # Matches your Unraid runners (add "amd64" label in compose)
     runs-on: [self-hosted, unraid, docker, amd64]
-    if: github.event_name != 'pull_request' || env.BUILD_ARM_ON_PR == 'true'
     permissions:
       contents: read
       packages: write
+
     strategy:
       matrix:
         include:
@@ -37,6 +35,7 @@ jobs:
             context: web
             dockerfile: web/Dockerfile
             image: web
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,19 +80,20 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
-          # native arch → don't set platforms
+          # native build → no platforms key
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/runner/_work/buildx-cache
           cache-to: type=local,dest=/runner/_work/buildx-cache,mode=max
 
   build-arm64:
-    # Second machine: ARM64 runner; add label "arm64" (see section 3)
+    # Matches your ARM64 runner (label it "arm64")
     runs-on: [self-hosted, docker, arm64]
-    if: github.event_name != 'pull_request'  # skip on PRs for speed
+    if: github.event_name != 'pull_request'   # skip on PRs for speed
     permissions:
       contents: read
       packages: write
+
     strategy:
       matrix:
         include:
@@ -109,6 +109,7 @@ jobs:
             context: web
             dockerfile: web/Dockerfile
             image: web
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -152,6 +153,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
+          # native build → no platforms key
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/runner/_work/buildx-cache
@@ -165,13 +167,19 @@ jobs:
     permissions:
       contents: read
       packages: write
+
     strategy:
       matrix:
         include:
           - image: backend
           - image: audience
           - image: web
+
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -193,6 +201,7 @@ jobs:
       - name: Merge amd64+arm64 into multi-arch
         run: |
           set -euo pipefail
+          # metadata-action outputs tags as newline-separated values
           echo "${{ steps.meta.outputs.tags }}" | while read -r TAG; do
             [ -z "$TAG" ] && continue
             docker buildx imagetools create \
