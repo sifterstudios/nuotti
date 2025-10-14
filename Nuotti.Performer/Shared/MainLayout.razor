@@ -11,7 +11,7 @@
 @inject IDialogService Dialogs
 @inject IServiceProvider Services
 
-<div @onkeydown="OnKeyDown" @onkeydown:document="OnKeyDown">
+<div @onkeydown="OnKeyDown">
     <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
     <MudPopoverProvider />
     <MudDialogProvider />

@@ -1,6 +1,7 @@
 ﻿@page "/"
 @inject SessionSelectionService SessionSvc
 @inject PerformerUiState LiveState
+@inject IConfiguration Configuration
 @using Nuotti.Contracts.V1.Enum
 @using Nuotti.Contracts.V1.Model
 @implements IAsyncDisposable
@@ -15,8 +16,12 @@
                 <MudText Typo="Typo.h5" Class="mb-4">Session Setup</MudText>
                 <MudText Typo="Typo.body1" Class="mb-6">Select an existing session or create a new one for the show.</MudText>
 
-                <MudTextField @bind-Value="backendUrl" Label="Backend URL" Variant="Variant.Outlined" 
-                              Placeholder="http://localhost:5000" Class="mb-4" />
+                @if (!string.IsNullOrWhiteSpace(backendUrl))
+                {
+                    <MudAlert Severity="Severity.Info" Class="mb-4">
+                        Backend: <strong>@backendUrl</strong>
+                    </MudAlert>
+                }
 
                 @if (!string.IsNullOrWhiteSpace(SessionSvc.LastSessionCode))
                 {
@@ -39,7 +44,7 @@
                     <MudButton Variant="Variant.Filled" Color="Color.Success" 
                                StartIcon="@Material.Filled.Link"
                                OnClick="ConnectAsync" 
-                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode) || string.IsNullOrWhiteSpace(backendUrl))">
+                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode))">
                         Use Selected / Connect
                     </MudButton>
                 </MudStack>
@@ -50,7 +55,7 @@
             <MudPaper Elevation="2" Class="pa-4">
                 <MudText Typo="Typo.h6" Class="mb-3">Quick Tips</MudText>
                 <MudList T="string" Dense="true">
-                    <MudListItem T="string" Icon="@Material.Filled.Info">Enter your backend server URL</MudListItem>
+                    <MudListItem T="string" Icon="@Material.Filled.Info">Backend URL is configured in appsettings.json</MudListItem>
                     <MudListItem T="string" Icon="@Material.Filled.Info">Create a new session or use an existing code</MudListItem>
                     <MudListItem T="string" Icon="@Material.Filled.Info">Ensure all performers are ready before starting</MudListItem>
                 </MudList>
@@ -74,7 +79,7 @@ else
                     <MudButton Variant="Variant.Filled" Color="Color.Success" 
                                StartIcon="@Material.Filled.Link"
                                OnClick="ConnectAsync" 
-                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode) || string.IsNullOrWhiteSpace(backendUrl))">
+                               Disabled="@(isBusy || string.IsNullOrWhiteSpace(sessionCode ?? SessionSvc.LastSessionCode))">
                         Connect
                     </MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Warning" 
@@ -150,7 +155,12 @@ else
 
     protected override void OnInitialized()
     {
-        backendUrl = Environment.GetEnvironmentVariable("NUOTTI_BACKEND");
+        // Read backend URL from configuration (appsettings.json or service discovery)
+        backendUrl = Configuration["services:backend:https:0"] 
+                    ?? Configuration["services:backend:http:0"]
+                    ?? Configuration["BackendUrl"]
+                    ?? Environment.GetEnvironmentVariable("NUOTTI_BACKEND");
+        
         sessionCode = Environment.GetEnvironmentVariable("NUOTTI_SESSION") ?? SessionSvc.LastSessionCode;
     }
 
@@ -163,7 +173,7 @@ else
     {
         if (string.IsNullOrWhiteSpace(backendUrl))
         {
-            status = "Please enter Backend URL first.";
+            status = "Backend URL not configured in appsettings.json";
             return;
         }
         try
@@ -186,9 +196,15 @@ else
 
     async Task ConnectAsync()
     {
-        if (string.IsNullOrWhiteSpace(backendUrl) || string.IsNullOrWhiteSpace(sessionCode))
+        if (string.IsNullOrWhiteSpace(backendUrl))
         {
-            status = "Enter Backend URL and Session code.";
+            status = "Backend URL not configured in appsettings.json";
+            return;
+        }
+        
+        if (string.IsNullOrWhiteSpace(sessionCode))
+        {
+            status = "Enter Session code.";
             return;
         }
 

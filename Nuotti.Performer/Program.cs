@@ -4,7 +4,10 @@ using Nuotti.Performer.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
-builder.Services.AddServerSideBlazor();
+builder.Services.AddServerSideBlazor(options =>
+{
+    options.DetailedErrors = builder.Environment.IsDevelopment();
+});
 builder.Services.AddMudServices();
 builder.AddServiceDefaults();
 
