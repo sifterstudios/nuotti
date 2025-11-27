@@ -1,0 +1,53 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: [self-hosted, unraid, docker, amd64]
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.100-rc.1.25451.107'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test tests/Nuotti.UnitTests/Nuotti.UnitTests.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --settings:.runsettings --logger:"trx;LogFileName=unit-tests.trx"
+
+      - name: Run Integration Tests
+        run: dotnet test tests/Nuotti.IntegrationTests/Nuotti.IntegrationTests.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --settings:.runsettings --logger:"trx;LogFileName=integration-tests.trx"
+
+      - name: Run E2E Tests
+        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --verbosity normal --collect:"XPlat Code Coverage" --settings:.runsettings --logger:"trx;LogFileName=e2e-tests.trx"
+
+      - name: Run All Other Tests
+        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --settings:.runsettings --logger:"trx;LogFileName=all-tests.trx"
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            **/TestResults/**/*.trx
+            **/TestResults/**/coverage.cobertura.xml
+          retention-days: 30
+
