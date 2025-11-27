@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Nuotti.Projector.Views.LobbyView">
+    
+    <Grid RowDefinitions="*,Auto,*">
+        <!-- Welcome message -->
+        <StackPanel Grid.Row="1" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    Spacing="32">
+            
+            <!-- Main title -->
+            <TextBlock Text="🎵 Welcome to Nuotti!"
+                       FontSize="72"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PrimaryBrush}"
+                       HorizontalAlignment="Center"/>
+            
+            <!-- Session code -->
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource PrimaryBrush}"
+                    BorderThickness="3"
+                    CornerRadius="16"
+                    Padding="32,16">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <TextBlock Text="Session Code:"
+                               FontSize="36"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock x:Name="SessionCodeText"
+                               Text="LOADING"
+                               FontSize="48"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryBrush}"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Instructions -->
+            <TextBlock Text="Scan the QR code or visit the website to join!"
+                       FontSize="28"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"/>
+            
+            <!-- Player count -->
+            <TextBlock x:Name="PlayerCountText"
+                       Text="Waiting for players..."
+                       FontSize="24"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -61,8 +61,8 @@
                 </StackPanel>
             </Grid>
         </Border>
-        <!-- Main content area -->
-        <Border Grid.Row="1" Grid.Column="0" Padding="32">
+        <!-- Main content area - will be replaced by phase views -->
+        <Border Grid.Row="1" Grid.Column="0" x:Name="LegacyContentArea" Padding="32" IsVisible="False">
             <StackPanel Spacing="24">
                 <TextBlock x:Name="QuestionText" 
                            Text="Waiting for question..." 

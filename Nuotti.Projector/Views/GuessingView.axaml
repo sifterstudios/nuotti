@@ -1,0 +1,186 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Nuotti.Projector.Views.GuessingView">
+    
+    <Grid RowDefinitions="Auto,*">
+        <!-- Song info header -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource DividerBrush}"
+                BorderThickness="0,0,0,2"
+                Padding="24,16">
+            <StackPanel>
+                <TextBlock x:Name="SongTitleText"
+                           Text="Song Title"
+                           FontSize="32"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock x:Name="SongArtistText"
+                           Text="Artist Name"
+                           FontSize="24"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+        
+        <!-- Question and options -->
+        <Grid Grid.Row="1" Margin="32">
+            <StackPanel Spacing="32" VerticalAlignment="Center">
+                <!-- Question text -->
+                <TextBlock x:Name="QuestionText"
+                           Text="What song is this?"
+                           FontSize="48"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           TextWrapping="Wrap"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center"/>
+                
+                <!-- Options grid (2x2) -->
+                <Grid x:Name="OptionsGrid"
+                      RowDefinitions="*,*"
+                      ColumnDefinitions="*,*"
+                      MaxWidth="800"
+                      HorizontalAlignment="Center">
+                    
+                    <!-- Option A -->
+                    <Border x:Name="OptionA"
+                            Grid.Row="0" Grid.Column="0"
+                            Margin="8"
+                            Padding="24"
+                            CornerRadius="16"
+                            Background="{DynamicResource OptionBackgroundBrush}"
+                            BorderBrush="{DynamicResource DividerBrush}"
+                            BorderThickness="3">
+                        <DockPanel>
+                            <TextBlock Text="A"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Left"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,16,0"/>
+                            <TextBlock x:Name="OptionACount"
+                                       Text="0"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Right"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="OptionAText"
+                                       Text="Option A"
+                                       FontSize="24"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                    
+                    <!-- Option B -->
+                    <Border x:Name="OptionB"
+                            Grid.Row="0" Grid.Column="1"
+                            Margin="8"
+                            Padding="24"
+                            CornerRadius="16"
+                            Background="{DynamicResource OptionBackgroundBrush}"
+                            BorderBrush="{DynamicResource DividerBrush}"
+                            BorderThickness="3">
+                        <DockPanel>
+                            <TextBlock Text="B"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Left"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,16,0"/>
+                            <TextBlock x:Name="OptionBCount"
+                                       Text="0"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Right"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="OptionBText"
+                                       Text="Option B"
+                                       FontSize="24"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                    
+                    <!-- Option C -->
+                    <Border x:Name="OptionC"
+                            Grid.Row="1" Grid.Column="0"
+                            Margin="8"
+                            Padding="24"
+                            CornerRadius="16"
+                            Background="{DynamicResource OptionBackgroundBrush}"
+                            BorderBrush="{DynamicResource DividerBrush}"
+                            BorderThickness="3">
+                        <DockPanel>
+                            <TextBlock Text="C"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Left"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,16,0"/>
+                            <TextBlock x:Name="OptionCCount"
+                                       Text="0"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Right"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="OptionCText"
+                                       Text="Option C"
+                                       FontSize="24"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                    
+                    <!-- Option D -->
+                    <Border x:Name="OptionD"
+                            Grid.Row="1" Grid.Column="1"
+                            Margin="8"
+                            Padding="24"
+                            CornerRadius="16"
+                            Background="{DynamicResource OptionBackgroundBrush}"
+                            BorderBrush="{DynamicResource DividerBrush}"
+                            BorderThickness="3">
+                        <DockPanel>
+                            <TextBlock Text="D"
+                                       FontSize="32"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Left"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,16,0"/>
+                            <TextBlock x:Name="OptionDCount"
+                                       Text="0"
+                                       FontSize="28"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       DockPanel.Dock="Right"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="OptionDText"
+                                       Text="Option D"
+                                       FontSize="24"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

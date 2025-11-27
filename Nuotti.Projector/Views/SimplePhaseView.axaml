@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Nuotti.Projector.Views.SimplePhaseView">
+    
+    <Grid RowDefinitions="*,Auto,*">
+        <StackPanel Grid.Row="1" 
+                    HorizontalAlignment="Center" 
+                    VerticalAlignment="Center"
+                    Spacing="24">
+            
+            <!-- Phase icon/emoji -->
+            <TextBlock x:Name="PhaseIconText"
+                       Text="🎵"
+                       FontSize="96"
+                       HorizontalAlignment="Center"/>
+            
+            <!-- Phase title -->
+            <TextBlock x:Name="PhaseTitleText"
+                       Text="Phase Title"
+                       FontSize="48"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource PrimaryBrush}"
+                       HorizontalAlignment="Center"/>
+            
+            <!-- Song info (if applicable) -->
+            <StackPanel x:Name="SongInfoPanel"
+                        Spacing="8"
+                        HorizontalAlignment="Center"
+                        IsVisible="False">
+                <TextBlock x:Name="SongTitleText"
+                           Text="Song Title"
+                           FontSize="32"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock x:Name="SongArtistText"
+                           Text="Artist Name"
+                           FontSize="24"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center"/>
+            </StackPanel>
+            
+            <!-- Additional info -->
+            <TextBlock x:Name="AdditionalInfoText"
+                       Text=""
+                       FontSize="24"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       IsVisible="False"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

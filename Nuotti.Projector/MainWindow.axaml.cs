@@ -9,8 +9,10 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Controls;
 using Nuotti.Projector.Models;
 using Nuotti.Projector.Services;
@@ -45,12 +47,17 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2 & F3
+    // New services for F2, F3 & F5
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
+    private readonly GameStateService _gameStateService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
+    
+    // F5 - Phase views
+    private readonly Dictionary<Phase, PhaseViewBase> _phaseViews = new();
+    private PhaseViewBase? _currentPhaseView;
 
     public MainWindow()
     {
@@ -71,6 +78,7 @@ public partial class MainWindow : Window
         _settingsService = new SettingsService();
         _monitorService = new MonitorService();
         _safeAreaService = new SafeAreaService();
+        _gameStateService = new GameStateService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -78,6 +86,12 @@ public partial class MainWindow : Window
         
         // Handle window size changes for safe area
         SizeChanged += OnWindowSizeChanged;
+        
+        // Initialize phase views
+        InitializePhaseViews();
+        
+        // Subscribe to game state changes
+        _gameStateService.StateChanged += OnGameStateChanged;
         
         // Update theme toggle button icon based on current theme
         UpdateThemeToggleButton();
@@ -110,6 +124,14 @@ public partial class MainWindow : Window
             .WithAutomaticReconnect()
             .Build();
 
+        // F5 - Subscribe to GameStateChanged instead of individual events
+        _connection.On<GameStateSnapshot>("GameStateChanged", snapshot =>
+        {
+            AppendLocal($"GameStateChanged: Phase={snapshot.Phase}, Song={snapshot.CurrentSong?.Title}");
+            Dispatcher.UIThread.Post(() => _gameStateService.UpdateFromSnapshot(snapshot));
+        });
+        
+        // Keep legacy event handlers for backward compatibility
         _connection.On<QuestionPushed>("QuestionPushed", q =>
         {
             AppendLocal($"QuestionPushed: {q.Text}");
@@ -118,7 +140,11 @@ public partial class MainWindow : Window
         _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
         {
             AppendLocal($"AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
-            Dispatcher.UIThread.Post(() => Tally(a.ChoiceIndex));
+            Dispatcher.UIThread.Post(() => 
+            {
+                Tally(a.ChoiceIndex);
+                _gameStateService.UpdateTally(a.ChoiceIndex);
+            });
         });
         _connection.On<PlayTrack>("RequestPlay", p =>
         {
@@ -485,5 +511,67 @@ public partial class MainWindow : Window
         
         await _settingsService.SaveSettingsAsync(_settings);
         AppendLocal($"[safe-area] Margin set to {margin:P1}");
+    }
+    
+    // F5 - GameState Renderer functionality
+    private void InitializePhaseViews()
+    {
+        // Create phase-specific views
+        _phaseViews[Phase.Lobby] = new LobbyView();
+        _phaseViews[Phase.Guessing] = new GuessingView();
+        
+        // Use SimplePhaseView for other phases
+        var simplePhases = new[] { Phase.Start, Phase.Hint, Phase.Lock, Phase.Reveal, Phase.Play, Phase.Intermission, Phase.Finished };
+        foreach (var phase in simplePhases)
+        {
+            _phaseViews[phase] = new SimplePhaseView();
+        }
+    }
+    
+    private void OnGameStateChanged(GameState state)
+    {
+        try
+        {
+            // Update session code display
+            _sessionCodeText.Text = state.SessionCode.ToUpperInvariant();
+            
+            // Switch to appropriate phase view
+            if (_gameStateService.ShouldShowPhase(state.Phase))
+            {
+                SwitchToPhaseView(state.Phase, state);
+            }
+            
+            AppendLocal($"[gamestate] Phase: {state.Phase}, Song: {state.CurrentSongTitle}");
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[gamestate] Error: {ex.Message}");
+        }
+    }
+    
+    private void SwitchToPhaseView(Phase phase, GameState state)
+    {
+        if (!_phaseViews.TryGetValue(phase, out var phaseView))
+        {
+            AppendLocal($"[gamestate] No view for phase {phase}");
+            return;
+        }
+        
+        // Remove current view
+        if (_currentPhaseView != null)
+        {
+            _contentGrid.Children.Remove(_currentPhaseView);
+        }
+        
+        // Add new view
+        _currentPhaseView = phaseView;
+        _currentPhaseView.UpdateState(state);
+        
+        // Add to main content area (replace the current question/options area)
+        Grid.SetRow(_currentPhaseView, 1);
+        Grid.SetColumn(_currentPhaseView, 0);
+        _contentGrid.Children.Add(_currentPhaseView);
+        
+        AppendLocal($"[gamestate] Switched to {phase} view");
     }
 }
