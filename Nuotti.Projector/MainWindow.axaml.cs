@@ -8,7 +8,6 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using Avalonia.Visual;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
@@ -45,6 +44,7 @@ public partial class MainWindow : Window
     readonly SafeAreaFrame _safeAreaFrame;
     readonly NowPlayingBanner _nowPlayingBanner;
     readonly ReconnectOverlay _reconnectOverlay;
+    readonly DebugOverlay _debugOverlay;
     readonly AvaloniaList<string> _logs = new();
 
     readonly string _backend = "http://localhost:5240";
@@ -82,6 +82,7 @@ public partial class MainWindow : Window
         _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
         _nowPlayingBanner = this.FindControl<NowPlayingBanner>("NowPlayingBannerControl")!;
         _reconnectOverlay = this.FindControl<ReconnectOverlay>("ReconnectOverlayControl")!;
+        _debugOverlay = this.FindControl<DebugOverlay>("DebugOverlayControl")!;
         _logList.ItemsSource = _logs;
         
         // Initialize services
@@ -104,15 +105,22 @@ public partial class MainWindow : Window
         
         // Subscribe to game state changes
         _gameStateService.StateChanged += OnGameStateChanged;
+        _gameStateService.StateChanged += state => _debugOverlay.UpdateGameState(state);
         
         // F12 - Performance monitoring
         _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
+        _performanceService.MetricsUpdated += OnPerformanceMetricsUpdated;
+        
+        // F13 - Debug overlay (DEV only)
+        this.KeyDown += OnKeyDown;
         
         // Hook into render loop for performance monitoring
-        this.GetObservable(Visual.BoundsProperty).Subscribe(_ => 
+        // Use a timer-based approach instead of render events for now
+        var renderTimer = new System.Threading.Timer(_ => 
         {
             _performanceService.RecordFrameStart();
-        });
+            _performanceService.RecordFrameEnd();
+        }, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(16.67)); // ~60 FPS
         
         // Update theme toggle button icon based on current theme
         UpdateThemeToggleButton();
@@ -243,6 +251,10 @@ public partial class MainWindow : Window
     {
         await _connection.StartAsync();
         AppendLocal("[hub] start ok");
+        
+        // Update debug overlay with connection ID
+        _debugOverlay.UpdateConnectionId(_connection.ConnectionId ?? "Unknown");
+        
         await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
@@ -746,5 +758,25 @@ public partial class MainWindow : Window
     public bool ShouldUseHeavyAnimations()
     {
         return _performanceService.HeavyAnimationsEnabled;
+    }
+    
+    private void OnPerformanceMetricsUpdated(PerformanceMetrics metrics)
+    {
+        _debugOverlay.UpdatePerformanceMetrics(metrics);
+    }
+    
+    // F13 - Debug Overlay functionality
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Ctrl+D to toggle debug overlay (DEV only)
+        if (e.Key == Key.D && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+#if DEBUG
+            _debugOverlay.Toggle();
+            var status = _debugOverlay.IsDebugVisible ? "shown" : "hidden";
+            AppendLocal($"[debug] Debug overlay {status}");
+#endif
+            e.Handled = true;
+        }
     }
 }

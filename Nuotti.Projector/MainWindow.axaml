@@ -228,5 +228,10 @@
         <controls:ReconnectOverlay x:Name="ReconnectOverlayControl"
                                   IsReconnecting="False"
                                   ZIndex="2000"/>
+        
+        <!-- F13 - Debug overlay (DEV only) -->
+        <controls:DebugOverlay x:Name="DebugOverlayControl"
+                               IsDebugVisible="False"
+                               ZIndex="3000"/>
     </Grid>
 </Window>
