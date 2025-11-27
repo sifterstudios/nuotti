@@ -11,6 +11,11 @@
     <Application.Resources>
         <!-- Light Theme Colors (Kahoot/Bandle inspired) -->
         <ResourceDictionary>
+            <!-- F15 - Font Resources -->
+            <FontFamily x:Key="PrimaryFont">Inter, Segoe UI, SF Pro Display, Ubuntu, Arial, sans-serif</FontFamily>
+            <FontFamily x:Key="MonospaceFont">JetBrains Mono, Fira Code, Consolas, Monaco, Courier New, monospace</FontFamily>
+            <FontFamily x:Key="DisplayFont">Inter, Segoe UI, SF Pro Display, Ubuntu, Helvetica Neue, Arial, sans-serif</FontFamily>
+            
             <ResourceDictionary.ThemeDictionaries>
                 <!-- Light Theme -->
                 <ResourceDictionary x:Key="Light">

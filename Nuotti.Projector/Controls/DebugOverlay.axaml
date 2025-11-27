@@ -31,19 +31,19 @@
                 <TextBlock x:Name="FpsText"
                            Text="FPS: --"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="LightGreen"/>
                 
                 <TextBlock x:Name="FrameTimeText"
                            Text="Frame: -- ms"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="LightBlue"/>
                 
                 <TextBlock x:Name="AnimationsText"
                            Text="Animations: Enabled"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="Yellow"/>
             </StackPanel>
             
@@ -57,19 +57,19 @@
                 <TextBlock x:Name="PhaseText"
                            Text="Phase: --"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="Cyan"/>
                 
                 <TextBlock x:Name="SongText"
                            Text="Song: --"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="Cyan"/>
                 
                 <TextBlock x:Name="TalliesText"
                            Text="Tallies: --"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="Cyan"/>
             </StackPanel>
             
@@ -83,13 +83,13 @@
                 <TextBlock x:Name="ConnectionIdText"
                            Text="ID: --"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="Orange"/>
                 
                 <TextBlock x:Name="SessionText"
                            Text="Session: --"
                            FontSize="11"
-                           FontFamily="Consolas"
+                           FontFamily="{StaticResource MonospaceFont}"
                            Foreground="Orange"/>
             </StackPanel>
             
