@@ -18,6 +18,7 @@ using Nuotti.Projector.Models;
 using Nuotti.Projector.Services;
 using Nuotti.Projector.Views;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -75,7 +76,7 @@ public partial class MainWindow : Window
         _monitorButton = this.FindControl<Button>("MonitorButton")!;
         _safeAreaButton = this.FindControl<Button>("SafeAreaButton")!;
         _tallyToggleButton = this.FindControl<Button>("TallyToggleButton")!;
-        _contentGrid = this.FindControl<Grid>("ContentGrid")!
+        _contentGrid = this.FindControl<Grid>("ContentGrid")!;
         _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
         _nowPlayingBanner = this.FindControl<NowPlayingBanner>("NowPlayingBannerControl")!;
         _reconnectOverlay = this.FindControl<ReconnectOverlay>("ReconnectOverlayControl")!;
@@ -175,10 +176,13 @@ public partial class MainWindow : Window
                 _settings = await _settingsService.LoadSettingsAsync();
                 
                 // Apply saved theme
-                if (Enum.TryParse<ThemeVariant>(_settings.ThemeVariant, out var themeVariant))
+                var themeVariant = _settings.ThemeVariant switch
                 {
-                    Application.Current!.RequestedThemeVariant = themeVariant;
-                }
+                    "Light" => ThemeVariant.Light,
+                    "Dark" => ThemeVariant.Dark,
+                    _ => ThemeVariant.Default
+                };
+                Application.Current!.RequestedThemeVariant = themeVariant;
                 UpdateThemeToggleButton();
                 
                 // Apply safe area settings

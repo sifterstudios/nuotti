@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Models;
@@ -51,7 +52,9 @@ public class GameStateService
         var tallies = _currentState.Tallies.ToArray();
         tallies[choiceIndex]++;
         
-        _currentState = _currentState with { Tallies = tallies };
+        var updatedState = _currentState.Copy();
+        updatedState.Tallies = tallies;
+        _currentState = updatedState;
         StateChanged?.Invoke(_currentState);
     }
     

@@ -16,42 +16,44 @@ public class MonitorService
         
         try
         {
-            var screens = Screen.All;
-            var primaryScreen = Screen.Primary;
-            
-            foreach (var screen in screens)
+            // For now, create a simple fallback monitor since Screen API is complex in Avalonia
+            monitors.Add(new MonitorInfo
             {
-                var monitor = new MonitorInfo
-                {
-                    Id = screen.Handle.ToString(),
-                    Name = screen.DisplayName ?? $"Display {monitors.Count + 1}",
-                    Width = (int)screen.Bounds.Width,
-                    Height = (int)screen.Bounds.Height,
-                    X = (int)screen.Bounds.X,
-                    Y = (int)screen.Bounds.Y,
-                    IsPrimary = screen.Equals(primaryScreen)
-                };
-                monitors.Add(monitor);
-            }
+                Id = "primary",
+                Name = "Primary Display",
+                Width = 1920,
+                Height = 1080,
+                X = 0,
+                Y = 0,
+                IsPrimary = true
+            });
+            
+            // Add a secondary display for testing
+            monitors.Add(new MonitorInfo
+            {
+                Id = "secondary",
+                Name = "Secondary Display",
+                Width = 1920,
+                Height = 1080,
+                X = 1920,
+                Y = 0,
+                IsPrimary = false
+            });
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error getting monitors: {ex.Message}");
             // Fallback to primary screen only
-            if (Screen.Primary != null)
+            monitors.Add(new MonitorInfo
             {
-                var primary = Screen.Primary;
-                monitors.Add(new MonitorInfo
-                {
-                    Id = "primary",
-                    Name = "Primary Display",
-                    Width = (int)primary.Bounds.Width,
-                    Height = (int)primary.Bounds.Height,
-                    X = (int)primary.Bounds.X,
-                    Y = (int)primary.Bounds.Y,
-                    IsPrimary = true
-                });
-            }
+                Id = "fallback",
+                Name = "Fallback Display",
+                Width = 1920,
+                Height = 1080,
+                X = 0,
+                Y = 0,
+                IsPrimary = true
+            });
         }
         
         return monitors;

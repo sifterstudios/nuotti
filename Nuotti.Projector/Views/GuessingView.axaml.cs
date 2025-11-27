@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -5,8 +8,6 @@ using Avalonia.Media;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Projector.Models;
 using Nuotti.Projector.Services;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Nuotti.Projector.Views;
 

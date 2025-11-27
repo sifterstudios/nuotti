@@ -58,7 +58,7 @@
                     Padding="16,8"
                     Click="OnCancelClick"/>
             <Button x:Name="SelectButton" 
-                    Content="Select & Go Fullscreen" 
+                    Content="Select &amp; Go Fullscreen" 
                     Padding="16,8"
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="White"

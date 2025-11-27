@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 
@@ -37,4 +40,21 @@ public class GameState
     
     public bool HasHints => HintIndex >= 0;
     public int CurrentHintNumber => Math.Max(1, HintIndex + 1);
+    
+    public GameState Copy()
+    {
+        return new GameState
+        {
+            Phase = this.Phase,
+            SessionCode = this.SessionCode,
+            SongIndex = this.SongIndex,
+            CurrentSong = this.CurrentSong,
+            Choices = this.Choices,
+            HintIndex = this.HintIndex,
+            Tallies = this.Tallies,
+            Scores = this.Scores,
+            Catalog = this.Catalog,
+            SongStartedAtUtc = this.SongStartedAtUtc
+        };
+    }
 }
