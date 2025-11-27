@@ -52,7 +52,7 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11, F12 & F15
+    // New services for F2, F3, F5, F11, F12, F15 & F16
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private readonly ReconnectService _reconnectService;
     private readonly PerformanceService _performanceService;
     private readonly FontService _fontService;
+    private readonly ErrorHandlingService _errorHandlingService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -94,6 +95,7 @@ public partial class MainWindow : Window
         _reconnectService = new ReconnectService(_backend);
         _performanceService = new PerformanceService();
         _fontService = new FontService();
+        _errorHandlingService = new ErrorHandlingService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -108,6 +110,12 @@ public partial class MainWindow : Window
         // Subscribe to game state changes
         _gameStateService.StateChanged += OnGameStateChanged;
         _gameStateService.StateChanged += state => _debugOverlay.UpdateGameState(state);
+        
+        // F16 - Error handling service events
+        _errorHandlingService.ErrorOccurred += OnErrorOccurred;
+        _errorHandlingService.EmptyStateRequired += OnEmptyStateRequired;
+        _errorHandlingService.RetryRequested += OnRetryRequested;
+        _errorHandlingService.BackToLobbyRequested += OnBackToLobbyRequested;
         
         // F12 - Performance monitoring
         _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
@@ -195,21 +203,30 @@ public partial class MainWindow : Window
             try
             {
                 // F15 - Load fonts before applying settings
-                await _fontService.LoadFontsAsync();
-                AppendLocal("[fonts] Font loading completed");
+                await _errorHandlingService.ExecuteWithErrorHandling(async () =>
+                {
+                    await _fontService.LoadFontsAsync();
+                    AppendLocal("[fonts] Font loading completed");
+                }, "font loading");
                 
                 // Load settings first
-                _settings = await _settingsService.LoadSettingsAsync();
+                _settings = await _errorHandlingService.ExecuteWithErrorHandling(async () =>
+                {
+                    return await _settingsService.LoadSettingsAsync();
+                }, "settings loading") ?? new ProjectorSettings();
                 
                 // Apply saved theme
-                var themeVariant = _settings.ThemeVariant switch
+                _errorHandlingService.ExecuteWithErrorHandling(() =>
                 {
-                    "Light" => ThemeVariant.Light,
-                    "Dark" => ThemeVariant.Dark,
-                    _ => ThemeVariant.Default
-                };
-                Application.Current!.RequestedThemeVariant = themeVariant;
-                UpdateThemeToggleButton();
+                    var themeVariant = _settings.ThemeVariant switch
+                    {
+                        "Light" => ThemeVariant.Light,
+                        "Dark" => ThemeVariant.Dark,
+                        _ => ThemeVariant.Default
+                    };
+                    Application.Current!.RequestedThemeVariant = themeVariant;
+                    UpdateThemeToggleButton();
+                }, "theme application");
                 
                 // Apply safe area settings
                 _safeAreaService.SafeAreaMargin = _settings.SafeAreaMargin;
@@ -954,5 +971,57 @@ Fonts & Typography:
         {
             AppendLocal($"[help] {line}");
         }
+    }
+    
+    // F16 - Error & Empty State handling
+    private void OnErrorOccurred(ErrorStateView errorView)
+    {
+        // Replace current content with error view
+        _contentGrid.Children.Clear();
+        _contentGrid.Children.Add(errorView);
+        Grid.SetRowSpan(errorView, 4);
+        Grid.SetColumnSpan(errorView, 3);
+        
+        AppendLocal("[error] Error state displayed");
+    }
+    
+    private void OnEmptyStateRequired(EmptyStateView emptyView)
+    {
+        // Replace current content with empty state view
+        _contentGrid.Children.Clear();
+        _contentGrid.Children.Add(emptyView);
+        Grid.SetRowSpan(emptyView, 4);
+        Grid.SetColumnSpan(emptyView, 3);
+        
+        AppendLocal("[empty] Empty state displayed");
+    }
+    
+    private void OnRetryRequested()
+    {
+        AppendLocal("[error] Retry requested, attempting to reconnect...");
+        
+        // Clear error/empty state and try to reconnect
+        _contentGrid.Children.Clear();
+        
+        // Show loading state
+        _errorHandlingService.ShowEmptyState(EmptyStateType.Loading, "Reconnecting to game server...");
+        
+        // Attempt to restart connection
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(1000); // Brief delay
+            await StartConnection();
+        });
+    }
+    
+    private void OnBackToLobbyRequested()
+    {
+        AppendLocal("[error] Back to lobby requested");
+        
+        // Clear error state and show lobby
+        _contentGrid.Children.Clear();
+        
+        // Reset to lobby state - show empty state for now
+        _errorHandlingService.ShowEmptyState(EmptyStateType.WaitingForGame, "Returning to lobby...");
     }
 }

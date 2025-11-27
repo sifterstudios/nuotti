@@ -1,0 +1,71 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Nuotti.Projector.Views.EmptyStateView">
+    
+    <Border Background="{DynamicResource BackgroundBrush}"
+            Padding="40">
+        
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="24"
+                    MaxWidth="500">
+            
+            <!-- Empty State Icon -->
+            <TextBlock x:Name="EmptyIcon"
+                       Text="📭"
+                       FontSize="64"
+                       HorizontalAlignment="Center"/>
+            
+            <!-- Empty State Title -->
+            <TextBlock x:Name="EmptyTitle"
+                       Text="Nothing here yet"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       FontFamily="{StaticResource DisplayFont}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"/>
+            
+            <!-- Empty State Message -->
+            <TextBlock x:Name="EmptyMessage"
+                       Text="We're waiting for something to show up here."
+                       FontSize="16"
+                       FontFamily="{StaticResource PrimaryFont}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"/>
+            
+            <!-- Action Button (optional) -->
+            <Button x:Name="ActionButton"
+                    Content="🔄 Refresh"
+                    FontSize="16"
+                    FontFamily="{StaticResource PrimaryFont}"
+                    Padding="20,12"
+                    Background="{DynamicResource PrimaryBrush}"
+                    Foreground="White"
+                    CornerRadius="8"
+                    HorizontalAlignment="Center"
+                    IsVisible="False"
+                    Click="OnActionClick"/>
+            
+            <!-- Loading indicator (optional) -->
+            <StackPanel x:Name="LoadingIndicator"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8"
+                        IsVisible="False">
+                
+                <TextBlock Text="⏳"
+                           FontSize="16"
+                           VerticalAlignment="Center"/>
+                
+                <TextBlock Text="Loading..."
+                           FontSize="14"
+                           FontFamily="{StaticResource PrimaryFont}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>
