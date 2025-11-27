@@ -40,6 +40,12 @@
                            FontFamily="{StaticResource MonospaceFont}"
                            Foreground="LightBlue"/>
                 
+                <TextBlock x:Name="LongestFrameText"
+                           Text="Longest frame: -- ms"
+                           FontSize="11"
+                           FontFamily="{StaticResource MonospaceFont}"
+                           Foreground="Orange"/>
+                
                 <TextBlock x:Name="AnimationsText"
                            Text="Animations: Enabled"
                            FontSize="11"

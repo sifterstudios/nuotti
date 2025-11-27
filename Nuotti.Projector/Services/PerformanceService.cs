@@ -11,6 +11,7 @@ public class PerformanceService
 {
     private readonly object _lock = new();
     private readonly Queue<double> _frameTimes = new();
+    private readonly Queue<(double FrameTimeMs, DateTimeOffset Timestamp)> _timedFrameTimes = new();
     private readonly Stopwatch _frameStopwatch = new();
     private readonly Timer _performanceTimer;
     
@@ -18,10 +19,16 @@ public class PerformanceService
     private const double TargetFrameTimeMs = 16.67; // 60 FPS target
     private const double WarningThresholdMs = 16.0; // Warn if frame time > 16ms
     private const double CriticalThresholdMs = 22.0; // Critical if frame time > 22ms (45 FPS)
+    private const int Last10SecondsWindow = 10; // Track metrics for last 10 seconds
     
     private bool _heavyAnimationsEnabled = true;
     private int _consecutiveSlowFrames = 0;
     private const int SlowFrameThreshold = 120; // 2 seconds at 60fps
+    
+#if DEBUG
+    private DateTimeOffset _lastConsoleLogTime = DateTimeOffset.MinValue;
+    private const int ConsoleLogIntervalSeconds = 10; // Log every 10 seconds in DEV mode
+#endif
     
     public event Action<PerformanceMetrics>? MetricsUpdated;
     public event Action<bool>? HeavyAnimationsToggled;
@@ -44,6 +51,7 @@ public class PerformanceService
     public void RecordFrameEnd()
     {
         var frameTime = _frameStopwatch.Elapsed.TotalMilliseconds;
+        var now = DateTimeOffset.UtcNow;
         
         lock (_lock)
         {
@@ -53,6 +61,16 @@ public class PerformanceService
             while (_frameTimes.Count > MaxFrameTimesSamples)
             {
                 _frameTimes.Dequeue();
+            }
+            
+            // Track timed frame samples for 10-second window analysis
+            _timedFrameTimes.Enqueue((frameTime, now));
+            
+            // Remove frames older than 10 seconds
+            var cutoffTime = now.AddSeconds(-Last10SecondsWindow);
+            while (_timedFrameTimes.Count > 0 && _timedFrameTimes.Peek().Timestamp < cutoffTime)
+            {
+                _timedFrameTimes.Dequeue();
             }
             
             // Check for performance issues
@@ -92,51 +110,90 @@ public class PerformanceService
         
         lock (_lock)
         {
-            if (_frameTimes.Count == 0)
+            // Get metrics for last 10 seconds
+            var last10SecFrames = _timedFrameTimes.ToArray();
+            
+            if (last10SecFrames.Length == 0 && _frameTimes.Count == 0)
             {
-                metrics = new PerformanceMetrics(0, 0, 0, 0, true);
+                metrics = new PerformanceMetrics(0, 0, 0, 0, 0, true);
             }
             else
             {
-                var frameTimesArray = _frameTimes.ToArray();
+                double[] frameTimesArray;
+                if (last10SecFrames.Length > 0)
+                {
+                    frameTimesArray = last10SecFrames.Select(f => f.FrameTimeMs).ToArray();
+                }
+                else
+                {
+                    frameTimesArray = _frameTimes.ToArray();
+                }
+                
                 var avgFrameTime = frameTimesArray.Average();
                 var maxFrameTime = frameTimesArray.Max();
                 var minFrameTime = frameTimesArray.Min();
                 var fps = 1000.0 / avgFrameTime;
+                var longestFrame = maxFrameTime;
                 
                 metrics = new PerformanceMetrics(
                     fps,
                     avgFrameTime,
                     maxFrameTime,
                     minFrameTime,
+                    longestFrame,
                     _heavyAnimationsEnabled
                 );
             }
         }
         
         MetricsUpdated?.Invoke(metrics);
+        
+        // DEV-only console logging of performance stats (every 10 seconds)
+#if DEBUG
+        var now = DateTimeOffset.UtcNow;
+        if ((now - _lastConsoleLogTime).TotalSeconds >= ConsoleLogIntervalSeconds)
+        {
+            System.Console.WriteLine($"[Projector Performance] FPS: {metrics.Fps:F1}, AvgFrameTime: {metrics.AvgFrameTimeMs:F2}ms, LongestFrame(10s): {metrics.LongestFrameMs:F2}ms");
+            _lastConsoleLogTime = now;
+        }
+#endif
     }
     
     public PerformanceMetrics GetCurrentMetrics()
     {
         lock (_lock)
         {
-            if (_frameTimes.Count == 0)
+            // Get metrics for last 10 seconds
+            var last10SecFrames = _timedFrameTimes.ToArray();
+            
+            if (last10SecFrames.Length == 0 && _frameTimes.Count == 0)
             {
-                return new PerformanceMetrics(0, 0, 0, 0, true);
+                return new PerformanceMetrics(0, 0, 0, 0, 0, true);
             }
             
-            var frameTimesArray = _frameTimes.ToArray();
+            // Use last 10 seconds if available, otherwise fall back to all frame times
+            double[] frameTimesArray;
+            if (last10SecFrames.Length > 0)
+            {
+                frameTimesArray = last10SecFrames.Select(f => f.FrameTimeMs).ToArray();
+            }
+            else
+            {
+                frameTimesArray = _frameTimes.ToArray();
+            }
+            
             var avgFrameTime = frameTimesArray.Average();
             var maxFrameTime = frameTimesArray.Max();
             var minFrameTime = frameTimesArray.Min();
             var fps = 1000.0 / avgFrameTime;
+            var longestFrame = maxFrameTime;
             
             return new PerformanceMetrics(
                 fps,
                 avgFrameTime,
                 maxFrameTime,
                 minFrameTime,
+                longestFrame,
                 _heavyAnimationsEnabled
             );
         }
@@ -166,5 +223,6 @@ public record PerformanceMetrics(
     double AvgFrameTimeMs,
     double MaxFrameTimeMs,
     double MinFrameTimeMs,
+    double LongestFrameMs, // Longest frame in the last 10 seconds
     bool HeavyAnimationsEnabled
 );

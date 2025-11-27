@@ -17,6 +17,7 @@ public partial class DebugOverlay : UserControl
     
     private readonly TextBlock _fpsText;
     private readonly TextBlock _frameTimeText;
+    private readonly TextBlock _longestFrameText;
     private readonly TextBlock _animationsText;
     private readonly TextBlock _phaseText;
     private readonly TextBlock _songText;
@@ -41,6 +42,7 @@ public partial class DebugOverlay : UserControl
         
         _fpsText = this.FindControl<TextBlock>("FpsText")!;
         _frameTimeText = this.FindControl<TextBlock>("FrameTimeText")!;
+        _longestFrameText = this.FindControl<TextBlock>("LongestFrameText")!;
         _animationsText = this.FindControl<TextBlock>("AnimationsText")!;
         _phaseText = this.FindControl<TextBlock>("PhaseText")!;
         _songText = this.FindControl<TextBlock>("SongText")!;
@@ -53,8 +55,9 @@ public partial class DebugOverlay : UserControl
     {
         _lastPerformanceMetrics = metrics;
         
-        _fpsText.Text = $"FPS: {metrics.Fps:F1}";
-        _frameTimeText.Text = $"Frame: {metrics.AvgFrameTimeMs:F1} ms";
+        _fpsText.Text = $"FPS (10s avg): {metrics.Fps:F1}";
+        _frameTimeText.Text = $"Frame (avg): {metrics.AvgFrameTimeMs:F1} ms";
+        _longestFrameText.Text = $"Longest frame (10s): {metrics.LongestFrameMs:F1} ms";
         _animationsText.Text = $"Animations: {(metrics.HeavyAnimationsEnabled ? "Enabled" : "DISABLED")}";
         
         // Color code FPS based on performance
@@ -70,6 +73,14 @@ public partial class DebugOverlay : UserControl
         {
             <= 16.67 => Avalonia.Media.Brushes.LightGreen,
             <= 22 => Avalonia.Media.Brushes.Yellow,
+            _ => Avalonia.Media.Brushes.Red
+        };
+        
+        // Color code longest frame
+        _longestFrameText.Foreground = metrics.LongestFrameMs switch
+        {
+            <= 22 => Avalonia.Media.Brushes.LightGreen,
+            <= 33 => Avalonia.Media.Brushes.Yellow,
             _ => Avalonia.Media.Brushes.Red
         };
     }
@@ -142,6 +153,7 @@ public partial class DebugOverlay : UserControl
                 avgFrameTimeMs = _lastPerformanceMetrics.AvgFrameTimeMs,
                 maxFrameTimeMs = _lastPerformanceMetrics.MaxFrameTimeMs,
                 minFrameTimeMs = _lastPerformanceMetrics.MinFrameTimeMs,
+                longestFrameMs = _lastPerformanceMetrics.LongestFrameMs,
                 heavyAnimationsEnabled = _lastPerformanceMetrics.HeavyAnimationsEnabled
             } : null,
             gameState = _lastGameState != null ? new
