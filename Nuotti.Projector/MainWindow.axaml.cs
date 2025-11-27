@@ -52,13 +52,14 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11 & F12
+    // New services for F2, F3, F5, F11, F12 & F15
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
     private readonly GameStateService _gameStateService;
     private readonly ReconnectService _reconnectService;
     private readonly PerformanceService _performanceService;
+    private readonly FontService _fontService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -92,6 +93,7 @@ public partial class MainWindow : Window
         _gameStateService = new GameStateService();
         _reconnectService = new ReconnectService(_backend);
         _performanceService = new PerformanceService();
+        _fontService = new FontService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -192,6 +194,10 @@ public partial class MainWindow : Window
         {
             try
             {
+                // F15 - Load fonts before applying settings
+                await _fontService.LoadFontsAsync();
+                AppendLocal("[fonts] Font loading completed");
+                
                 // Load settings first
                 _settings = await _settingsService.LoadSettingsAsync();
                 
@@ -936,7 +942,12 @@ Debug (DEV only):
 Monitor & Display:
   M           - Monitor selection
   S           - Safe area toggle
-  T           - Tally display toggle";
+  T           - Tally display toggle
+
+Fonts & Typography:
+  Fonts loaded: " + (_fontService.AreFontsLoaded ? "✓" : "✗") + @"
+  Primary: " + _fontService.PrimaryFont.Name + @"
+  Monospace: " + _fontService.MonospaceFont.Name;
 
         AppendLocal("[help] Keyboard shortcuts:");
         foreach (var line in shortcuts.Split('\n'))

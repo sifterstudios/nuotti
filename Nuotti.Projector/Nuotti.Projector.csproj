@@ -26,4 +26,11 @@
       <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
       <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
     </ItemGroup>
+    
+    <!-- F15 - Font Resources -->
+    <ItemGroup>
+        <AvaloniaResource Include="Assets\**" />
+        <EmbeddedResource Include="Assets\Fonts\**\*.ttf" />
+        <EmbeddedResource Include="Assets\Fonts\**\*.otf" />
+    </ItemGroup>
 </Project>
