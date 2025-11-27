@@ -1,0 +1,63 @@
+name: Load & Chaos Tests (Nightly)
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  load-chaos:
+    runs-on: [self-hosted, unraid, docker, amd64]
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.100-rc.1.25451.107'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Run Load Tests (Baseline 200 audiences)
+        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Load&Load=baseline" --verbosity normal --logger:"trx;LogFileName=load-baseline.trx"
+        continue-on-error: true
+
+      - name: Run Chaos Tests (Disconnects)
+        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Chaos" --verbosity normal --logger:"trx;LogFileName=chaos-tests.trx"
+        continue-on-error: true
+
+      - name: Run Stress Tests (500 audiences)
+        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Load&Load=stress" --verbosity normal --logger:"trx;LogFileName=load-stress.trx"
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-chaos-results-${{ github.run_number }}
+          path: |
+            **/TestResults/**/*.trx
+          retention-days: 90
+
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## Load & Chaos Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Nightly run completed. Check artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Categories" >> $GITHUB_STEP_SUMMARY
+          echo "- Baseline Load (200 audiences)" >> $GITHUB_STEP_SUMMARY
+          echo "- Chaos (Disconnects)" >> $GITHUB_STEP_SUMMARY
+          echo "- Stress (500 audiences)" >> $GITHUB_STEP_SUMMARY
+
