@@ -52,7 +52,7 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11, F12, F15 & F16
+    // New services for F2, F3, F5, F11, F12, F15, F16 & F17
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
@@ -61,6 +61,7 @@ public partial class MainWindow : Window
     private readonly PerformanceService _performanceService;
     private readonly FontService _fontService;
     private readonly ErrorHandlingService _errorHandlingService;
+    private readonly LocalizationService _localizationService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -96,6 +97,7 @@ public partial class MainWindow : Window
         _performanceService = new PerformanceService();
         _fontService = new FontService();
         _errorHandlingService = new ErrorHandlingService();
+        _localizationService = new LocalizationService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -112,10 +114,14 @@ public partial class MainWindow : Window
         _gameStateService.StateChanged += state => _debugOverlay.UpdateGameState(state);
         
         // F16 - Error handling service events
+        _errorHandlingService.SetLocalizationService(_localizationService);
         _errorHandlingService.ErrorOccurred += OnErrorOccurred;
         _errorHandlingService.EmptyStateRequired += OnEmptyStateRequired;
         _errorHandlingService.RetryRequested += OnRetryRequested;
         _errorHandlingService.BackToLobbyRequested += OnBackToLobbyRequested;
+        
+        // F17 - Localization service events
+        _localizationService.LanguageChanged += OnLanguageChanged;
         
         // F12 - Performance monitoring
         _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
@@ -202,6 +208,21 @@ public partial class MainWindow : Window
         {
             try
             {
+                // F17 - Load localization first
+                await _errorHandlingService.ExecuteWithErrorHandling(async () =>
+                {
+                    await _localizationService.LoadTranslationsAsync();
+                    
+                    // Use saved language preference or system default
+                    var savedLanguage = _settings?.Locale ?? "en";
+                    if (!_localizationService.SetLanguage(savedLanguage))
+                    {
+                        _localizationService.SetCultureFromSystem();
+                    }
+                    
+                    AppendLocal($"[i18n] Localization loaded: {_localizationService.GetCurrentCultureName()}");
+                }, "localization loading");
+                
                 // F15 - Load fonts before applying settings
                 await _errorHandlingService.ExecuteWithErrorHandling(async () =>
                 {
@@ -1022,6 +1043,21 @@ Fonts & Typography:
         _contentGrid.Children.Clear();
         
         // Reset to lobby state - show empty state for now
-        _errorHandlingService.ShowEmptyState(EmptyStateType.WaitingForGame, "Returning to lobby...");
+        var message = _localizationService.GetString("empty.waiting_for_game");
+        _errorHandlingService.ShowEmptyState(EmptyStateType.WaitingForGame, message);
+    }
+    
+    // F17 - Internationalization functionality
+    private void OnLanguageChanged(string newLanguage)
+    {
+        AppendLocal($"[i18n] Language changed to: {_localizationService.GetCurrentCultureName()}");
+        
+        // In a full implementation, we would refresh all UI text here
+        // For now, we just log the change
+    }
+    
+    public LocalizationService GetLocalizationService()
+    {
+        return _localizationService;
     }
 }
