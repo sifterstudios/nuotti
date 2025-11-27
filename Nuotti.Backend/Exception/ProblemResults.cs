@@ -56,10 +56,15 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
             var (status, title, detail, reason, field) = MapException(ex);
             var problem = new NuottiProblem(title, status, detail, reason, field, correlationId);
             
-            // Log error with correlation ID
+            // Log error with full context: status, path, reason, correlation ID, timestamp
             var logger = context.RequestServices.GetRequiredService<ILogger<ProblemHandlingMiddleware>>();
-            logger.LogError(ex, "Request failed with status {Status}. Path: {Path}, CorrelationId: {CorrelationId}", 
-                status, context.Request.Path, correlationId);
+            logger.LogError(ex, 
+                "Request failed. Status={Status}, Path={Path}, Reason={Reason}, CorrelationId={CorrelationId}, Timestamp={Timestamp}", 
+                status, 
+                context.Request.Path,
+                reason,
+                correlationId,
+                DateTimeOffset.UtcNow);
 
             context.Response.StatusCode = status;
             context.Response.ContentType = "application/json";
@@ -72,9 +77,14 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
         return ex switch
         {
             PhaseViolationException pvx => (409, "Invalid state transition", pvx.Message, ReasonCode.InvalidStateTransition, null),
+            ArgumentNullException anex => (400, "Invalid argument", anex.Message ?? "Argument cannot be null", ReasonCode.InvalidStateTransition, anex.ParamName),
             ArgumentException aex => (400, "Invalid argument", aex.Message, ReasonCode.InvalidStateTransition, aex.ParamName),
-            UnauthorizedAccessException uex => (403, "Unauthorized role", uex.Message, ReasonCode.UnauthorizedRole, null),
-            InvalidOperationException iex => (409, "Conflict", iex.Message, ReasonCode.DuplicateCommand, null),
+            UnauthorizedAccessException uex => (403, "Unauthorized", uex.Message, ReasonCode.UnauthorizedRole, null),
+            InvalidOperationException iex => (409, "Operation conflict", iex.Message, ReasonCode.DuplicateCommand, null),
+            System.ComponentModel.DataAnnotations.ValidationException vex => (422, "Validation failed", vex.Message, ReasonCode.InvalidStateTransition, null),
+            KeyNotFoundException knfex => (404, "Resource not found", knfex.Message, ReasonCode.None, null),
+            NotImplementedException niex => (501, "Not implemented", niex.Message, ReasonCode.None, null),
+            TimeoutException tex => (504, "Request timeout", tex.Message, ReasonCode.None, null),
             _ => (500, "Unexpected error", "An unexpected error occurred.", ReasonCode.None, null)
         };
     }
