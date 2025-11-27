@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Projector.Controls;
 using Nuotti.Projector.Models;
 using Nuotti.Projector.Services;
 using Nuotti.Projector.Views;
@@ -34,6 +35,9 @@ public partial class MainWindow : Window
     readonly ListBox _logList;
     readonly Button _themeToggleButton;
     readonly Button _monitorButton;
+    readonly Button _safeAreaButton;
+    readonly Grid _contentGrid;
+    readonly SafeAreaFrame _safeAreaFrame;
     readonly AvaloniaList<string> _logs = new();
 
     readonly string _backend = "http://localhost:5240";
@@ -41,9 +45,10 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2
+    // New services for F2 & F3
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
+    private readonly SafeAreaService _safeAreaService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
 
@@ -57,15 +62,22 @@ public partial class MainWindow : Window
         _logList = this.FindControl<ListBox>("LogList")!;
         _themeToggleButton = this.FindControl<Button>("ThemeToggleButton")!;
         _monitorButton = this.FindControl<Button>("MonitorButton")!;
+        _safeAreaButton = this.FindControl<Button>("SafeAreaButton")!;
+        _contentGrid = this.FindControl<Grid>("ContentGrid")!;
+        _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
         _logList.ItemsSource = _logs;
         
         // Initialize services
         _settingsService = new SettingsService();
         _monitorService = new MonitorService();
+        _safeAreaService = new SafeAreaService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
         _cursorService = new CursorService(this);
+        
+        // Handle window size changes for safe area
+        SizeChanged += OnWindowSizeChanged;
         
         // Update theme toggle button icon based on current theme
         UpdateThemeToggleButton();
@@ -127,6 +139,12 @@ public partial class MainWindow : Window
                     Application.Current!.RequestedThemeVariant = themeVariant;
                 }
                 UpdateThemeToggleButton();
+                
+                // Apply safe area settings
+                _safeAreaService.SafeAreaMargin = _settings.SafeAreaMargin;
+                _safeAreaService.ShowSafeAreaFrame = _settings.ShowSafeAreaFrame;
+                _safeAreaFrame.ShowFrame = _settings.ShowSafeAreaFrame;
+                ApplySafeArea();
                 
                 // Apply saved fullscreen state
                 if (_settings.IsFullscreen && !string.IsNullOrEmpty(_settings.SelectedMonitorId))
@@ -415,11 +433,57 @@ public partial class MainWindow : Window
             ExitFullscreen();
             e.Handled = true;
         }
+        // S key toggles safe area frame
+        else if (e.Key == Key.S && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            OnToggleSafeAreaFrame(null, new RoutedEventArgs());
+            e.Handled = true;
+        }
     }
     
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
         _cursorService?.Dispose();
+    }
+    
+    // F3 - Safe Area & Overscan Margins functionality
+    private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        ApplySafeArea();
+    }
+    
+    private void ApplySafeArea()
+    {
+        if (Bounds.Size.Width > 0 && Bounds.Size.Height > 0)
+        {
+            _safeAreaService.ApplySafeAreaToControl(_contentGrid, Bounds.Size);
+            
+            // Update safe area frame to match the content grid margins
+            var safeAreaBounds = _safeAreaService.GetSafeAreaBounds(Bounds.Size);
+            _safeAreaFrame.Margin = _safeAreaService.GetSafeAreaMargin(Bounds.Size);
+        }
+    }
+    
+    private async void OnToggleSafeAreaFrame(object? sender, RoutedEventArgs e)
+    {
+        _settings.ShowSafeAreaFrame = !_settings.ShowSafeAreaFrame;
+        _safeAreaService.ShowSafeAreaFrame = _settings.ShowSafeAreaFrame;
+        _safeAreaFrame.ShowFrame = _settings.ShowSafeAreaFrame;
+        
+        await _settingsService.SaveSettingsAsync(_settings);
+        
+        var status = _settings.ShowSafeAreaFrame ? "shown" : "hidden";
+        AppendLocal($"[safe-area] Frame {status}");
+    }
+    
+    public async Task SetSafeAreaMargin(double margin)
+    {
+        _settings.SafeAreaMargin = margin;
+        _safeAreaService.SafeAreaMargin = margin;
+        ApplySafeArea();
+        
+        await _settingsService.SaveSettingsAsync(_settings);
+        AppendLocal($"[safe-area] Margin set to {margin:P1}");
     }
 }
