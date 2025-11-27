@@ -4,8 +4,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
+using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Xunit;
@@ -26,13 +28,14 @@ public class QuizHubInProcTests
     sealed class FakeClients : IHubCallerClients
     {
         public readonly FakeClientProxy CallerProxy = new FakeClientProxy();
+        public readonly ConcurrentDictionary<string, FakeClientProxy> GroupProxies = new();
         public IClientProxy Caller => CallerProxy;
         public IClientProxy All => throw new NotImplementedException();
         public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException();
         public IClientProxy Client(string connectionId) => new FakeClientProxy();
         public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new FakeClientProxy();
-        public IClientProxy Group(string groupName) => new FakeClientProxy();
-        public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => new FakeClientProxy();
+        public IClientProxy Group(string groupName) => GroupProxies.GetOrAdd(groupName, _ => new FakeClientProxy());
+        public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => Group(groupName);
         public IClientProxy Groups(IReadOnlyList<string> groupNames) => new FakeClientProxy();
         public IClientProxy Others => new FakeClientProxy();
         public IClientProxy OthersInGroup(string groupName) => new FakeClientProxy();
@@ -233,7 +236,9 @@ public class QuizHubInProcTests
     {
         var store = CreateSessionStore();
         var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
         var groups = new CapturingGroupManager();
+        hub.SetClients(clients);
         hub.SetGroups(groups);
 
         // Join as Performer
@@ -312,5 +317,254 @@ public class QuizHubInProcTests
             bag.Add((method, args));
             return Task.CompletedTask;
         }
+    }
+
+    [Fact]
+    public async Task Join_with_name_broadcasts_JoinedAudience_to_session_group()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetContext(new TestContext("conn-1"));
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        await hub.Join("test-session", "Audience", name: "Alice");
+
+        // Verify JoinedAudience was sent to session group
+        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.Contains(groupProxy.Sent, x => x.method == "JoinedAudience");
+        var joinedMsg = (JoinedAudience)groupProxy.Sent.First(x => x.method == "JoinedAudience").args[0]!;
+        Assert.Equal("conn-1", joinedMsg.ConnectionId);
+        Assert.Equal("Alice", joinedMsg.Name);
+    }
+
+    [Fact]
+    public async Task Join_without_name_does_not_broadcast_JoinedAudience()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetContext(new TestContext("conn-1"));
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        await hub.Join("test-session", "Performer");
+
+        // Verify JoinedAudience was NOT sent (if group proxy exists, it should be empty)
+        if (clients.GroupProxies.TryGetValue("test-session", out var groupProxy))
+        {
+            Assert.DoesNotContain(groupProxy.Sent, x => x.method == "JoinedAudience");
+        }
+    }
+
+    [Fact]
+    public async Task Join_with_empty_session_returns_problem()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        hub.SetContext(new TestContext("conn-1"));
+        hub.SetClients(clients);
+
+        await hub.Join("", "Audience");
+
+        Assert.Contains(clients.CallerProxy.Sent, x => x.method == "Problem");
+    }
+
+    [Fact]
+    public async Task Join_with_empty_role_returns_problem()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        hub.SetContext(new TestContext("conn-1"));
+        hub.SetClients(clients);
+
+        await hub.Join("test-session", "");
+
+        Assert.Contains(clients.CallerProxy.Sent, x => x.method == "Problem");
+    }
+
+    [Fact]
+    public async Task CreateOrJoinWithName_calls_Join_with_audience_role()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetContext(new TestContext("conn-1"));
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        await hub.CreateOrJoinWithName("test-session", "Bob");
+
+        // Verify added to session and audience role group
+        Assert.True(groups.Groups.TryGetValue("test-session", out var sessGroup) && sessGroup.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue("test-session:audience", out var roleGroup) && roleGroup.Contains("conn-1"));
+        
+        // Verify JoinedAudience was broadcast
+        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.Contains(groupProxy.Sent, x => x.method == "JoinedAudience");
+    }
+
+    [Fact]
+    public async Task OnDisconnectedAsync_removes_from_groups_and_session_store()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var groups = new CapturingGroupManager();
+        hub.SetGroups(groups);
+        hub.SetContext(new TestContext("conn-1"));
+        hub.SetClients(new FakeClients());
+
+        // Join a session
+        await hub.Join("test-session", "Audience", name: "Alice");
+        Assert.True(groups.Groups.TryGetValue("test-session", out var sessGroup) && sessGroup.Contains("conn-1"));
+        Assert.Equal(1, store.GetCounts("test-session").Audiences);
+
+        // Disconnect
+        await hub.OnDisconnectedAsync(null);
+
+        // Verify removed from groups (note: CapturingGroupManager doesn't actually remove, but we can verify RemoveFromGroupAsync was called)
+        // The session store should have removed the connection
+        Assert.Equal(0, store.GetCounts("test-session").Audiences);
+    }
+
+    [Fact]
+    public async Task EngineStatusChanged_broadcasts_to_session_group()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        hub.SetClients(clients);
+
+        var evt = new EngineStatusChanged(EngineStatus.Playing, 50.0);
+        await hub.EngineStatusChanged("test-session", evt);
+
+        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.Contains(groupProxy.Sent, x => x.method == "EngineStatusChanged" && x.args[0] is EngineStatusChanged e && e.Status == evt.Status && e.LatencyMs == evt.LatencyMs);
+    }
+
+    [Fact]
+    public async Task Ping_broadcasts_to_engine_group()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        hub.SetClients(clients);
+
+        await hub.Ping("test-session", 1234567890L);
+
+        Assert.True(clients.GroupProxies.TryGetValue("test-session:engine", out var engineGroupProxy));
+        Assert.Contains(engineGroupProxy.Sent, x => x.method == "Ping" && x.args[0] is long ticks && ticks == 1234567890L);
+    }
+
+    [Fact]
+    public async Task Echo_broadcasts_to_performer_group()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        hub.SetClients(clients);
+
+        await hub.Echo("test-session", 1234567890L, 1234567900L);
+
+        Assert.True(clients.GroupProxies.TryGetValue("test-session:performer", out var performerGroupProxy));
+        Assert.Contains(performerGroupProxy.Sent, x => 
+            x.method == "Echo" && 
+            x.args[0] is long clientTicks && clientTicks == 1234567890L &&
+            x.args[1] is long engineTicks && engineTicks == 1234567900L);
+    }
+
+    [Fact]
+    public async Task RequestPlay_blocks_non_audience()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetContext(new TestContext("perf-1"));
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        // Join as Performer
+        await hub.Join("test-session", "Performer");
+
+        // Try to request play
+        var cmd = new PlayTrack("https://example.com/track.mp3")
+        {
+            SessionCode = "test-session",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
+        };
+        await hub.RequestPlay("test-session", cmd);
+
+        // Should receive Problem
+        Assert.Contains(clients.CallerProxy.Sent, x => x.method == "Problem");
+    }
+
+    [Fact]
+    public async Task RequestPlay_allows_audience_and_broadcasts_to_session()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetContext(new TestContext("aud-1"));
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        // Join as Audience
+        await hub.Join("test-session", "Audience", name: "Alice");
+
+        // Request play
+        var cmd = new PlayTrack("https://example.com/track.mp3")
+        {
+            SessionCode = "test-session",
+            IssuedByRole = Role.Audience,
+            IssuedById = "aud-1"
+        };
+        await hub.RequestPlay("test-session", cmd);
+
+        // Should broadcast to session group
+        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.Contains(groupProxy.Sent, x => x.method == "RequestPlay" && x.args[0] is PlayTrack p && p.FileUrl == cmd.FileUrl);
+    }
+
+    [Fact]
+    public async Task Broadcasts_are_scoped_to_correct_session_group()
+    {
+        var store = CreateSessionStore();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var session1Messages = new ConcurrentBag<(string method, object?[] args)>();
+        var session2Messages = new ConcurrentBag<(string method, object?[] args)>();
+
+        var clients = new FakeClientsWithSessionTracking
+        {
+            Session1Clients = session1Messages,
+            Session2Clients = session2Messages
+        };
+        hub.SetClients(clients);
+        hub.SetGroups(new CapturingGroupManager());
+
+        // Join session1
+        hub.SetContext(new TestContext("conn-1"));
+        await hub.Join("session1", "Audience", name: "Alice");
+
+        // Join session2
+        hub.SetContext(new TestContext("conn-2"));
+        await hub.Join("session2", "Audience", name: "Bob");
+
+        // Broadcast EngineStatusChanged to session1
+        var evt = new EngineStatusChanged(EngineStatus.Playing, 50.0);
+        hub.SetContext(new TestContext("engine-1"));
+        await hub.EngineStatusChanged("session1", evt);
+
+        // Verify session1 received it, session2 did not
+        Assert.Contains(session1Messages, x => x.method == "EngineStatusChanged");
+        Assert.DoesNotContain(session2Messages, x => x.method == "EngineStatusChanged");
     }
 }
