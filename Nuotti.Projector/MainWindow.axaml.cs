@@ -530,9 +530,10 @@ public partial class MainWindow : Window
         // Create phase-specific views
         _phaseViews[Phase.Lobby] = new LobbyView();
         _phaseViews[Phase.Guessing] = new GuessingView();
+        _phaseViews[Phase.Intermission] = new ScoreboardView();
         
         // Use SimplePhaseView for other phases
-        var simplePhases = new[] { Phase.Start, Phase.Hint, Phase.Lock, Phase.Reveal, Phase.Play, Phase.Intermission, Phase.Finished };
+        var simplePhases = new[] { Phase.Start, Phase.Hint, Phase.Lock, Phase.Reveal, Phase.Play, Phase.Finished };
         foreach (var phase in simplePhases)
         {
             _phaseViews[phase] = new SimplePhaseView();
