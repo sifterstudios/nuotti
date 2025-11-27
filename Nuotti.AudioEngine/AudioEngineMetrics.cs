@@ -14,6 +14,13 @@ public sealed class AudioEngineMetrics
     private bool _isPlaying;
     private double _avgRttMs;
     private long _rttCount;
+    
+    // Playback telemetry
+    private long _playbackStartCount;
+    private long _playbackStopCount;
+    private long _playbackFailureCount;
+    private readonly List<double> _trackDurationsSeconds = new();
+    private DateTimeOffset? _currentPlaybackStartTime;
 
     public DateTimeOffset StartedAtUtc => _startedAtUtc;
     public TimeSpan Uptime => DateTimeOffset.UtcNow - _startedAtUtc;
@@ -24,6 +31,8 @@ public sealed class AudioEngineMetrics
         {
             _isPlaying = true;
             _currentFile = currentFile;
+            _playbackStartCount++;
+            _currentPlaybackStartTime = DateTimeOffset.UtcNow;
         }
     }
 
@@ -32,6 +41,20 @@ public sealed class AudioEngineMetrics
         lock (_lock)
         {
             _isPlaying = false;
+            _playbackStopCount++;
+            
+            // Record track duration if we have a start time
+            if (_currentPlaybackStartTime.HasValue)
+            {
+                var duration = (DateTimeOffset.UtcNow - _currentPlaybackStartTime.Value).TotalSeconds;
+                _trackDurationsSeconds.Add(duration);
+                // Keep only last 100 measurements to avoid unbounded growth
+                if (_trackDurationsSeconds.Count > 100)
+                {
+                    _trackDurationsSeconds.RemoveAt(0);
+                }
+                _currentPlaybackStartTime = null;
+            }
         }
     }
 
@@ -40,6 +63,9 @@ public sealed class AudioEngineMetrics
         lock (_lock)
         {
             _lastError = message;
+            _playbackFailureCount++;
+            // Reset playback start time on error
+            _currentPlaybackStartTime = null;
         }
     }
 
@@ -58,12 +84,25 @@ public sealed class AudioEngineMetrics
     {
         lock (_lock)
         {
+            var averageTrackDurationSeconds = _trackDurationsSeconds.Count > 0
+                ? _trackDurationsSeconds.Average()
+                : (double?)null;
+            
+            var failureRate = _playbackStartCount > 0
+                ? (double)_playbackFailureCount / _playbackStartCount
+                : 0.0;
+
             return new MetricsSnapshot(
                 Playing: _isPlaying,
                 CurrentFile: _currentFile,
                 UptimeSeconds: Math.Max(0, Uptime.TotalSeconds),
                 LastError: _lastError,
-                AverageRttMs: _rttCount == 0 ? null : _avgRttMs
+                AverageRttMs: _rttCount == 0 ? null : _avgRttMs,
+                PlaybackStartCount: _playbackStartCount,
+                PlaybackStopCount: _playbackStopCount,
+                PlaybackFailureCount: _playbackFailureCount,
+                FailureRate: failureRate,
+                AverageTrackDurationSeconds: averageTrackDurationSeconds
             );
         }
     }
@@ -80,7 +119,12 @@ public sealed record MetricsSnapshot(
     string? CurrentFile,
     double UptimeSeconds,
     string? LastError,
-    double? AverageRttMs
+    double? AverageRttMs,
+    long PlaybackStartCount,
+    long PlaybackStopCount,
+    long PlaybackFailureCount,
+    double FailureRate,
+    double? AverageTrackDurationSeconds
 );
 
 public sealed class MetricsOptions

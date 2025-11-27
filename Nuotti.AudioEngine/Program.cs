@@ -62,6 +62,7 @@ services.AddAudioBackends(configuration);
 var provider = services.BuildServiceProvider();
 var optsFromDi = provider.GetRequiredService<IOptions<EngineOptions>>().Value;
 var audioBackend = provider.GetRequiredService<IAudioBackend>();
+var backendType = audioBackend.GetType().Name;
 IAudioPlayer player = audioBackend.CreatePlayer(optsFromDi);
 player.Started += (_, __) => { Log.Information("Playback started"); metrics.SetPlaying(currentFile: null); };
 player.Stopped += (_, cancelled) => { Log.Information("Playback stopped. Cancelled={Cancelled}", cancelled); metrics.SetStopped(); };
@@ -82,7 +83,10 @@ var engine = new EngineCoordinator(player, sink, preflight, problemSink);
 // Audio device enumeration (foundation)
 IAudioDeviceEnumerator deviceEnumerator = new BasicAudioDeviceEnumerator();
 
-// Log devices on startup
+// Log backend and device info on startup
+Log.Information("AudioEngine backend: {BackendType}, OutputBackend={OutputBackend}, OutputDevice={OutputDevice}, PreferredPlayer={PreferredPlayer}", 
+    backendType, engineOptions.OutputBackend ?? "default", engineOptions.OutputDevice ?? "default", engineOptions.PreferredPlayer);
+
 try
 {
     var devices = await deviceEnumerator.EnumerateAsync(cts.Token);
