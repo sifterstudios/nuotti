@@ -34,8 +34,8 @@ var configuration = new ConfigurationBuilder()
     .AddEnvironmentVariables(prefix: "NUOTTI_ENGINE__")
     .Build();
 
-// Configure structured logging for console app
-Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.AudioEngine", configuration);
+// Configure structured logging for console app with file sink enabled
+Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.AudioEngine", configuration, enableFileSink: true);
 
 var engineOptions = new EngineOptions();
 configuration.Bind(engineOptions);

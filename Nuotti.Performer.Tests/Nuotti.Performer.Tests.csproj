@@ -22,5 +22,6 @@
     <ProjectReference Include="..\Nuotti.Performer\Nuotti.Performer.csproj" />
     <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
     <ProjectReference Include="..\Nuotti.SimKit\Nuotti.SimKit.csproj" />
+    <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
   </ItemGroup>
 </Project>

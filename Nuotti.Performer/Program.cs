@@ -11,7 +11,7 @@ builder.Services.AddServerSideBlazor(options =>
 });
 builder.Services.AddMudServices();
 builder.AddServiceDefaults();
-builder.ConfigureStructuredLogging();
+builder.ConfigureStructuredLogging(enableFileSink: true);
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SessionSelectionService>();
