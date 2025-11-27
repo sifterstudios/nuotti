@@ -8,6 +8,7 @@ namespace Nuotti.Projector.Services;
 public class GameStateService
 {
     private GameState _currentState = new();
+    private string _lastSnapshotHash = string.Empty;
     
     public event Action<GameState>? StateChanged;
     
@@ -15,6 +16,15 @@ public class GameStateService
     
     public void UpdateFromSnapshot(GameStateSnapshot snapshot)
     {
+        // Create a hash of the snapshot to detect duplicates
+        var snapshotHash = CreateSnapshotHash(snapshot);
+        
+        // Skip if this is a duplicate event
+        if (snapshotHash == _lastSnapshotHash)
+        {
+            return;
+        }
+        
         var newState = new GameState
         {
             Phase = snapshot.Phase,
@@ -30,6 +40,7 @@ public class GameStateService
         };
         
         _currentState = newState;
+        _lastSnapshotHash = snapshotHash;
         StateChanged?.Invoke(_currentState);
     }
     
@@ -68,5 +79,12 @@ public class GameStateService
             Phase.Finished => "Game Over!",
             _ => phase.ToString()
         };
+    }
+    
+    private string CreateSnapshotHash(GameStateSnapshot snapshot)
+    {
+        // Create a simple hash based on key state properties
+        var hashInput = $"{snapshot.Phase}|{snapshot.SongIndex}|{snapshot.HintIndex}|{snapshot.Tallies.Count}|{string.Join(",", snapshot.Tallies)}|{snapshot.Choices.Count}";
+        return hashInput.GetHashCode().ToString();
     }
 }
