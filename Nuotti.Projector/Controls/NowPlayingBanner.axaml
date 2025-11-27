@@ -63,7 +63,7 @@
             
             <!-- Song title -->
             <TextBlock x:Name="SongTitleText"
-                       Text="Song Title"
+                       Text="{Binding SongTitle}"
                        FontSize="18"
                        FontWeight="Bold"
                        Foreground="White"
@@ -71,7 +71,7 @@
             
             <!-- Artist (if available) -->
             <TextBlock x:Name="ArtistText"
-                       Text="by Artist"
+                       Text="{Binding Artist, StringFormat='by {0}'}"
                        FontSize="16"
                        Foreground="#E0FFFFFF"
                        VerticalAlignment="Center"

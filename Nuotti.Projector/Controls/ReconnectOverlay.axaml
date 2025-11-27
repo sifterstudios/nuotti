@@ -40,8 +40,8 @@
                     </TextBlock>
                     
                     <!-- Status text -->
-                    <TextBlock x:Name="StatusText"
-                               Text="Reconnecting..."
+                    <TextBlock x:Name="StatusTextBlock"
+                               Text="{Binding StatusText}"
                                FontSize="24"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"
@@ -49,8 +49,8 @@
                                TextAlignment="Center"/>
                     
                     <!-- Additional info -->
-                    <TextBlock x:Name="InfoText"
-                               Text="Please wait while we restore the connection"
+                    <TextBlock x:Name="InfoTextBlock"
+                               Text="{Binding InfoText}"
                                FontSize="16"
                                Foreground="{DynamicResource TextSecondaryBrush}"
                                HorizontalAlignment="Center"

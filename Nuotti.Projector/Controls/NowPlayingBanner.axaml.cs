@@ -57,15 +57,7 @@ public partial class NowPlayingBanner : UserControl
         _songTitleText = this.FindControl<TextBlock>("SongTitleText")!;
         _artistText = this.FindControl<TextBlock>("ArtistText")!;
         
-        // Subscribe to property changes
-        this.GetObservable(SongTitleProperty).Subscribe(title => _songTitleText.Text = title);
-        this.GetObservable(ArtistProperty).Subscribe(artist => 
-        {
-            if (!string.IsNullOrEmpty(artist))
-            {
-                _artistText.Text = $"by {artist}";
-            }
-        });
+        // Property change handlers will be handled via binding in XAML
     }
     
     public void UpdateSong(string title, string? artist = null)

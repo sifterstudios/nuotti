@@ -41,12 +41,10 @@ public partial class ReconnectOverlay : UserControl
         InitializeComponent();
         DataContext = this;
         
-        _statusText = this.FindControl<TextBlock>("StatusText")!;
-        _infoText = this.FindControl<TextBlock>("InfoText")!;
+        _statusText = this.FindControl<TextBlock>("StatusTextBlock")!;
+        _infoText = this.FindControl<TextBlock>("InfoTextBlock")!;
         
-        // Subscribe to property changes
-        this.GetObservable(StatusTextProperty).Subscribe(text => _statusText.Text = text);
-        this.GetObservable(InfoTextProperty).Subscribe(text => _infoText.Text = text);
+        // Property change handlers will be handled via binding in XAML
     }
     
     public void Show(string status = "Reconnecting...", string info = "Please wait while we restore the connection")
