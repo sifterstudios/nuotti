@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.Visual;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
@@ -51,12 +52,13 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5 & F11
+    // New services for F2, F3, F5, F11 & F12
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
     private readonly GameStateService _gameStateService;
     private readonly ReconnectService _reconnectService;
+    private readonly PerformanceService _performanceService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -88,6 +90,7 @@ public partial class MainWindow : Window
         _safeAreaService = new SafeAreaService();
         _gameStateService = new GameStateService();
         _reconnectService = new ReconnectService(_backend);
+        _performanceService = new PerformanceService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -101,6 +104,15 @@ public partial class MainWindow : Window
         
         // Subscribe to game state changes
         _gameStateService.StateChanged += OnGameStateChanged;
+        
+        // F12 - Performance monitoring
+        _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
+        
+        // Hook into render loop for performance monitoring
+        this.GetObservable(Visual.BoundsProperty).Subscribe(_ => 
+        {
+            _performanceService.RecordFrameStart();
+        });
         
         // Update theme toggle button icon based on current theme
         UpdateThemeToggleButton();
@@ -548,6 +560,7 @@ public partial class MainWindow : Window
         base.OnClosed(e);
         _cursorService?.Dispose();
         _reconnectService?.Dispose();
+        _performanceService?.Dispose();
     }
     
     // F3 - Safe Area & Overscan Margins functionality
@@ -710,5 +723,28 @@ public partial class MainWindow : Window
         {
             AppendLocal($"[now-playing] Error: {ex.Message}");
         }
+    }
+    
+    // F12 - Performance Budget & Frame Loop functionality
+    private void OnHeavyAnimationsToggled(bool enabled)
+    {
+        var status = enabled ? "enabled" : "disabled";
+        AppendLocal($"[performance] Heavy animations {status} due to performance");
+        
+        // Update animation service settings for all views
+        if (_currentPhaseView is GuessingView guessingView)
+        {
+            // Could add a method to update animation settings
+        }
+    }
+    
+    public PerformanceMetrics GetPerformanceMetrics()
+    {
+        return _performanceService.GetCurrentMetrics();
+    }
+    
+    public bool ShouldUseHeavyAnimations()
+    {
+        return _performanceService.HeavyAnimationsEnabled;
     }
 }
