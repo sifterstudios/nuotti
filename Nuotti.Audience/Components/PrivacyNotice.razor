@@ -1,0 +1,216 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+
+@if (_showNotice)
+{
+    <div class="privacy-notice-overlay">
+        <div class="privacy-notice-modal">
+            <MudPaper Elevation="8" Class="pa-6" Style="border-radius: 16px; max-width: 500px; margin: 0 auto;">
+                <div class="text-center mb-4">
+                    <MudIcon Icon="@Material.Filled.PrivacyTip" 
+                             Size="Size.Large" 
+                             Color="Color.Info" 
+                             Class="mb-2" />
+                    <MudText Typo="Typo.h5" Style="font-weight: 600;">
+                        Privacy & Data
+                    </MudText>
+                </div>
+
+                <MudText Typo="Typo.body1" Class="mb-4" Style="line-height: 1.6;">
+                    <strong>Your privacy matters to us.</strong> Here's what you should know:
+                </MudText>
+
+                <div class="privacy-points mb-4">
+                    <div class="privacy-point">
+                        <MudIcon Icon="@Material.Filled.Schedule" Size="Size.Small" Color="Color.Success" Class="mr-2" />
+                        <MudText Typo="Typo.body2">
+                            <strong>Ephemeral data:</strong> Your name and scores are only stored during the active session
+                        </MudText>
+                    </div>
+                    
+                    <div class="privacy-point">
+                        <MudIcon Icon="@Material.Filled.DeleteForever" Size="Size.Small" Color="Color.Success" Class="mr-2" />
+                        <MudText Typo="Typo.body2">
+                            <strong>Auto-deletion:</strong> All data is automatically deleted when the session ends
+                        </MudText>
+                    </div>
+                    
+                    <div class="privacy-point">
+                        <MudIcon Icon="@Material.Filled.Block" Size="Size.Small" Color="Color.Success" Class="mr-2" />
+                        <MudText Typo="Typo.body2">
+                            <strong>No tracking:</strong> We don't track you across sessions or collect personal information
+                        </MudText>
+                    </div>
+                    
+                    <div class="privacy-point">
+                        <MudIcon Icon="@Material.Filled.Storage" Size="Size.Small" Color="Color.Info" Class="mr-2" />
+                        <MudText Typo="Typo.body2">
+                            <strong>Local storage:</strong> Only your preferences (theme, name) are saved locally on your device
+                        </MudText>
+                    </div>
+                </div>
+
+                <MudDivider Class="mb-4" />
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                    By joining a session, you agree to this data handling. 
+                    <MudLink Href="#" Color="Color.Primary" OnClick="ShowFullPolicy">
+                        View full privacy policy
+                    </MudLink>
+                </MudText>
+
+                <div class="d-flex justify-space-between">
+                    <MudButton Variant="Variant.Text" 
+                               Color="Color.Default"
+                               OnClick="Decline">
+                        Not Now
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary"
+                               OnClick="Accept"
+                               StartIcon="@Material.Filled.Check">
+                        I Understand
+                    </MudButton>
+                </div>
+            </MudPaper>
+        </div>
+    </div>
+}
+
+<style>
+    .privacy-notice-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    .privacy-notice-modal {
+        animation: slideUp 0.3s ease-out;
+        width: 100%;
+        max-width: 500px;
+    }
+    
+    .privacy-points {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .privacy-point {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 8px;
+        background: rgba(var(--mud-palette-primary-rgb), 0.05);
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+        from { 
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to { 
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @media (max-width: 600px) {
+        .privacy-notice-overlay {
+            padding: 16px;
+        }
+        
+        .privacy-notice-modal .mud-paper {
+            padding: 24px !important;
+        }
+        
+        .privacy-points {
+            gap: 8px;
+        }
+        
+        .privacy-point {
+            padding: 6px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public EventCallback OnAccepted { get; set; }
+    [Parameter] public EventCallback OnDeclined { get; set; }
+    
+    private bool _showNotice = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user has already accepted the privacy notice
+        var hasAccepted = await GetPrivacyAcceptanceAsync();
+        _showNotice = !hasAccepted;
+    }
+
+    private async Task<bool> GetPrivacyAcceptanceAsync()
+    {
+        try
+        {
+            var accepted = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "nuotti-privacy-accepted");
+            return !string.IsNullOrEmpty(accepted) && bool.TryParse(accepted, out var result) && result;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task SetPrivacyAcceptanceAsync(bool accepted)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "nuotti-privacy-accepted", accepted.ToString());
+        }
+        catch
+        {
+            // Ignore localStorage errors
+        }
+    }
+
+    private async Task Accept()
+    {
+        await SetPrivacyAcceptanceAsync(true);
+        _showNotice = false;
+        await OnAccepted.InvokeAsync();
+    }
+
+    private async Task Decline()
+    {
+        _showNotice = false;
+        await OnDeclined.InvokeAsync();
+    }
+
+    private void ShowFullPolicy()
+    {
+        // In a real implementation, this would navigate to a full privacy policy page
+        // For now, just show a simple alert
+        // You could also open a modal with more detailed information
+    }
+
+    public async Task ShowNoticeAsync()
+    {
+        _showNotice = true;
+        await InvokeAsync(StateHasChanged);
+    }
+}
