@@ -11,10 +11,23 @@ namespace Nuotti.Projector.Services;
 public class AnimationService
 {
     private readonly TimeSpan _defaultDuration = TimeSpan.FromMilliseconds(300);
+    private bool _heavyAnimationsEnabled = true;
+    
+    public bool HeavyAnimationsEnabled 
+    { 
+        get => _heavyAnimationsEnabled;
+        set => _heavyAnimationsEnabled = value;
+    }
     
     public async Task AnimateCounterUpdate(TextBlock counter, int oldValue, int newValue)
     {
         if (oldValue == newValue) return;
+        
+        // Update the text value immediately
+        counter.Text = newValue.ToString();
+        
+        // Skip heavy animations if performance is poor
+        if (!_heavyAnimationsEnabled) return;
         
         try
         {
@@ -42,22 +55,23 @@ public class AnimationService
                 }
             };
             
-            // Update the text value
-            counter.Text = newValue.ToString();
-            
             // Run the animation
             await scaleAnimation.RunAsync(counter);
         }
         catch (Exception ex)
         {
-            // Fallback to immediate update if animation fails
-            counter.Text = newValue.ToString();
             Console.WriteLine($"Animation failed: {ex.Message}");
         }
     }
     
     public async Task AnimateBackgroundChange(Border border, IBrush newBrush)
     {
+        // Always update the background immediately
+        border.Background = newBrush;
+        
+        // Skip animation if performance is poor
+        if (!_heavyAnimationsEnabled) return;
+        
         try
         {
             // Opacity fade animation
@@ -84,27 +98,23 @@ public class AnimationService
                 }
             };
             
-            // Change background at the midpoint
-            _ = Task.Delay(100).ContinueWith(_ => 
-            {
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => 
-                {
-                    border.Background = newBrush;
-                });
-            });
-            
             await fadeAnimation.RunAsync(border);
         }
         catch (Exception ex)
         {
-            // Fallback to immediate change
-            border.Background = newBrush;
             Console.WriteLine($"Background animation failed: {ex.Message}");
         }
     }
     
     public async Task AnimateSlideIn(Control control)
     {
+        // Always ensure control is visible
+        control.Opacity = 1.0;
+        control.RenderTransform = new TranslateTransform(0, 0);
+        
+        // Skip animation if performance is poor
+        if (!_heavyAnimationsEnabled) return;
+        
         try
         {
             var slideAnimation = new Animation
@@ -137,9 +147,6 @@ public class AnimationService
         }
         catch (Exception ex)
         {
-            // Fallback to immediate show
-            control.Opacity = 1.0;
-            control.RenderTransform = new TranslateTransform(0, 0);
             Console.WriteLine($"Slide animation failed: {ex.Message}");
         }
     }
