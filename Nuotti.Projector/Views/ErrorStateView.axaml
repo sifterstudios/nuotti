@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Nuotti.Projector.Views.ErrorStateView">
+    
+    <Border Background="{DynamicResource BackgroundBrush}"
+            Padding="40">
+        
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="24"
+                    MaxWidth="600">
+            
+            <!-- Error Icon -->
+            <TextBlock x:Name="ErrorIcon"
+                       Text="⚠️"
+                       FontSize="64"
+                       HorizontalAlignment="Center"/>
+            
+            <!-- Error Title -->
+            <TextBlock x:Name="ErrorTitle"
+                       Text="Something went wrong"
+                       FontSize="32"
+                       FontWeight="Bold"
+                       FontFamily="{StaticResource DisplayFont}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"/>
+            
+            <!-- Error Message -->
+            <TextBlock x:Name="ErrorMessage"
+                       Text="We encountered an unexpected error. Please try again."
+                       FontSize="16"
+                       FontFamily="{StaticResource PrimaryFont}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"/>
+            
+            <!-- Error Details (collapsible) -->
+            <Border x:Name="ErrorDetailsContainer"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource DividerBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16"
+                    IsVisible="False">
+                
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Technical Details"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               FontFamily="{StaticResource PrimaryFont}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    
+                    <TextBlock x:Name="ErrorDetails"
+                               Text=""
+                               FontSize="12"
+                               FontFamily="{StaticResource MonospaceFont}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Action Buttons -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="16">
+                
+                <Button x:Name="RetryButton"
+                        Content="🔄 Try Again"
+                        FontSize="16"
+                        FontFamily="{StaticResource PrimaryFont}"
+                        Padding="20,12"
+                        Background="{DynamicResource PrimaryBrush}"
+                        Foreground="White"
+                        CornerRadius="8"
+                        Click="OnRetryClick"/>
+                
+                <Button x:Name="BackButton"
+                        Content="🏠 Back to Lobby"
+                        FontSize="16"
+                        FontFamily="{StaticResource PrimaryFont}"
+                        Padding="20,12"
+                        Background="{DynamicResource SecondaryBrush}"
+                        Foreground="White"
+                        CornerRadius="8"
+                        Click="OnBackClick"/>
+                
+                <Button x:Name="DetailsButton"
+                        Content="🔍 Show Details"
+                        FontSize="14"
+                        FontFamily="{StaticResource PrimaryFont}"
+                        Padding="16,12"
+                        Background="Transparent"
+                        Foreground="{DynamicResource TextSecondaryBrush}"
+                        BorderBrush="{DynamicResource DividerBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Click="OnDetailsClick"/>
+            </StackPanel>
+            
+            <!-- Help Text -->
+            <TextBlock Text="If this problem persists, check your network connection or contact support."
+                       FontSize="12"
+                       FontFamily="{StaticResource PrimaryFont}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Opacity="0.7"/>
+        </StackPanel>
+    </Border>
+</UserControl>
