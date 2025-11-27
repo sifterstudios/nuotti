@@ -57,6 +57,10 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore se
         // Track connection by role in the session store
         sessions.Touch(session, normalizedRole, Context.ConnectionId, name);
 
+        // Send server time to client for time drift detection
+        var serverTime = DateTimeOffset.UtcNow;
+        await Clients.Caller.SendAsync("ServerTime", serverTime.Ticks, serverTime.ToString("O"));
+
         logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name}", Context.ConnectionId, session, role, name);
         await log.BroadcastAsync(new LogEvent(
             Timestamp: DateTimeOffset.UtcNow,

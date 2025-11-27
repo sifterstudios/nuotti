@@ -96,6 +96,9 @@ builder.Services.AddSingleton<Nuotti.Backend.Diagnostics.DiagnosticsBundleServic
 builder.Services.AddHttpClient("Alerting");
 builder.Services.AddSingleton<Nuotti.Backend.Alerting.CriticalRoleAlertingService>();
 
+// Time drift checking
+builder.Services.AddSingleton<Nuotti.Backend.TimeDrift.TimeDriftService>();
+
 // Event bus and subscribers
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<StateApplySubscriber>();
@@ -119,6 +122,7 @@ app.MapHealthEndpoints();
 app.MapStatusEndpoints();
 app.MapMetricsEndpoints();
 app.MapAboutEndpoints();
+app.MapTimeEndpoints();
 app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapDefaultEndpoints();
@@ -133,6 +137,33 @@ var logger = app.Services.GetRequiredService<ILogger<Program>>();
 var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Backend");
 logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
     versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
+
+// Check time drift at startup
+try
+{
+    var timeDriftService = app.Services.GetRequiredService<Nuotti.Backend.TimeDrift.TimeDriftService>();
+    var driftResult = timeDriftService.CheckTimeDrift();
+    if (driftResult.Success)
+    {
+        var driftClassification = Nuotti.Backend.TimeDrift.TimeDriftService.ClassifyDrift(driftResult.DriftMs);
+        logger.LogInformation("Time drift check. DriftMs={DriftMs:F2}, Classification={Classification}, NtpServer={NtpServer}, LocalTime={LocalTime:O}, NtpTime={NtpTime:O}", 
+            driftResult.DriftMs, driftClassification, driftResult.NtpServer, driftResult.LocalTime, driftResult.NtpTime);
+        
+        if (Math.Abs(driftResult.DriftMs) > 250)
+        {
+            logger.LogWarning("Significant time drift detected. DriftMs={DriftMs:F2}, Classification={Classification}", 
+                driftResult.DriftMs, driftClassification);
+        }
+    }
+    else
+    {
+        logger.LogWarning("Time drift check failed. Error={Error}", driftResult.Error ?? "Unknown error");
+    }
+}
+catch (Exception ex)
+{
+    logger.LogWarning(ex, "Failed to check time drift at startup: {Message}", ex.Message);
+}
 
 try
 {
