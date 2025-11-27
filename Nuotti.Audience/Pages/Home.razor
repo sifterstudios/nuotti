@@ -1,10 +1,18 @@
 ﻿@page "/"
 @using Nuotti.Contracts.V1.Message
+@using Nuotti.Contracts.V1.Model
+@using Microsoft.JSInterop
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject FeedbackService Feedback
+@inject NameValidationService NameValidator
 
 <PageTitle>Join Session - Nuotti</PageTitle>
+
+<!-- Privacy Notice -->
+<PrivacyNotice OnAccepted="OnPrivacyAccepted" OnDeclined="OnPrivacyDeclined" />
 
 <div class="home-container">
     <!-- Hero Section -->
@@ -23,7 +31,8 @@
             </div>
 
             <!-- Join Form Card -->
-            <MudPaper Elevation="8" Class="join-card pa-6 slide-up">
+            <MudPaper Elevation="8" Class="join-card pa-6 slide-up" role="main" aria-labelledby="join-form-title">
+                <div id="join-form-title" class="sr-only">Join Session Form</div>
                 <MudTextField @bind-Value="session" 
                               Label="Session Code" 
                               Placeholder="Enter the code shown on screen"
@@ -35,7 +44,13 @@
                               AdornmentIcon="@Material.Filled.Tag"
                               Class="mb-4"
                               OnKeyDown="HandleKeyDown"
-                              Style="text-transform: uppercase;" />
+                              Style="text-transform: uppercase;"
+                              Error="@(!string.IsNullOrEmpty(sessionError))"
+                              ErrorText="@sessionError"
+                              HelperText="Usually 4-6 characters"
+                              @onblur="ValidateSession"
+                              aria-required="true"
+                              aria-describedby="session-help session-error" />
 
                 <MudTextField @bind-Value="name" 
                               Label="Your Name (Optional)"
@@ -47,16 +62,23 @@
                               Adornment="Adornment.Start"
                               AdornmentIcon="@Material.Filled.Person"
                               Class="mb-5"
-                              OnKeyDown="HandleKeyDown" />
+                              OnKeyDown="HandleKeyDown"
+                              Error="@(!string.IsNullOrEmpty(nameError))"
+                              ErrorText="@nameError"
+                              HelperText="2-20 characters (optional)"
+                              @onblur="ValidateName"
+                              aria-describedby="name-help name-error" />
 
                 <MudButton Variant="Variant.Filled" 
                            Color="Color.Primary" 
                            Size="Size.Large"
                            FullWidth="true"
                            OnClick="JoinAsync" 
-                           Disabled="@(isBusy || string.IsNullOrWhiteSpace(session))"
+                           Disabled="@(isBusy || !IsFormValid())"
                            StartIcon="@(isBusy ? null : Material.Filled.Login)"
-                           Style="height: 56px; border-radius: 12px; font-size: 1.1rem; font-weight: 700;">
+                           Style="height: 56px; border-radius: 12px; font-size: 1.1rem; font-weight: 700;"
+                           aria-describedby="join-button-status"
+                           aria-label="@(isBusy ? "Joining session, please wait" : "Join the quiz session")">
                     @if (isBusy)
                     {
                         <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
@@ -79,6 +101,31 @@
                     </MudAlert>
                 }
             </MudPaper>
+
+            <!-- Share Link Section (when session is entered) -->
+            @if (!string.IsNullOrWhiteSpace(session) && IsFormValid())
+            {
+                <MudPaper Elevation="2" Class="mt-4 pa-4" Style="border-radius: 16px; background: linear-gradient(135deg, rgba(var(--mud-palette-success-rgb), 0.1) 0%, rgba(var(--mud-palette-info-rgb), 0.1) 100%);">
+                    <div class="d-flex align-items-center justify-space-between">
+                        <div class="flex-grow-1">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;" Class="mb-1">
+                                <MudIcon Icon="@Material.Filled.Share" Size="Size.Small" Class="mr-1" />
+                                Share this session
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Send this link to friends so they can join quickly
+                            </MudText>
+                        </div>
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Success" 
+                                   Size="Size.Small"
+                                   StartIcon="@Material.Filled.ContentCopy"
+                                   OnClick="CopyJoinLinkAsync">
+                            Copy Link
+                        </MudButton>
+                    </div>
+                </MudPaper>
+            }
 
             <!-- Quick Tips -->
             <MudPaper Elevation="0" Class="mt-4 pa-4" Style="background: transparent; border: 2px solid var(--mud-palette-divider); border-radius: 16px;">
@@ -172,6 +219,38 @@
             font-size: 3.5rem;
         }
     }
+    
+    /* Screen reader only content */
+    .sr-only {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+    }
+    
+    /* Focus improvements */
+    .mud-button:focus,
+    .mud-input:focus {
+        outline: 2px solid var(--mud-palette-primary) !important;
+        outline-offset: 2px !important;
+    }
+    
+    /* High contrast support */
+    @media (prefers-contrast: high) {
+        .join-card {
+            border: 2px solid var(--mud-palette-text-primary) !important;
+        }
+        
+        .mud-button:focus,
+        .mud-input:focus {
+            outline: 3px solid currentColor !important;
+        }
+    }
 </style>
 
 @code {
@@ -179,11 +258,32 @@
     private string? name;
     private bool isBusy;
     private string? error;
+    private string? sessionError;
+    private string? nameError;
     private bool _showDevInfo = false;
+    private bool _autoJoin = false;
+    private DateTime _lastJoinAttempt = DateTime.MinValue;
+    private Timer? _debounceTimer;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Hub.QuestionPushed += OnQuestion;
+        
+        // Initialize feedback service
+        await Feedback.InitializeAsync();
+        
+        // Load saved values from localStorage
+        await LoadSavedValuesAsync();
+        
+        // Parse query parameters for deep linking
+        ParseQueryParameters();
+        
+        // Auto-join if parameters are valid and autojoin is requested
+        if (_autoJoin && IsFormValid())
+        {
+            await Task.Delay(100); // Brief delay to ensure UI is ready
+            await JoinAsync();
+        }
     }
 
     private void OnQuestion(QuestionPushed q)
@@ -194,27 +294,60 @@
 
     private void HandleKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !isBusy && !string.IsNullOrWhiteSpace(session))
+        if (e.Key == "Enter" && !isBusy && IsFormValid())
         {
-            _ = JoinAsync();
+            // Debounce rapid Enter key presses
+            _debounceTimer?.Dispose();
+            _debounceTimer = new Timer(async _ => await InvokeAsync(JoinAsync), null, 500, Timeout.Infinite);
         }
     }
 
     private async Task JoinAsync()
     {
+        if (!IsFormValid()) return;
+        
+        // Anti-spam: Check cooldown period
+        var timeSinceLastAttempt = DateTime.Now - _lastJoinAttempt;
+        if (timeSinceLastAttempt < TimeSpan.FromSeconds(2))
+        {
+            var remainingCooldown = TimeSpan.FromSeconds(2) - timeSinceLastAttempt;
+            Snackbar.Add($"Please wait {remainingCooldown.Seconds + 1} seconds before trying again", Severity.Warning);
+            return;
+        }
+        
+        _lastJoinAttempt = DateTime.Now;
         error = null;
         isBusy = true;
+        
         try
         {
-            await Hub.CreateOrJoinAsync(session.Trim().ToUpper(), string.IsNullOrWhiteSpace(name) ? null : name!.Trim());
-            Snackbar.Add($"Successfully joined session {session.Trim().ToUpper()}!", Severity.Success);
+            var sessionCode = session.Trim().ToUpper();
+            var playerName = string.IsNullOrWhiteSpace(name) ? null : name!.Trim();
+            
+            // Clean and reserve the name if provided
+            if (!string.IsNullOrEmpty(playerName))
+            {
+                playerName = NameValidator.ReserveName(playerName);
+            }
+            
+            // Save values to localStorage for next time
+            await SaveValuesAsync(sessionCode, playerName);
+            
+            await Hub.CreateOrJoinAsync(sessionCode, playerName);
+            
+            // Provide success feedback
+            await Feedback.TriggerHapticFeedbackAsync(HapticType.Light);
+            await Feedback.TriggerConfettiAsync(ConfettiType.Success);
+            
+            Snackbar.Add($"Successfully joined session {sessionCode}!", Severity.Success);
+            
             // Navigate to the question page (which also serves as a waiting room) once connected/joined
             await Task.Delay(500); // Brief delay for snackbar to show
             Nav.NavigateTo("/question");
         }
         catch (Exception ex)
         {
-            error = ex.Message;
+            error = MapErrorMessage(ex);
             Snackbar.Add("Failed to join session. Please check the code and try again.", Severity.Error);
         }
         finally
@@ -223,8 +356,194 @@
         }
     }
 
+    private async Task LoadSavedValuesAsync()
+    {
+        try
+        {
+            var savedSession = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "nuotti-last-session");
+            var savedName = await JSRuntime.InvokeAsync<string?>("localStorage.getItem", "nuotti-player-name");
+            
+            if (!string.IsNullOrEmpty(savedSession))
+            {
+                session = savedSession;
+            }
+            
+            if (!string.IsNullOrEmpty(savedName))
+            {
+                name = savedName;
+            }
+        }
+        catch
+        {
+            // Ignore localStorage errors
+        }
+    }
+    
+    private async Task SaveValuesAsync(string sessionCode, string? playerName)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "nuotti-last-session", sessionCode);
+            
+            if (!string.IsNullOrEmpty(playerName))
+            {
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "nuotti-player-name", playerName);
+            }
+        }
+        catch
+        {
+            // Ignore localStorage errors
+        }
+    }
+    
+    private void ParseQueryParameters()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        
+        var sessionParam = query["session"];
+        var nameParam = query["name"];
+        var autoJoinParam = query["autojoin"];
+        
+        if (!string.IsNullOrEmpty(sessionParam))
+        {
+            session = sessionParam.ToUpper();
+        }
+        
+        if (!string.IsNullOrEmpty(nameParam))
+        {
+            name = nameParam;
+        }
+        
+        if (!string.IsNullOrEmpty(autoJoinParam) && 
+            (autoJoinParam.Equals("true", StringComparison.OrdinalIgnoreCase) || autoJoinParam == "1"))
+        {
+            _autoJoin = true;
+        }
+    }
+    
+    private async Task CopyJoinLinkAsync()
+    {
+        try
+        {
+            var baseUrl = Nav.BaseUri.TrimEnd('/');
+            var sessionCode = session.Trim().ToUpper();
+            var playerName = string.IsNullOrWhiteSpace(name) ? "" : name.Trim();
+            
+            var joinUrl = $"{baseUrl}/?session={Uri.EscapeDataString(sessionCode)}";
+            
+            if (!string.IsNullOrEmpty(playerName))
+            {
+                joinUrl += $"&name={Uri.EscapeDataString(playerName)}";
+            }
+            
+            joinUrl += "&autojoin=true";
+            
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", joinUrl);
+            Snackbar.Add("Join link copied to clipboard!", Severity.Success);
+        }
+        catch (Exception)
+        {
+            // Fallback: show the URL in a dialog or similar
+            Snackbar.Add("Could not copy to clipboard. Please copy the URL manually.", Severity.Warning);
+        }
+    }
+    
+    private void ValidateSession()
+    {
+        sessionError = null;
+        
+        if (string.IsNullOrWhiteSpace(session))
+        {
+            return; // Optional field, no error when empty
+        }
+        
+        var trimmed = session.Trim();
+        if (trimmed.Length < 2)
+        {
+            sessionError = "Session code is too short";
+        }
+        else if (trimmed.Length > 20)
+        {
+            sessionError = "Session code is too long";
+        }
+    }
+    
+    private void ValidateName()
+    {
+        nameError = null;
+        
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return; // Optional field, no error when empty
+        }
+        
+        var validationResult = NameValidator.ValidateName(name);
+        
+        if (!validationResult.IsValid)
+        {
+            nameError = validationResult.Message;
+        }
+        else if (validationResult.Severity == NameValidationService.ValidationSeverity.Warning)
+        {
+            // Show warning as info, but don't block submission
+            nameError = validationResult.Message;
+        }
+    }
+    
+    private bool IsFormValid()
+    {
+        ValidateSession();
+        ValidateName();
+        
+        return string.IsNullOrWhiteSpace(session) == false &&
+               string.IsNullOrEmpty(sessionError) &&
+               string.IsNullOrEmpty(nameError);
+    }
+    
+    private string MapErrorMessage(Exception ex)
+    {
+        // Try to extract NuottiProblem details if available
+        var message = ex.Message;
+        
+        // Look for common error patterns and provide friendly messages
+        if (message.Contains("session", StringComparison.OrdinalIgnoreCase))
+        {
+            if (message.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("invalid", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Session not found. Please check the session code and try again.";
+            }
+        }
+        
+        if (message.Contains("connection", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Connection failed. Please check your internet connection and try again.";
+        }
+        
+        if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Request timed out. Please try again.";
+        }
+        
+        // Default to original message if no specific mapping found
+        return message;
+    }
+
+    private void OnPrivacyAccepted()
+    {
+        // Privacy notice accepted, user can continue
+    }
+
+    private void OnPrivacyDeclined()
+    {
+        // User declined privacy notice - could show a message or redirect
+        Snackbar.Add("Privacy notice is required to use the app", Severity.Warning);
+    }
+
     public void Dispose()
     {
         Hub.QuestionPushed -= OnQuestion;
+        _debounceTimer?.Dispose();
     }
 }
