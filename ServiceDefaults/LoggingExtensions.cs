@@ -39,7 +39,7 @@ public static class LoggingExtensions
         var logLevelSwitchService = new ServiceDefaults.LogLevelSwitchService(minLevel);
         builder.Services.AddSingleton(logLevelSwitchService);
 
-        // Configure Serilog with dynamic level switch
+        // Configure Serilog with dynamic level switch and PII redaction
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(logLevelSwitchService.LevelSwitch)
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -47,6 +47,7 @@ public static class LoggingExtensions
             .MinimumLevel.Override("System", LogEventLevel.Warning)
             .Enrich.WithProperty("service", serviceName)
             .Enrich.FromLogContext() // Enables LogContext.PushProperty for correlation IDs
+            .Enrich.With(new ServiceDefaults.PiiEnricher()) // Redact PII from log properties
             .WriteTo.Console(new JsonFormatter(renderMessage: true))
             .CreateLogger();
 
@@ -76,6 +77,7 @@ public static class LoggingExtensions
             .MinimumLevel.Override("System", LogEventLevel.Warning)
             .Enrich.WithProperty("service", serviceName)
             .Enrich.FromLogContext()
+            .Enrich.With(new ServiceDefaults.PiiEnricher()) // Redact PII from log properties
             .WriteTo.Console(new JsonFormatter(renderMessage: true))
             .CreateLogger();
     }
