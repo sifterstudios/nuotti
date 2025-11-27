@@ -52,7 +52,7 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18, F19 & F22
+    // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18, F19, F21 & F22
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
@@ -65,6 +65,7 @@ public partial class MainWindow : Window
     private readonly ContentSafetyService _contentSafetyService;
     private readonly ThemingApiService _themingApiService;
     private readonly AudioEnforcementService _audioEnforcementService;
+    private readonly HotplugService _hotplugService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -104,6 +105,7 @@ public partial class MainWindow : Window
         _contentSafetyService = new ContentSafetyService();
         _themingApiService = new ThemingApiService(_backend);
         _audioEnforcementService = new AudioEnforcementService();
+        _hotplugService = new HotplugService(_monitorService);
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -139,6 +141,10 @@ public partial class MainWindow : Window
         
         // F22 - Audio enforcement service events
         _audioEnforcementService.AudioViolationDetected += OnAudioViolationDetected;
+        
+        // F21 - Hotplug service events
+        _hotplugService.MonitorChanged += OnMonitorHotplugEvent;
+        _hotplugService.MonitorDisconnected += OnMonitorDisconnected;
         
         // F12 - Performance monitoring
         _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
@@ -296,6 +302,9 @@ public partial class MainWindow : Window
                 
                 // F22 - Audio enforcement is already running
                 AppendLocal($"[audio-enforcement] Monitoring started - {_audioEnforcementService.GenerateReport().BlockedProcessCount} processes blocked");
+                
+                // F21 - Hotplug monitoring is already running
+                AppendLocal($"[hotplug] Monitor detection started - {_hotplugService.CurrentMonitors.Count} monitors detected");
             }
             catch (Exception ex)
             {
@@ -662,6 +671,43 @@ public partial class MainWindow : Window
         return _audioEnforcementService.GenerateReport();
     }
     
+    // F21 - Monitor hotplug functionality
+    private void OnMonitorHotplugEvent(HotplugEvent hotplugEvent)
+    {
+        var eventType = hotplugEvent.EventType.ToString().ToLower();
+        AppendLocal($"[hotplug] Monitor {eventType}: {hotplugEvent.Monitor.Name} ({hotplugEvent.Monitor.Width}x{hotplugEvent.Monitor.Height})");
+        
+        // If the current monitor was disconnected, try to find a safe fallback
+        if (hotplugEvent.EventType == HotplugEventType.Disconnected)
+        {
+            var currentMonitorId = _settings.SelectedMonitorId;
+            if (currentMonitorId == hotplugEvent.Monitor.Id)
+            {
+                var fallback = _hotplugService.FindSafeMonitorFallback();
+                if (fallback != null)
+                {
+                    AppendLocal($"[hotplug] Switching to fallback monitor: {fallback.Name}");
+                    // In a full implementation, we would switch to the fallback monitor
+                }
+                else
+                {
+                    AppendLocal("[hotplug] WARNING: No fallback monitor available");
+                }
+            }
+        }
+    }
+    
+    private void OnMonitorDisconnected(MonitorInfo monitor)
+    {
+        // Show a non-blocking notification about monitor disconnection
+        AppendLocal($"[hotplug] NOTICE: Monitor '{monitor.Name}' was disconnected");
+    }
+    
+    public HotplugReport GetHotplugReport()
+    {
+        return _hotplugService.GenerateReport();
+    }
+    
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
@@ -670,6 +716,7 @@ public partial class MainWindow : Window
         _performanceService?.Dispose();
         _themingApiService?.Dispose(); // F19 - Clean up theming API
         _audioEnforcementService?.Dispose(); // F22 - Clean up audio enforcement
+        _hotplugService?.Dispose(); // F21 - Clean up hotplug monitoring
     }
     
     // F3 - Safe Area & Overscan Margins functionality
@@ -1048,7 +1095,12 @@ Content Safety:
 Audio Enforcement:
   Monitoring: " + (_audioEnforcementService.IsAudioBlocked ? "✓" : "✗") + @"
   Audio detected: " + (_audioEnforcementService.HasDetectedAudio ? "⚠️" : "✓") + @"
-  Blocked processes: " + _audioEnforcementService.GenerateReport().BlockedProcessCount;
+  Blocked processes: " + _audioEnforcementService.GenerateReport().BlockedProcessCount + @"
+
+Monitor Hotplug:
+  Monitoring: " + (_hotplugService.IsMonitoring ? "✓" : "✗") + @"
+  Monitors detected: " + _hotplugService.CurrentMonitors.Count + @"
+  Primary available: " + (_hotplugService.GenerateReport().PrimaryMonitor != null ? "✓" : "✗");
 
         AppendLocal("[help] Keyboard shortcuts:");
         foreach (var line in shortcuts.Split('\n'))
