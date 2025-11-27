@@ -9,6 +9,9 @@ using Nuotti.AudioEngine.Playback;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using System.Text.Json;
+using Serilog;
+using Microsoft.Extensions.Hosting;
+
 static string GetArg(string[] args, string name, string? envVar = null, string? fallback = null)
 {
     for (int i = 0; i < args.Length; i++)
@@ -23,22 +26,20 @@ static string GetArg(string[] args, string name, string? envVar = null, string? 
     return !string.IsNullOrWhiteSpace(fromEnv) ? fromEnv! : (fallback ?? string.Empty);
 }
 
-static void Log(string message)
-{
-    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
-}
-
-
 // Load engine options from engine.json and environment (NUOTTI_ENGINE__*)
 var configuration = new ConfigurationBuilder()
     .SetBasePath(AppContext.BaseDirectory)
     .AddJsonFile("engine.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables(prefix: "NUOTTI_ENGINE__")
     .Build();
+
+// Configure structured logging for console app
+Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.AudioEngine", configuration);
+
 var engineOptions = new EngineOptions();
 configuration.Bind(engineOptions);
 engineOptions.Validate();
-Log("Engine effective config:\n" + JsonSerializer.Serialize(engineOptions, new JsonSerializerOptions { WriteIndented = true }));
+Log.Information("Engine effective config: {Config}", JsonSerializer.Serialize(engineOptions, new JsonSerializerOptions { WriteIndented = true }));
 
 // Metrics setup
 var metrics = new AudioEngineMetrics();
@@ -47,7 +48,7 @@ _ = MetricsHost.RunIfEnabledAsync(engineOptions.Metrics, metrics, CancellationTo
 var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5240");
 var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "dev");
 
-Log($"AudioEngine starting. Backend={backend}, Session={session}");
+Log.Information("AudioEngine starting. Backend={Backend}, Session={Session}", backend, session);
 
 var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -59,9 +60,9 @@ var provider = services.BuildServiceProvider();
 var optsFromDi = provider.GetRequiredService<IOptions<EngineOptions>>().Value;
 var audioBackend = provider.GetRequiredService<IAudioBackend>();
 IAudioPlayer player = audioBackend.CreatePlayer(optsFromDi);
-player.Started += (_, __) => { Log("Playback started."); metrics.SetPlaying(currentFile: null); };
-player.Stopped += (_, cancelled) => { Log($"Playback stopped. Cancelled={cancelled}"); metrics.SetStopped(); };
-player.Error += (_, ex) => { Log($"Playback error: {ex.Message}"); metrics.SetError(ex.Message); };
+player.Started += (_, __) => { Log.Information("Playback started"); metrics.SetPlaying(currentFile: null); };
+player.Stopped += (_, cancelled) => { Log.Information("Playback stopped. Cancelled={Cancelled}", cancelled); metrics.SetStopped(); };
+player.Error += (_, ex) => { Log.Error(ex, "Playback error: {Message}", ex.Message); metrics.SetError(ex.Message); };
 
 var connection = new HubConnectionBuilder()
     .WithUrl(new Uri(new Uri(backend), "/hub"))
@@ -82,10 +83,10 @@ IAudioDeviceEnumerator deviceEnumerator = new BasicAudioDeviceEnumerator();
 try
 {
     var devices = await deviceEnumerator.EnumerateAsync(cts.Token);
-    Log($"Audio devices (default={devices.DefaultDeviceId}):");
+    Log.Information("Audio devices (default={DefaultDeviceId}):", devices.DefaultDeviceId);
     foreach (var d in devices.Devices)
     {
-        Log($" - {d.Name} (Id={d.Id}, Channels={d.Channels})");
+        Log.Information("Audio device: {Name}, Id={Id}, Channels={Channels}", d.Name, d.Id, d.Channels);
     }
 
     // Validate routing against selected device channels
@@ -98,12 +99,12 @@ try
     if (!routingCheck.IsValid)
     {
         foreach (var err in routingCheck.Errors)
-            Log($"[Routing ERROR] {err}");
+            Log.Error("Routing ERROR: {Error}", err);
     }
 }
 catch (Exception ex)
 {
-    Log($"Device enumeration failed: {ex.Message}");
+    Log.Error(ex, "Device enumeration failed: {Message}", ex.Message);
 }
 
 // Command: DeviceList — reply with current devices
@@ -116,7 +117,7 @@ connection.On("DeviceList", async () =>
     }
     catch (Exception ex)
     {
-        Log($"Error in DeviceList: {ex.Message}");
+        Log.Error(ex, "Error in DeviceList: {Message}", ex.Message);
     }
 });
 
@@ -125,13 +126,13 @@ connection.On<PlayTrack>("PlayTrack", async cmd =>
 {
     try
     {
-        Log($"PlayTrack received: {cmd.FileUrl}");
+        Log.Information("PlayTrack received: {FileUrl}", cmd.FileUrl);
         metrics.SetPlaying(cmd.FileUrl);
         await engine.OnTrackPlayRequested(cmd.FileUrl);
     }
     catch (Exception ex)
     {
-        Log($"Error attempting to play: {ex.Message}");
+        Log.Error(ex, "Error attempting to play: {Message}", ex.Message);
         metrics.SetError(ex.Message);
     }
 });
@@ -141,13 +142,13 @@ connection.On<string>("TrackPlayRequested", async url =>
 {
     try
     {
-        Log($"TrackPlayRequested: {url}");
+        Log.Information("TrackPlayRequested: {Url}", url);
         metrics.SetPlaying(url);
         await engine.OnTrackPlayRequested(url);
     }
     catch (Exception ex)
     {
-        Log($"Error in TrackPlayRequested: {ex.Message}");
+        Log.Error(ex, "Error in TrackPlayRequested: {Message}", ex.Message);
         metrics.SetError(ex.Message);
     }
 });
@@ -156,13 +157,13 @@ connection.On("TrackStopped", async () =>
 {
     try
     {
-        Log("TrackStopped received");
+        Log.Information("TrackStopped received");
         metrics.SetStopped();
         await engine.OnTrackStopped();
     }
     catch (Exception ex)
     {
-        Log($"Error in TrackStopped: {ex.Message}");
+        Log.Error(ex, "Error in TrackStopped: {Message}", ex.Message);
     }
 });
 
@@ -181,7 +182,7 @@ connection.On<long>("Ping", async clientTicks =>
     }
     catch (Exception ex)
     {
-        Log($"Error replying to Ping: {ex.Message}");
+        Log.Error(ex, "Error replying to Ping: {Message}", ex.Message);
     }
 });
 
@@ -199,7 +200,7 @@ async Task RunHeartbeatAsync(CancellationToken token)
         catch (TaskCanceledException) { }
         catch (Exception ex)
         {
-            Log($"Heartbeat error: {ex.Message}");
+            Log.Error(ex, "Heartbeat error: {Message}", ex.Message);
         }
         try { await Task.Delay(TimeSpan.FromSeconds(5), token); } catch { }
     }
@@ -213,7 +214,7 @@ try
     var initLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
     await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, initLat), cancellationToken: cts.Token);
     _ = RunHeartbeatAsync(cts.Token);
-    Log("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
+    Log.Information("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
     await Task.Delay(-1, cts.Token);
 }
 catch (TaskCanceledException)
@@ -222,7 +223,7 @@ catch (TaskCanceledException)
 }
 catch (Exception ex)
 {
-    Log($"Fatal: {ex.Message}");
+    Log.Fatal(ex, "Fatal error: {Message}", ex.Message);
 }
 finally
 {
@@ -250,5 +251,6 @@ finally
         try { provider?.Dispose(); } catch { }
         try { await connection.DisposeAsync(); } catch { }
     }
-    Log("AudioEngine stopped.");
+    Log.Information("AudioEngine stopped.");
+    Log.CloseAndFlush();
 }

@@ -8,7 +8,33 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Diagnostics;
+using Serilog;
+using Serilog.Formatting.Json;
+using Serilog.Events;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
+
+// Configure structured logging for Blazor WASM
+// Note: In WASM, console logging goes to browser console
+var logLevel = builder.Configuration["Logging:LogLevel:Default"] 
+    ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL") 
+    ?? "Information";
+
+if (!Enum.TryParse<LogEventLevel>(logLevel, ignoreCase: true, out var minLevel))
+{
+    minLevel = LogEventLevel.Information;
+}
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Is(minLevel)
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .Enrich.WithProperty("service", "Nuotti.Audience")
+    .Enrich.FromLogContext()
+    .WriteTo.Console(new JsonFormatter(renderMessage: true)) // In WASM, Console goes to browser console
+    .CreateLogger();
+
+builder.Logging.ClearProviders();
+builder.Logging.AddSerilog();
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
@@ -85,5 +111,7 @@ var otelBuilder = builder.Services.AddOpenTelemetry()
             });
         }
     });
+
+Log.Information("Audience starting. Service={Service}, Version={Version}", "Nuotti.Audience", "1.0.0");
 
 await builder.Build().RunAsync();

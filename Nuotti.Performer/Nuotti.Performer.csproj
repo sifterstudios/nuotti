@@ -7,6 +7,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.2" />
     <PackageReference Include="MudBlazor" Version="8.15.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.4" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />

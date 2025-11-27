@@ -7,9 +7,11 @@ using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
+using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.AddServiceDefaults();
+builder.ConfigureStructuredLogging();
 
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
 builder.Configuration
@@ -107,7 +109,18 @@ _ = app.Services.GetRequiredService<StateApplySubscriber>();
 _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
 
-app.Run();
+// Log startup with common fields
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Backend started. Service={Service}, Version={Version}", "Nuotti.Backend", "1.0.0");
+
+try
+{
+    app.Run();
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 // Expose Program for WebApplicationFactory in tests
 public partial class Program { }
