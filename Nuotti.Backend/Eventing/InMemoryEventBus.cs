@@ -1,5 +1,7 @@
-﻿using Nuotti.Contracts.V1.Eventing;
+﻿using Nuotti.Backend.Telemetry;
+using Nuotti.Contracts.V1.Eventing;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 namespace Nuotti.Backend.Eventing;
 
 /// <summary>
@@ -56,6 +58,29 @@ public sealed class InMemoryEventBus : IEventBus
     public async Task PublishAsync<TEvent>(TEvent evt, CancellationToken cancellationToken = default)
     {
         var type = typeof(TEvent);
+        var eventTypeName = type.Name;
+        
+        // Extract session code and correlation ID from event if available
+        string? session = null;
+        Guid? correlationId = null;
+        
+        // Use reflection to check for common properties
+        var sessionProp = type.GetProperty("SessionCode");
+        if (sessionProp != null && sessionProp.GetValue(evt) is string sessionValue)
+        {
+            session = sessionValue;
+        }
+        
+        var correlationProp = type.GetProperty("CorrelationId");
+        if (correlationProp != null && correlationProp.GetValue(evt) is Guid correlationValue)
+        {
+            correlationId = correlationValue;
+        }
+
+        // Create OpenTelemetry span for event broadcast
+        using var activity = BackendActivitySource.StartEventBroadcast(eventTypeName, session ?? "unknown", correlationId);
+        activity?.SetTag("event.subscriber_count", _handlers.TryGetValue(type, out var handlers) ? handlers.Count : 0);
+
         if (!_handlers.TryGetValue(type, out var list) || list.Count == 0) return;
         Delegate[] snapshot;
         var gate = _locks.GetOrAdd(type, _ => new object());

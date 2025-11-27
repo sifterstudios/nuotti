@@ -4,6 +4,7 @@ using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Middleware;
 using Nuotti.Backend.Sessions;
+using Nuotti.Backend.Telemetry;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
@@ -17,6 +18,10 @@ internal static class PhaseEndpoints
     static async Task<IResult> HandlePhaseChangeAsync<T>(HttpContext? httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics? metrics, string session, T cmd)
         where T : CommandBase, IPhaseChange
     {
+        // Create OpenTelemetry span for command handling
+        using var activity = BackendActivitySource.StartCommandHandling(typeof(T).Name, session, cmd.CommandId);
+        activity?.SetTag("command.target_phase", cmd.TargetPhase.ToString());
+
         if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
         if (!idem.TryRegister(session, cmd.CommandId)) { return Results.Accepted(); }
 
@@ -26,6 +31,8 @@ internal static class PhaseEndpoints
         var state = stateStore.GetOrCreate(session, GameReducer.Initial);
         if (!cmd.IsPhaseChangeAllowed(state.Phase))
         {
+            activity?.SetTag("error", true);
+            activity?.SetTag("error.message", "Invalid state transition");
             return ProblemResults.Conflict(
                 title: "Invalid state transition",
                 detail: $"Cannot change phase from {state.Phase} to {cmd.TargetPhase}.",
@@ -34,6 +41,7 @@ internal static class PhaseEndpoints
 
         // Use correlation ID from HTTP context if available, otherwise use CommandId
         var correlationId = CorrelationIdMiddleware.GetCorrelationId(httpContext) ?? cmd.CommandId;
+        activity?.SetTag("correlation.id", correlationId.ToString());
 
         var ev = new GamePhaseChanged(state.Phase, cmd.TargetPhase)
         {
@@ -46,6 +54,8 @@ internal static class PhaseEndpoints
         var (newState, error) = GameReducer.Reduce(state, ev);
         if (error is not null)
         {
+            activity?.SetTag("error", true);
+            activity?.SetTag("error.message", error);
             return ProblemResults.Conflict(
                 title: "Reducer rejected event",
                 detail: error,
@@ -57,6 +67,7 @@ internal static class PhaseEndpoints
         
         // Record command applied (event broadcast = command applied)
         metrics?.RecordCommandApplied(cmd.CommandId);
+        activity?.SetTag("command.applied", true);
         
         return Results.Accepted();
     }

@@ -1,4 +1,5 @@
 ﻿using Nuotti.Backend.Sessions;
+using Nuotti.Backend.Telemetry;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Reducer;
@@ -21,10 +22,19 @@ public sealed class StateApplySubscriber : IDisposable
 
     Task OnAnswerSubmittedAsync(AnswerSubmitted evt, CancellationToken ct)
     {
+        using var activity = BackendActivitySource.StartEventProcessing(
+            nameof(AnswerSubmitted), 
+            nameof(StateApplySubscriber), 
+            evt.SessionCode);
+        activity?.SetTag("correlation.id", evt.CorrelationId.ToString());
+        activity?.SetTag("command.id", evt.CausedByCommandId.ToString());
+
         var state = _store.GetOrCreate(evt.SessionCode, GameReducer.Initial);
         var (next, error) = GameReducer.Reduce(state, evt);
         if (error != null)
         {
+            activity?.SetTag("error", true);
+            activity?.SetTag("error.message", error);
             _logger.LogWarning("Reducer error applying {Event}: {Error}. CorrelationId={CorrelationId}, CausedByCommandId={CausedByCommandId}", 
                 nameof(AnswerSubmitted), error, evt.CorrelationId, evt.CausedByCommandId);
             return Task.CompletedTask;
