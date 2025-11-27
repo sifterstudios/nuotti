@@ -218,5 +218,10 @@
         <controls:SafeAreaFrame x:Name="SafeAreaFrameControl" 
                                ShowFrame="False"
                                ZIndex="1000"/>
+        
+        <!-- Now Playing banner overlay -->
+        <controls:NowPlayingBanner x:Name="NowPlayingBannerControl"
+                                  IsPlaying="False"
+                                  ZIndex="999"/>
     </Grid>
 </Window>

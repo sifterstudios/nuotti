@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     readonly Button _tallyToggleButton;
     readonly Grid _contentGrid;
     readonly SafeAreaFrame _safeAreaFrame;
+    readonly NowPlayingBanner _nowPlayingBanner;
     readonly AvaloniaList<string> _logs = new();
 
     readonly string _backend = "http://localhost:5240";
@@ -74,6 +75,7 @@ public partial class MainWindow : Window
         _tallyToggleButton = this.FindControl<Button>("TallyToggleButton")!;
         _contentGrid = this.FindControl<Grid>("ContentGrid")!
         _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
+        _nowPlayingBanner = this.FindControl<NowPlayingBanner>("NowPlayingBannerControl")!;
         _logList.ItemsSource = _logs;
         
         // Initialize services
@@ -152,6 +154,13 @@ public partial class MainWindow : Window
         {
             AppendLocal($"RequestPlay received: url={p.FileUrl}");
             _ = ForwardPlayToBackend(p);
+        });
+        
+        // F10 - Handle engine status changes for Now Playing banner
+        _connection.On<EngineStatusChanged>("EngineStatusChanged", status =>
+        {
+            AppendLocal($"EngineStatusChanged: {status.Status}");
+            Dispatcher.UIThread.Post(() => UpdateNowPlayingBanner(status));
         });
 
         Loaded += async (_, _) =>
@@ -613,5 +622,36 @@ public partial class MainWindow : Window
         
         var status = _settings.HideTalliesUntilReveal ? "hidden" : "visible";
         AppendLocal($"[tallies] Tallies during guessing: {status}");
+    }
+    
+    // F10 - Now Playing Banner functionality
+    private void UpdateNowPlayingBanner(EngineStatusChanged statusChange)
+    {
+        try
+        {
+            var isPlaying = statusChange.Status == EngineStatus.Playing;
+            
+            if (isPlaying)
+            {
+                // Get current song info from game state
+                var currentState = _gameStateService.CurrentState;
+                var songTitle = currentState.CurrentSongTitle;
+                var artist = currentState.CurrentSongArtist != "Unknown Artist" ? currentState.CurrentSongArtist : null;
+                
+                _nowPlayingBanner.UpdateSong(songTitle, artist);
+                _nowPlayingBanner.Show();
+                
+                AppendLocal($"[now-playing] Showing: {songTitle}");
+            }
+            else
+            {
+                _nowPlayingBanner.Hide();
+                AppendLocal("[now-playing] Hidden");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[now-playing] Error: {ex.Message}");
+        }
     }
 }
