@@ -35,9 +35,13 @@ public static class LoggingExtensions
         // Add HttpContextAccessor for correlation ID enricher
         builder.Services.AddHttpContextAccessor();
 
-        // Configure Serilog
+        // Add log level switch service for dynamic log level changes
+        var logLevelSwitchService = new ServiceDefaults.LogLevelSwitchService(minLevel);
+        builder.Services.AddSingleton(logLevelSwitchService);
+
+        // Configure Serilog with dynamic level switch
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Is(minLevel)
+            .MinimumLevel.ControlledBy(logLevelSwitchService.LevelSwitch)
             .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .MinimumLevel.Override("System", LogEventLevel.Warning)

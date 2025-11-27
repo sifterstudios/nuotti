@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Enum;
+using Serilog.Events;
+using ServiceDefaults;
 
 namespace Nuotti.Backend.Endpoints;
 
@@ -125,6 +127,24 @@ internal static class DevEndpoints
 
             await hub.Clients.Group(session).SendAsync(target!, evt!);
             return Results.Accepted();
+        });
+
+        app.MapPost("/dev/log-level", async (LogLevelSwitchService logLevelSwitch, HttpRequest request) =>
+        {
+            using var doc = await JsonDocument.ParseAsync(request.Body);
+            if (!doc.RootElement.TryGetProperty("level", out var levelEl) || levelEl.ValueKind != JsonValueKind.String)
+            {
+                return Results.BadRequest(new { error = "Missing or invalid 'level' property. Expected JSON: { \"level\": \"Debug\" }" });
+            }
+
+            var levelStr = levelEl.GetString();
+            if (!Enum.TryParse<LogEventLevel>(levelStr, ignoreCase: true, out var level))
+            {
+                return Results.BadRequest(new { error = $"Invalid log level '{levelStr}'. Valid values: Verbose, Debug, Information, Warning, Error, Fatal" });
+            }
+
+            logLevelSwitch.SetLevel(level);
+            return Results.Ok(new { level = level.ToString(), message = $"Log level changed to {level}. This change is reflected immediately in subsequent logs." });
         });
     }
 }
