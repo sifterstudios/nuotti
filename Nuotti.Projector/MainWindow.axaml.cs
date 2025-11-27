@@ -52,7 +52,7 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11, F12, F15, F16, F17 & F18
+    // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18 & F19
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
@@ -63,6 +63,7 @@ public partial class MainWindow : Window
     private readonly ErrorHandlingService _errorHandlingService;
     private readonly LocalizationService _localizationService;
     private readonly ContentSafetyService _contentSafetyService;
+    private readonly ThemingApiService _themingApiService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -100,6 +101,7 @@ public partial class MainWindow : Window
         _errorHandlingService = new ErrorHandlingService();
         _localizationService = new LocalizationService();
         _contentSafetyService = new ContentSafetyService();
+        _themingApiService = new ThemingApiService(_backend);
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -127,6 +129,11 @@ public partial class MainWindow : Window
         
         // F17 - Localization service events
         _localizationService.LanguageChanged += OnLanguageChanged;
+        
+        // F19 - Theming API service events
+        _themingApiService.ThemeChangeRequested += OnRemoteThemeChangeRequested;
+        _themingApiService.TallyModeChangeRequested += OnRemoteTallyModeChangeRequested;
+        _themingApiService.StyleSettingsChanged += OnRemoteStyleSettingsChanged;
         
         // F12 - Performance monitoring
         _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
@@ -278,6 +285,9 @@ public partial class MainWindow : Window
                 await StartConnection();
                 _connectionTextBlock.Text = "Connected";
                 AppendLocal("[hub] connected");
+                
+                // F19 - Start theming API connection (optional, non-blocking)
+                _ = StartThemingApiConnection();
             }
             catch (Exception ex)
             {
@@ -624,6 +634,7 @@ public partial class MainWindow : Window
         _cursorService?.Dispose();
         _reconnectService?.Dispose();
         _performanceService?.Dispose();
+        _themingApiService?.Dispose(); // F19 - Clean up theming API
     }
     
     // F3 - Safe Area & Overscan Margins functionality
@@ -1096,4 +1107,107 @@ Content Safety:
         // In a production system, we would modify the question in place or have a different approach
         return question;
     }
+    
+    // F19 - Theming API functionality
+    private async Task StartThemingApiConnection()
+    {
+        try
+        {
+            await _themingApiService.ConnectAsync();
+            await _themingApiService.RegisterProjectorAsync(_sessionCode);
+            AppendLocal("[theming-api] Connected and registered");
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[theming-api] Connection failed: {ex.Message}");
+            // Non-critical failure, continue without theming API
+        }
+    }
+    
+    private void OnRemoteThemeChangeRequested(ThemeVariant themeVariant)
+    {
+        try
+        {
+            Application.Current!.RequestedThemeVariant = themeVariant;
+            _settings.ThemeVariant = themeVariant.ToString();
+            
+            // Save the new theme preference
+            _ = Task.Run(async () => await _settingsService.SaveSettingsAsync(_settings));
+            
+            UpdateThemeToggleButton();
+            AppendLocal($"[theming-api] Theme changed to: {themeVariant}");
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[theming-api] Theme change failed: {ex.Message}");
+        }
+    }
+    
+    private void OnRemoteTallyModeChangeRequested(TallyDisplayMode tallyMode)
+    {
+        try
+        {
+            _settings.TallyMode = tallyMode.ToString();
+            
+            // Apply tally mode to current view if applicable
+            // Note: Specific tally mode application would require extending the view classes
+            
+            // Save the new tally mode preference
+            _ = Task.Run(async () => await _settingsService.SaveSettingsAsync(_settings));
+            
+            AppendLocal($"[theming-api] Tally mode changed to: {tallyMode}");
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[theming-api] Tally mode change failed: {ex.Message}");
+        }
+    }
+    
+    private void OnRemoteStyleSettingsChanged(ProjectorStyleSettings styleSettings)
+    {
+        try
+        {
+            // Apply style settings
+            if (styleSettings.ThemeVariant != _settings.ThemeVariant)
+            {
+                var themeVariant = styleSettings.ThemeVariant switch
+                {
+                    "Light" => ThemeVariant.Light,
+                    "Dark" => ThemeVariant.Dark,
+                    _ => ThemeVariant.Default
+                };
+                Application.Current!.RequestedThemeVariant = themeVariant;
+                _settings.ThemeVariant = styleSettings.ThemeVariant;
+                UpdateThemeToggleButton();
+            }
+            
+            if (styleSettings.ShowSafeArea != _settings.ShowSafeAreaFrame)
+            {
+                _settings.ShowSafeAreaFrame = styleSettings.ShowSafeArea;
+                _safeAreaFrame.IsVisible = styleSettings.ShowSafeArea;
+            }
+            
+            if (Math.Abs(styleSettings.SafeAreaMargin - _settings.SafeAreaMargin) > 0.001)
+            {
+                _settings.SafeAreaMargin = styleSettings.SafeAreaMargin;
+                // Note: Safe area margin application would require extending the SafeAreaService
+            }
+            
+            if (styleSettings.HideTalliesUntilReveal != _settings.HideTalliesUntilReveal)
+            {
+                _settings.HideTalliesUntilReveal = styleSettings.HideTalliesUntilReveal;
+                // Note: Tally visibility application would require extending the view classes
+            }
+            
+            // Save all settings
+            _ = Task.Run(async () => await _settingsService.SaveSettingsAsync(_settings));
+            
+            AppendLocal("[theming-api] Style settings updated");
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[theming-api] Style settings update failed: {ex.Message}");
+        }
+    }
+    
 }
