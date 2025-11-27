@@ -765,7 +765,7 @@ public partial class MainWindow : Window
         _debugOverlay.UpdatePerformanceMetrics(metrics);
     }
     
-    // F13 - Debug Overlay functionality
+    // F13 - Debug Overlay functionality & F14 - Window Management Controls
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         // Ctrl+D to toggle debug overlay (DEV only)
@@ -777,6 +777,171 @@ public partial class MainWindow : Window
             AppendLocal($"[debug] Debug overlay {status}");
 #endif
             e.Handled = true;
+        }
+        
+        // F14 - Window Management Controls
+        switch (e.Key)
+        {
+            case Key.F when !e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                ToggleFullscreen();
+                e.Handled = true;
+                break;
+                
+            case Key.B when !e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                ToggleBlackScreen();
+                e.Handled = true;
+                break;
+                
+            case Key.Escape:
+                if (WindowState == WindowState.FullScreen)
+                {
+                    ExitFullscreen();
+                }
+                else
+                {
+                    Close();
+                }
+                e.Handled = true;
+                break;
+                
+            case Key.T when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                ToggleAlwaysOnTop();
+                e.Handled = true;
+                break;
+                
+            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                ToggleCursorVisibility();
+                e.Handled = true;
+                break;
+                
+            case Key.H when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                ShowKeyboardShortcuts();
+                e.Handled = true;
+                break;
+        }
+    }
+    
+    // F14 - Window Management functionality
+    private bool _isBlackScreenActive = false;
+    private Border? _blackScreenOverlay;
+    
+    private void ToggleFullscreen()
+    {
+        if (WindowState == WindowState.FullScreen)
+        {
+            ExitFullscreen();
+        }
+        else
+        {
+            EnterFullscreen();
+        }
+    }
+    
+    private async void EnterFullscreen()
+    {
+        try
+        {
+            WindowState = WindowState.FullScreen;
+            _settings.IsFullscreen = true;
+            await _settingsService.SaveSettingsAsync(_settings);
+            AppendLocal("[window] Entered fullscreen mode (F to exit)");
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[window] Error entering fullscreen: {ex.Message}");
+        }
+    }
+    
+    
+    private void ToggleBlackScreen()
+    {
+        if (_isBlackScreenActive)
+        {
+            HideBlackScreen();
+        }
+        else
+        {
+            ShowBlackScreen();
+        }
+    }
+    
+    private void ShowBlackScreen()
+    {
+        if (_blackScreenOverlay == null)
+        {
+            _blackScreenOverlay = new Border
+            {
+                Background = Avalonia.Media.Brushes.Black,
+                ZIndex = 9999
+            };
+            
+            // Add to the main grid
+            var mainGrid = this.FindControl<Grid>("MainGrid");
+            if (mainGrid != null)
+            {
+                mainGrid.Children.Add(_blackScreenOverlay);
+                Grid.SetRowSpan(_blackScreenOverlay, 4);
+                Grid.SetColumnSpan(_blackScreenOverlay, 3);
+            }
+        }
+        
+        _blackScreenOverlay.IsVisible = true;
+        _isBlackScreenActive = true;
+        AppendLocal("[window] Black screen activated (B to exit)");
+    }
+    
+    private void HideBlackScreen()
+    {
+        if (_blackScreenOverlay != null)
+        {
+            _blackScreenOverlay.IsVisible = false;
+        }
+        
+        _isBlackScreenActive = false;
+        AppendLocal("[window] Black screen deactivated");
+    }
+    
+    private void ToggleAlwaysOnTop()
+    {
+        Topmost = !Topmost;
+        var status = Topmost ? "enabled" : "disabled";
+        AppendLocal($"[window] Always on top {status}");
+    }
+    
+    private void ToggleCursorVisibility()
+    {
+        if (_cursorService != null)
+        {
+            _cursorService.ToggleVisibility();
+            var status = _cursorService.IsVisible ? "shown" : "hidden";
+            AppendLocal($"[window] Cursor {status}");
+        }
+    }
+    
+    private void ShowKeyboardShortcuts()
+    {
+        var shortcuts = @"🎮 KEYBOARD SHORTCUTS
+
+Window Controls:
+  F           - Toggle fullscreen
+  B           - Toggle black screen
+  Esc         - Exit fullscreen / Close app
+  Ctrl+T      - Toggle always on top
+  Ctrl+C      - Toggle cursor visibility
+  Ctrl+H      - Show this help
+
+Debug (DEV only):
+  Ctrl+D      - Toggle debug overlay
+
+Monitor & Display:
+  M           - Monitor selection
+  S           - Safe area toggle
+  T           - Tally display toggle";
+
+        AppendLocal("[help] Keyboard shortcuts:");
+        foreach (var line in shortcuts.Split('\n'))
+        {
+            AppendLocal($"[help] {line}");
         }
     }
 }
