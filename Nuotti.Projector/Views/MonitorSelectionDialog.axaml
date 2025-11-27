@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Nuotti.Projector.Views.MonitorSelectionDialog"
+        Title="Select Display"
+        Width="400"
+        Height="300"
+        WindowStartupLocation="CenterOwner"
+        CanResize="false"
+        Background="{DynamicResource BackgroundBrush}">
+    
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+        <!-- Header -->
+        <TextBlock Grid.Row="0" 
+                   Text="Choose Display for Projector" 
+                   FontSize="18" 
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   Margin="0,0,0,16"/>
+        
+        <!-- Monitor List -->
+        <Border Grid.Row="1" 
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource DividerBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="8">
+            <ListBox x:Name="MonitorListBox"
+                     Background="Transparent"
+                     SelectionMode="Single">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="12,8" 
+                                Margin="4,2"
+                                CornerRadius="6"
+                                Background="Transparent">
+                            <StackPanel>
+                                <TextBlock Text="{Binding DisplayName}" 
+                                           FontWeight="Medium"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding Id, StringFormat='ID: {0}'}" 
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+        
+        <!-- Buttons -->
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Spacing="8" 
+                    Margin="0,16,0,0">
+            <Button x:Name="CancelButton" 
+                    Content="Cancel" 
+                    Padding="16,8"
+                    Click="OnCancelClick"/>
+            <Button x:Name="SelectButton" 
+                    Content="Select & Go Fullscreen" 
+                    Padding="16,8"
+                    Background="{DynamicResource PrimaryBrush}"
+                    Foreground="White"
+                    Click="OnSelectClick"
+                    IsEnabled="{Binding #MonitorListBox.SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+        </StackPanel>
+    </Grid>
+</Window>

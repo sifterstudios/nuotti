@@ -1,0 +1,133 @@
+================================================================================
+  NUOTTI - UNRAID DOCKER COMPOSE UI SETUP
+================================================================================
+
+STEP 1: In Unraid Docker Compose UI, paste this docker-compose.yml:
+--------------------------------------------------------------------------------
+
+networks:
+  nuotti:
+    name: nuotti
+
+services:
+  api:
+    image: ghcr.io/sifterstudios/nuotti-backend:latest
+    container_name: nuotti-api
+    restart: unless-stopped
+    
+    environment:
+      - NUOTTI_AllowedOrigins=https://api.nuotti.app,https://audience.nuotti.app,https://nuotti.app
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5210
+    
+    ports:
+      - "5210:5210"
+    networks:
+      - nuotti
+
+  audience:
+    image: ghcr.io/sifterstudios/nuotti-audience:latest
+    container_name: nuotti-audience
+    restart: unless-stopped
+    
+    volumes:
+      - /mnt/user/appdata/nuotti/audience-appsettings.json:/usr/share/nginx/html/appsettings.json:ro
+    
+    ports:
+      - "5280:80"
+    networks:
+      - nuotti
+
+  web:
+    image: ghcr.io/sifterstudios/nuotti-web:latest
+    container_name: nuotti-web
+    restart: unless-stopped
+    
+    ports:
+      - "5380:80"
+    networks:
+      - nuotti
+
+# OPTIONAL: Auto-updates (uncomment to enable)
+#  watchtower:
+#    image: containrrr/watchtower
+#    container_name: nuotti-watchtower
+#    restart: unless-stopped
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock
+#    environment:
+#      - WATCHTOWER_CLEANUP=true
+#      - WATCHTOWER_POLL_INTERVAL=3600
+#    command: nuotti-api nuotti-audience nuotti-web
+
+--------------------------------------------------------------------------------
+
+STEP 2: SSH into Unraid and create ONE file:
+--------------------------------------------------------------------------------
+
+mkdir -p /mnt/user/appdata/nuotti
+nano /mnt/user/appdata/nuotti/audience-appsettings.json
+
+Paste this (replace with YOUR domain):
+{"BackendUrl":"https://api.nuotti.app"}
+
+Save and exit (Ctrl+X, Y, Enter)
+
+--------------------------------------------------------------------------------
+
+STEP 3: Configure Cloudflare Tunnel
+--------------------------------------------------------------------------------
+
+Create three public hostnames:
+
+┌────────────┬──────────────────────┬──────┬───────────┐
+│ Service    │ Domain               │ Port │ WebSocket │
+├────────────┼──────────────────────┼──────┼───────────┤
+│ API        │ api.nuotti.app       │ 5210 │ ✅ YES    │
+│ Audience   │ audience.nuotti.app  │ 5280 │ ❌ No     │
+│ Web        │ nuotti.app           │ 5380 │ ❌ No     │
+└────────────┴──────────────────────┴──────┴───────────┘
+
+IMPORTANT: Enable WebSocket for API service!
+
+--------------------------------------------------------------------------------
+
+STEP 4: Deploy
+--------------------------------------------------------------------------------
+
+In Unraid Docker Compose UI:
+1. Click "Compose Up"
+2. Wait for images to pull and containers to start
+3. Done!
+
+--------------------------------------------------------------------------------
+
+TO UPDATE:
+--------------------------------------------------------------------------------
+
+1. Click "Compose Down"
+2. Click "Pull" (pulls latest images)
+3. Click "Compose Up"
+
+--------------------------------------------------------------------------------
+
+TROUBLESHOOTING:
+--------------------------------------------------------------------------------
+
+CORS errors?
+→ Check NUOTTI_AllowedOrigins matches YOUR domains exactly (no trailing /)
+
+Audience can't connect?
+→ docker exec nuotti-audience cat /usr/share/nginx/html/appsettings.json
+
+View logs?
+→ docker logs nuotti-api -f
+
+--------------------------------------------------------------------------------
+
+That's it! Super simple! 🚀
+
+================================================================================
+
+
+
