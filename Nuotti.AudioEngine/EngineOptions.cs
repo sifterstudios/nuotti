@@ -20,15 +20,49 @@ public sealed class EngineOptions
 
     public void Validate()
     {
+        var errors = new List<string>();
+
         // Ensure Routing present and arrays initialized (can be empty)
-        if (Routing is null) throw new ArgumentException("Routing section is required");
-        if (Routing.Tracks is null) throw new ArgumentException("Routing.Tracks must be specified (can be empty array)");
-        if (Routing.Click is null) throw new ArgumentException("Routing.Click must be specified (can be empty array)");
+        if (Routing is null)
+        {
+            errors.Add("Routing section is required. Hint: Add 'Routing' section to engine.json or set NUOTTI_ENGINE__ROUTING__TRACKS and NUOTTI_ENGINE__ROUTING__CLICK environment variables");
+        }
+        else
+        {
+            if (Routing.Tracks is null)
+            {
+                errors.Add("Routing.Tracks must be specified (can be empty array). Hint: Set NUOTTI_ENGINE__ROUTING__TRACKS=[] or add to engine.json");
+            }
+            if (Routing.Click is null)
+            {
+                errors.Add("Routing.Click must be specified (can be empty array). Hint: Set NUOTTI_ENGINE__ROUTING__CLICK=[] or add to engine.json");
+            }
+        }
+
         // Validate click options
-        if (Click is null) throw new ArgumentException("Click section is required");
-        if (Click.Level is < 0 or > 1) throw new ArgumentException("Click.Level must be between 0 and 1 inclusive");
-        if (Click.Bpm <= 0) throw new ArgumentException("Click.Bpm must be positive");
+        if (Click is null)
+        {
+            errors.Add("Click section is required. Hint: Add 'Click' section to engine.json or set NUOTTI_ENGINE__CLICK__LEVEL and NUOTTI_ENGINE__CLICK__BPM environment variables");
+        }
+        else
+        {
+            if (Click.Level is < 0 or > 1)
+            {
+                errors.Add($"Click.Level must be between 0 and 1 inclusive (current: {Click.Level}). Hint: Set NUOTTI_ENGINE__CLICK__LEVEL environment variable or add to engine.json");
+            }
+            if (Click.Bpm <= 0)
+            {
+                errors.Add($"Click.Bpm must be positive (current: {Click.Bpm}). Hint: Set NUOTTI_ENGINE__CLICK__BPM environment variable or add to engine.json");
+            }
+        }
+
         // OutputBackend/OutputDevice optional for now.
+
+        if (errors.Count > 0)
+        {
+            var errorMessage = string.Join("; ", errors);
+            throw new ArgumentException($"Invalid EngineOptions configuration: {errorMessage}");
+        }
     }
 }
 

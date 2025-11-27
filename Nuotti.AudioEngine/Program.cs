@@ -39,7 +39,18 @@ Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuott
 
 var engineOptions = new EngineOptions();
 configuration.Bind(engineOptions);
-engineOptions.Validate();
+
+// Validate configuration with helpful error messages
+try
+{
+    engineOptions.Validate();
+}
+catch (ArgumentException ex)
+{
+    Log.Fatal(ex, "Configuration validation failed: {Message}. Hint: Check engine.json or NUOTTI_ENGINE__* environment variables", ex.Message);
+    Environment.Exit(1);
+}
+
 Log.Information("Engine effective config: {Config}", JsonSerializer.Serialize(engineOptions, new JsonSerializerOptions { WriteIndented = true }));
 
 // Metrics setup

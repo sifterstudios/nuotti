@@ -27,6 +27,12 @@ builder.Configuration
 builder.Services
     .AddOptions<NuottiOptions>()
     .Bind(builder.Configuration)
+    .Validate<NuottiOptions>((options, name) =>
+    {
+        var validator = new NuottiOptionsValidator();
+        var result = validator.Validate(name, options);
+        return result.Succeeded;
+    }, "Configuration validation failed")
     .ValidateOnStart();
 
 builder.Services
