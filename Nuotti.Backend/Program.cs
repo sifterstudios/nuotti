@@ -14,6 +14,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.AddServiceDefaults();
 builder.ConfigureStructuredLogging();
 
+// Add service-specific health checks
+builder.Services.AddHealthChecks()
+    .AddCheck<Nuotti.Backend.HealthChecks.SessionStoreHealthCheck>("sessionstore", tags: ["ready"]);
+
 // Configuration: JSON + env vars (NUOTTI_ prefix). Bind strongly-typed options from "Nuotti" section.
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)

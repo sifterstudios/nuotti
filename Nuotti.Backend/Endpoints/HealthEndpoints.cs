@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nuotti.Backend.Sessions;
 
 namespace Nuotti.Backend.Endpoints;
@@ -7,30 +9,33 @@ internal static class HealthEndpoints
 {
     public static void MapHealthEndpoints(this WebApplication app)
     {
-        app.MapGet("/health/live", () => Results.Ok(new
+        // Standardized health check endpoints using ASP.NET Core health checks infrastructure
+        // /health/live - liveness probe (app is running)
+        // /health/ready - readiness probe (app is ready to accept traffic)
+        
+        app.MapHealthChecks("/health/live", new HealthCheckOptions
+        {
+            Predicate = r => r.Tags.Contains("live"),
+            ResultStatusCodes =
             {
-                status = "live"
-            }))
-            .RequireCors("NuottiCors");
+                [HealthStatus.Healthy] = StatusCodes.Status200OK,
+                [HealthStatus.Degraded] = StatusCodes.Status200OK,
+                [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+            }
+        })
+        .RequireCors("NuottiCors");
 
-        // Readiness: verify required dependencies are accessible
-        app.MapGet("/health/ready", (IHubContext<QuizHub> hub, ISessionStore store) =>
+        // Readiness: verify required dependencies (SignalR, SessionStore)
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = r => r.Tags.Contains("ready"),
+            ResultStatusCodes =
             {
-                try
-                {
-                    // Touch minimal method to ensure store functions and does not throw
-                    _ = store.GetCounts("__health__");
-
-                    return Results.Ok(new
-                    {
-                        status = "ready"
-                    });
-                }
-                catch
-                {
-                    return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
-                }
-            })
-            .RequireCors("NuottiCors");
+                [HealthStatus.Healthy] = StatusCodes.Status200OK,
+                [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+                [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+            }
+        })
+        .RequireCors("NuottiCors");
     }
 }
