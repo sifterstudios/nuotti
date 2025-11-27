@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Nuotti.E2E")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ddb9ffd7163a05ff45cc3d218d4bbf0f7d535ad")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5ee07ba379de4842eeb5eca4715fab592215e6d2")]
 [assembly: System.Reflection.AssemblyProductAttribute("Nuotti.E2E")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Nuotti.E2E")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
