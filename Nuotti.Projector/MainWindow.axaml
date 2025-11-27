@@ -223,5 +223,10 @@
         <controls:NowPlayingBanner x:Name="NowPlayingBannerControl"
                                   IsPlaying="False"
                                   ZIndex="999"/>
+        
+        <!-- Reconnect overlay -->
+        <controls:ReconnectOverlay x:Name="ReconnectOverlayControl"
+                                  IsReconnecting="False"
+                                  ZIndex="2000"/>
     </Grid>
 </Window>

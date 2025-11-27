@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     readonly Grid _contentGrid;
     readonly SafeAreaFrame _safeAreaFrame;
     readonly NowPlayingBanner _nowPlayingBanner;
+    readonly ReconnectOverlay _reconnectOverlay;
     readonly AvaloniaList<string> _logs = new();
 
     readonly string _backend = "http://localhost:5240";
@@ -49,11 +50,12 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3 & F5
+    // New services for F2, F3, F5 & F11
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
     private readonly GameStateService _gameStateService;
+    private readonly ReconnectService _reconnectService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -76,6 +78,7 @@ public partial class MainWindow : Window
         _contentGrid = this.FindControl<Grid>("ContentGrid")!
         _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
         _nowPlayingBanner = this.FindControl<NowPlayingBanner>("NowPlayingBannerControl")!;
+        _reconnectOverlay = this.FindControl<ReconnectOverlay>("ReconnectOverlayControl")!;
         _logList.ItemsSource = _logs;
         
         // Initialize services
@@ -83,6 +86,7 @@ public partial class MainWindow : Window
         _monitorService = new MonitorService();
         _safeAreaService = new SafeAreaService();
         _gameStateService = new GameStateService();
+        _reconnectService = new ReconnectService(_backend);
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -209,10 +213,13 @@ public partial class MainWindow : Window
         _connection.Closed += async (_) =>
         {
             _connectionTextBlock.Text = "Disconnected";
+            _reconnectOverlay.Show("Connection Lost", "Attempting to reconnect...");
+            
             var delayMs = Random.Shared.Next(0, 5) * 1000;
             AppendLocal($"[hub] disconnected; reconnecting in {delayMs} ms");
             await Task.Delay(delayMs);
-            await StartConnection();
+            
+            await StartConnectionWithStateResync();
         };
     }
 
@@ -223,6 +230,51 @@ public partial class MainWindow : Window
         await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
+    }
+    
+    // F11 - Enhanced connection with state resync
+    async Task StartConnectionWithStateResync()
+    {
+        try
+        {
+            _reconnectOverlay.Show("Reconnecting...", "Restoring connection...");
+            
+            await _connection.StartAsync();
+            AppendLocal("[hub] reconnect start ok");
+            
+            await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
+            AppendLocal($"[hub] rejoined as projector to session={_sessionCode}");
+            
+            // Fetch latest state to resync
+            _reconnectOverlay.Show("Reconnecting...", "Syncing latest state...");
+            var latestState = await _reconnectService.FetchLatestStateAsync(_sessionCode);
+            
+            if (latestState != null)
+            {
+                _gameStateService.UpdateFromSnapshot(latestState);
+                AppendLocal("[hub] state resynced successfully");
+            }
+            else
+            {
+                AppendLocal("[hub] state resync failed, continuing with current state");
+            }
+            
+            _connectionTextBlock.Text = "Connected";
+            _reconnectOverlay.Hide();
+            
+            _ = StartLogConnection();
+            AppendLocal("[hub] reconnected successfully");
+        }
+        catch (Exception ex)
+        {
+            _connectionTextBlock.Text = $"Reconnection failed: {ex.Message}";
+            _reconnectOverlay.Show("Reconnection Failed", "Will retry automatically...");
+            AppendLocal($"[hub] reconnect error: {ex.Message}");
+            
+            // Retry after a longer delay
+            await Task.Delay(5000);
+            await StartConnectionWithStateResync();
+        }
     }
 
     public async Task StopConnection()
@@ -491,6 +543,7 @@ public partial class MainWindow : Window
     {
         base.OnClosed(e);
         _cursorService?.Dispose();
+        _reconnectService?.Dispose();
     }
     
     // F3 - Safe Area & Overscan Margins functionality
