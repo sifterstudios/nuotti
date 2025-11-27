@@ -17,4 +17,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Nuotti.Backend\Nuotti.Backend.csproj" />
+    <ProjectReference Include="..\..\Nuotti.SimKit\Nuotti.SimKit.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -1,1 +1,6 @@
-{ }
+{
+  "nuotti-sim, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\dev\\dotnet\\Nuotti\\Nuotti.SimKit",
+  "Nuotti.Backend, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\dev\\dotnet\\Nuotti\\Nuotti.Backend",
+  "Nuotti.Contracts, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\dev\\dotnet\\Nuotti\\Nuotti.Contracts",
+  "ServiceDefaults, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "E:\\dev\\dotnet\\Nuotti\\ServiceDefaults"
+}
