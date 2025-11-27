@@ -41,6 +41,26 @@ jobs:
       - name: Run All Other Tests
         run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --settings:.runsettings --logger:"trx;LogFileName=all-tests.trx"
 
+      - name: Run C# linting (dotnet format)
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: web
+        run: npx eslint . --ext .js,.ts,.svelte --max-warnings 0 || (echo "ESLint errors found" && exit 1)
+
+      - name: Run Prettier check
+        working-directory: web
+        run: npx prettier --check . || (echo "Prettier formatting errors found" && exit 1)
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
