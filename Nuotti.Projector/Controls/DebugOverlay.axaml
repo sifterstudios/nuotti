@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Nuotti.Projector.Controls.DebugOverlay">
+    
+    <Border x:Name="DebugBorder"
+            Background="#CC000000"
+            BorderBrush="#FF6B35"
+            BorderThickness="2"
+            CornerRadius="8"
+            Padding="16"
+            Margin="16"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            ZIndex="9999"
+            IsVisible="{Binding IsDebugVisible}">
+        
+        <StackPanel Spacing="8">
+            <!-- Header -->
+            <TextBlock Text="🐛 DEBUG OVERLAY"
+                       FontSize="14"
+                       FontWeight="Bold"
+                       Foreground="#FF6B35"/>
+            
+            <!-- Performance metrics -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="PERFORMANCE"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"/>
+                
+                <TextBlock x:Name="FpsText"
+                           Text="FPS: --"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="LightGreen"/>
+                
+                <TextBlock x:Name="FrameTimeText"
+                           Text="Frame: -- ms"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="LightBlue"/>
+                
+                <TextBlock x:Name="AnimationsText"
+                           Text="Animations: Enabled"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="Yellow"/>
+            </StackPanel>
+            
+            <!-- Game state -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="GAME STATE"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"/>
+                
+                <TextBlock x:Name="PhaseText"
+                           Text="Phase: --"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="Cyan"/>
+                
+                <TextBlock x:Name="SongText"
+                           Text="Song: --"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="Cyan"/>
+                
+                <TextBlock x:Name="TalliesText"
+                           Text="Tallies: --"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="Cyan"/>
+            </StackPanel>
+            
+            <!-- Connection info -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="CONNECTION"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"/>
+                
+                <TextBlock x:Name="ConnectionIdText"
+                           Text="ID: --"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="Orange"/>
+                
+                <TextBlock x:Name="SessionText"
+                           Text="Session: --"
+                           FontSize="11"
+                           FontFamily="Consolas"
+                           Foreground="Orange"/>
+            </StackPanel>
+            
+            <!-- Actions -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="ACTIONS"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"/>
+                
+                <Button x:Name="CopyButton"
+                        Content="📋 Copy Diagnostics"
+                        FontSize="10"
+                        Padding="8,4"
+                        Background="#333333"
+                        Foreground="White"
+                        BorderThickness="1"
+                        BorderBrush="#666666"
+                        Click="OnCopyDiagnostics"/>
+            </StackPanel>
+            
+            <!-- Instructions -->
+            <TextBlock Text="Ctrl+D to toggle"
+                       FontSize="10"
+                       Foreground="#AAAAAA"
+                       HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Border>
+</UserControl>
