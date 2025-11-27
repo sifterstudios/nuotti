@@ -1,0 +1,504 @@
+@page "/ranking"
+@inject AudienceHubClient Hub
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@using Nuotti.Contracts.V1.Model
+@using Nuotti.Contracts.V1.Enum
+@implements IDisposable
+
+<PageTitle>Rankings - Nuotti</PageTitle>
+
+<!-- Flow Banner -->
+<FlowBanner GameState="@Hub.CurrentGameState" />
+
+<div class="ranking-container">
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="py-4">
+        @if (Hub.CurrentGameState != null)
+        {
+            <!-- Header Section -->
+            <div class="text-center mb-6 slide-up">
+                <div class="ranking-icon mb-4">
+                    @GetPhaseIcon()
+                </div>
+                <MudText Typo="Typo.h3" Style="font-weight: 700;" Class="mb-2">
+                    @GetPhaseTitle()
+                </MudText>
+                <MudText Typo="Typo.h6" Color="Color.Secondary">
+                    @GetPhaseDescription()
+                </MudText>
+            </div>
+
+            <!-- Player's Score Card -->
+            @if (GetPlayerRank() != null)
+            {
+                var playerRank = GetPlayerRank()!;
+                <MudPaper Elevation="8" Class="player-score-card pa-4 mb-6 bounce-in" 
+                          role="region" 
+                          aria-labelledby="player-score-title">
+                    <div id="player-score-title" class="sr-only">Your Current Score and Ranking</div>
+                    <div class="d-flex align-items-center justify-space-between">
+                        <div class="d-flex align-items-center">
+                            <div class="rank-badge rank-@(playerRank.Position <= 3 ? playerRank.Position : 0)">
+                                @if (playerRank.Position <= 3)
+                                {
+                                    <span class="rank-medal">@GetMedalIcon(playerRank.Position)</span>
+                                }
+                                else
+                                {
+                                    <span class="rank-number">#@playerRank.Position</span>
+                                }
+                            </div>
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6" Style="font-weight: 600;">
+                                    Your Score
+                                </MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @(string.IsNullOrEmpty(Hub.AudienceName) ? "Anonymous Player" : Hub.AudienceName)
+                                </MudText>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <MudText Typo="Typo.h4" Style="font-weight: 700;" Color="Color.Primary">
+                                @playerRank.Score
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                points
+                            </MudText>
+                        </div>
+                    </div>
+                </MudPaper>
+            }
+
+            <!-- Leaderboard -->
+            <MudPaper Elevation="4" Class="leaderboard-card pa-4 slide-up" Style="animation-delay: 0.2s;"
+                      role="region"
+                      aria-labelledby="leaderboard-title">
+                <MudText Typo="Typo.h5" Style="font-weight: 600;" Class="mb-4" id="leaderboard-title">
+                    <MudIcon Icon="@Material.Filled.EmojiEvents" Class="mr-2" aria-hidden="true" />
+                    Top Players
+                </MudText>
+
+                @if (GetTopPlayers().Any())
+                {
+                    <ol class="leaderboard-list" aria-label="Player rankings">
+                        @foreach (var (player, index) in GetTopPlayers().Select((p, i) => (p, i)))
+                        {
+                            var isCurrentPlayer = IsCurrentPlayer(player.PlayerId);
+                            <li class="leaderboard-item @(isCurrentPlayer ? "current-player" : "")" 
+                                style="animation-delay: @((index + 1) * 0.1)s;"
+                                aria-label="@($"Rank {player.Position}: {player.Name} with {player.Score} points{(isCurrentPlayer ? " - This is you" : "")}")"
+                                tabindex="@(isCurrentPlayer ? "0" : "-1")">
+                                <div class="d-flex align-items-center">
+                                    <div class="rank-indicator rank-@(player.Position <= 3 ? player.Position : 0)">
+                                        @if (player.Position <= 3)
+                                        {
+                                            <span class="medal">@GetMedalIcon(player.Position)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="position">#@player.Position</span>
+                                        }
+                                    </div>
+                                    <div class="player-info flex-grow-1 ml-3">
+                                        <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                                            @player.Name
+                                            @if (isCurrentPlayer)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="ml-2">You</MudChip>
+                                            }
+                                        </MudText>
+                                        @if (player.Position > 1)
+                                        {
+                                            var pointsBehind = GetTopPlayers().First().Score - player.Score;
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @pointsBehind points behind leader
+                                            </MudText>
+                                        }
+                                    </div>
+                                    <div class="score-display">
+                                        <MudText Typo="Typo.h6" Style="font-weight: 700;">
+                                            @player.Score
+                                        </MudText>
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                    </ol>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <MudIcon Icon="@Material.Filled.People" Size="Size.Large" Color="Color.Secondary" Class="mb-2" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">
+                            No scores yet. Keep playing!
+                        </MudText>
+                    </div>
+                }
+            </MudPaper>
+
+            <!-- Progress Info -->
+            @if (Hub.CurrentGameState.Catalog.Count > 0)
+            {
+                <MudPaper Elevation="2" Class="mt-4 pa-4 slide-up" Style="animation-delay: 0.4s;">
+                    <div class="d-flex align-items-center justify-space-between">
+                        <div>
+                            <MudText Typo="Typo.body1" Style="font-weight: 600;">
+                                Song @(Hub.CurrentGameState.SongIndex + 1) of @Hub.CurrentGameState.Catalog.Count
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @if (Hub.CurrentGameState.Phase == Phase.Intermission)
+                                {
+                                    <span>Get ready for the next song!</span>
+                                }
+                                else if (Hub.CurrentGameState.Phase == Phase.Finished)
+                                {
+                                    <span>Game complete! Thanks for playing!</span>
+                                }
+                                else
+                                {
+                                    <span>@GetPhaseDescription()</span>
+                                }
+                            </MudText>
+                        </div>
+                        <MudProgressCircular Value="@GetProgressPercentage()" 
+                                             Size="Size.Medium" 
+                                             Color="Color.Primary"
+                                             StrokeWidth="4" />
+                    </div>
+                </MudPaper>
+            }
+        }
+        else
+        {
+            <!-- Loading State -->
+            <div class="text-center py-8">
+                <MudProgressCircular Size="Size.Large" Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+                <MudText Typo="Typo.h6">Loading rankings...</MudText>
+            </div>
+        }
+    </MudContainer>
+</div>
+
+<style>
+    .ranking-container {
+        min-height: calc(100vh - 64px);
+        padding: 24px 0;
+        background: linear-gradient(180deg, 
+            rgba(var(--mud-palette-primary-rgb), 0.02) 0%, 
+            rgba(var(--mud-palette-secondary-rgb), 0.02) 100%);
+    }
+    
+    .ranking-icon {
+        font-size: 4rem;
+        line-height: 1;
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .player-score-card {
+        border-radius: 20px !important;
+        background: linear-gradient(135deg, 
+            rgba(var(--mud-palette-primary-rgb), 0.1) 0%, 
+            rgba(var(--mud-palette-secondary-rgb), 0.1) 100%);
+        border: 2px solid rgba(var(--mud-palette-primary-rgb), 0.2);
+    }
+    
+    .leaderboard-card {
+        border-radius: 16px !important;
+    }
+    
+    .leaderboard-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .leaderboard-item {
+        padding: 16px;
+        border-radius: 12px;
+        background: var(--mud-palette-surface);
+        border: 1px solid var(--mud-palette-divider);
+        transition: all 0.3s ease;
+        animation: slideInUp 0.5s ease-out both;
+    }
+    
+    .leaderboard-item.current-player {
+        background: linear-gradient(135deg, 
+            rgba(var(--mud-palette-primary-rgb), 0.1) 0%, 
+            rgba(var(--mud-palette-primary-rgb), 0.05) 100%);
+        border-color: var(--mud-palette-primary);
+        transform: scale(1.02);
+    }
+    
+    .rank-badge, .rank-indicator {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .rank-badge.rank-1, .rank-indicator.rank-1 {
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        color: #8B4513;
+    }
+    
+    .rank-badge.rank-2, .rank-indicator.rank-2 {
+        background: linear-gradient(135deg, #C0C0C0, #A0A0A0);
+        color: #404040;
+    }
+    
+    .rank-badge.rank-3, .rank-indicator.rank-3 {
+        background: linear-gradient(135deg, #CD7F32, #B8860B);
+        color: #FFFFFF;
+    }
+    
+    .rank-badge.rank-0, .rank-indicator.rank-0 {
+        background: var(--mud-palette-surface);
+        border: 2px solid var(--mud-palette-divider);
+        color: var(--mud-palette-text-primary);
+    }
+    
+    .rank-medal, .medal {
+        font-size: 1.5rem;
+    }
+    
+    .rank-number, .position {
+        font-size: 0.9rem;
+        font-weight: 700;
+    }
+    
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @media (max-width: 600px) {
+        .ranking-icon {
+            font-size: 3rem;
+        }
+        
+        .rank-badge, .rank-indicator {
+            width: 40px;
+            height: 40px;
+            font-size: 1rem;
+        }
+        
+        .rank-medal, .medal {
+            font-size: 1.2rem;
+        }
+        
+        .leaderboard-item {
+            padding: 12px;
+        }
+        
+        .player-score-card {
+            padding: 16px !important;
+        }
+    }
+    
+    /* Screen reader only content */
+    .sr-only {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+    }
+    
+    /* Focus management for current player item */
+    .leaderboard-item.current-player:focus {
+        outline: 3px solid var(--mud-palette-primary) !important;
+        outline-offset: 2px !important;
+    }
+    
+    /* High contrast support */
+    @media (prefers-contrast: high) {
+        .leaderboard-item {
+            border: 2px solid var(--mud-palette-text-primary) !important;
+        }
+        
+        .leaderboard-item.current-player {
+            border-color: var(--mud-palette-primary) !important;
+            border-width: 3px !important;
+        }
+    }
+</style>
+
+@code {
+    private record PlayerRank(string PlayerId, string Name, int Score, int Position);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.GameStateChanged += OnGameStateChanged;
+        
+        // Fetch current game state if we have a session
+        if (!string.IsNullOrEmpty(Hub.SessionCode))
+        {
+            await Hub.FetchGameStateAsync();
+        }
+        
+        // Auto-navigate back to question when phase changes to active gameplay
+        CheckForPhaseTransition();
+    }
+
+    private async void OnGameStateChanged(GameStateSnapshot gameState)
+    {
+        await InvokeAsync(() =>
+        {
+            StateHasChanged();
+            CheckForPhaseTransition();
+        });
+    }
+
+    private void CheckForPhaseTransition()
+    {
+        if (Hub.CurrentGameState?.Phase == Phase.Guessing)
+        {
+            // Navigate back to question page when a new question starts
+            Nav.NavigateTo("/question");
+        }
+    }
+
+    private string GetPhaseIcon()
+    {
+        if (Hub.CurrentGameState == null) return "🏆";
+        
+        return Hub.CurrentGameState.Phase switch
+        {
+            Phase.Reveal => "✨",
+            Phase.Intermission => "⏸️",
+            Phase.Finished => "🏆",
+            _ => "📊"
+        };
+    }
+
+    private string GetPhaseTitle()
+    {
+        if (Hub.CurrentGameState == null) return "Rankings";
+        
+        return Hub.CurrentGameState.Phase switch
+        {
+            Phase.Reveal => "Round Results",
+            Phase.Intermission => "Leaderboard",
+            Phase.Finished => "Final Results",
+            _ => "Current Standings"
+        };
+    }
+
+    private string GetPhaseDescription()
+    {
+        if (Hub.CurrentGameState == null) return "See how you're doing";
+        
+        return Hub.CurrentGameState.Phase switch
+        {
+            Phase.Reveal => "See how everyone scored this round",
+            Phase.Intermission => "Take a break and check the standings",
+            Phase.Finished => "Congratulations to all players!",
+            _ => "Current game standings"
+        };
+    }
+
+    private List<PlayerRank> GetTopPlayers()
+    {
+        if (Hub.CurrentGameState?.Scores == null || !Hub.CurrentGameState.Scores.Any())
+            return new List<PlayerRank>();
+
+        return Hub.CurrentGameState.Scores
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key) // Tie-breaker by name
+            .Select((kvp, index) => new PlayerRank(
+                kvp.Key, 
+                GetPlayerDisplayName(kvp.Key), 
+                kvp.Value, 
+                index + 1))
+            .Take(10) // Show top 10
+            .ToList();
+    }
+
+    private PlayerRank? GetPlayerRank()
+    {
+        var currentPlayerId = GetCurrentPlayerId();
+        if (string.IsNullOrEmpty(currentPlayerId)) return null;
+
+        var allPlayers = GetAllPlayerRanks();
+        return allPlayers.FirstOrDefault(p => p.PlayerId == currentPlayerId);
+    }
+
+    private List<PlayerRank> GetAllPlayerRanks()
+    {
+        if (Hub.CurrentGameState?.Scores == null || !Hub.CurrentGameState.Scores.Any())
+            return new List<PlayerRank>();
+
+        return Hub.CurrentGameState.Scores
+            .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key)
+            .Select((kvp, index) => new PlayerRank(
+                kvp.Key, 
+                GetPlayerDisplayName(kvp.Key), 
+                kvp.Value, 
+                index + 1))
+            .ToList();
+    }
+
+    private string GetCurrentPlayerId()
+    {
+        // In a real implementation, this would be based on the connection ID or user ID
+        // For now, use the audience name as the player identifier
+        return Hub.AudienceName ?? "anonymous";
+    }
+
+    private bool IsCurrentPlayer(string playerId)
+    {
+        return playerId == GetCurrentPlayerId();
+    }
+
+    private string GetPlayerDisplayName(string playerId)
+    {
+        // In a real implementation, you might have a mapping of player IDs to display names
+        return string.IsNullOrEmpty(playerId) ? "Anonymous" : playerId;
+    }
+
+    private string GetMedalIcon(int position)
+    {
+        return position switch
+        {
+            1 => "🥇",
+            2 => "🥈", 
+            3 => "🥉",
+            _ => ""
+        };
+    }
+
+    private double GetProgressPercentage()
+    {
+        if (Hub.CurrentGameState == null || Hub.CurrentGameState.Catalog.Count == 0) return 0;
+        
+        return ((double)(Hub.CurrentGameState.SongIndex + 1) / Hub.CurrentGameState.Catalog.Count) * 100;
+    }
+
+    public void Dispose()
+    {
+        Hub.GameStateChanged -= OnGameStateChanged;
+    }
+}
