@@ -25,10 +25,13 @@ public sealed class StateApplySubscriber : IDisposable
         var (next, error) = GameReducer.Reduce(state, evt);
         if (error != null)
         {
-            _logger.LogWarning("Reducer error applying {Event}: {Error}", nameof(AnswerSubmitted), error);
+            _logger.LogWarning("Reducer error applying {Event}: {Error}. CorrelationId={CorrelationId}, CausedByCommandId={CausedByCommandId}", 
+                nameof(AnswerSubmitted), error, evt.CorrelationId, evt.CausedByCommandId);
             return Task.CompletedTask;
         }
         _store.Set(evt.SessionCode, next);
+        _logger.LogDebug("Applied {Event} to session {Session}. CorrelationId={CorrelationId}, CausedByCommandId={CausedByCommandId}", 
+            nameof(AnswerSubmitted), evt.SessionCode, evt.CorrelationId, evt.CausedByCommandId);
         return Task.CompletedTask;
     }
 

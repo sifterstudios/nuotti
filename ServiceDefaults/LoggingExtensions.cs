@@ -32,6 +32,9 @@ public static class LoggingExtensions
             minLevel = LogEventLevel.Information;
         }
 
+        // Add HttpContextAccessor for correlation ID enricher
+        builder.Services.AddHttpContextAccessor();
+
         // Configure Serilog
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Is(minLevel)
@@ -39,7 +42,7 @@ public static class LoggingExtensions
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .MinimumLevel.Override("System", LogEventLevel.Warning)
             .Enrich.WithProperty("service", serviceName)
-            .Enrich.FromLogContext()
+            .Enrich.FromLogContext() // Enables LogContext.PushProperty for correlation IDs
             .WriteTo.Console(new JsonFormatter(renderMessage: true))
             .CreateLogger();
 

@@ -90,6 +90,7 @@ builder.Services.AddSingleton<MetricsSubscriber>();
 var app = builder.Build();
 
 app.UseCors("NuottiCors");
+app.UseMiddleware<Nuotti.Backend.Middleware.CorrelationIdMiddleware>();
 app.UseMiddleware<ProblemHandlingMiddleware>();
 app.MapPhaseEndpoints();
 

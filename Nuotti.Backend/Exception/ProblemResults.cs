@@ -1,4 +1,5 @@
-﻿using Nuotti.Contracts.V1;
+﻿using Microsoft.Extensions.Logging;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
@@ -49,16 +50,16 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
         }
         catch (System.Exception ex)
         {
-            // Resolve correlation id from header if present or generate a new one
-            Guid? correlationId = null;
-            if (context.Request.Headers.TryGetValue(CorrelationHeader, out var values))
-            {
-                if (Guid.TryParse(values.ToString(), out var parsed))
-                    correlationId = parsed;
-            }
+            // Get correlation ID from middleware (which extracted it from header or generated it)
+            var correlationId = Nuotti.Backend.Middleware.CorrelationIdMiddleware.GetCorrelationId(context);
 
             var (status, title, detail, reason, field) = MapException(ex);
             var problem = new NuottiProblem(title, status, detail, reason, field, correlationId);
+            
+            // Log error with correlation ID
+            var logger = context.RequestServices.GetRequiredService<ILogger<ProblemHandlingMiddleware>>();
+            logger.LogError(ex, "Request failed with status {Status}. Path: {Path}, CorrelationId: {CorrelationId}", 
+                status, context.Request.Path, correlationId);
 
             context.Response.StatusCode = status;
             context.Response.ContentType = "application/json";

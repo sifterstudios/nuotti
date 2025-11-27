@@ -197,14 +197,18 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore se
         }
 
         var audienceId = Context.ConnectionId;
+        // For SignalR, use a new correlation ID for the command, and use it as both CorrelationId and CausedByCommandId
+        var correlationId = Guid.NewGuid();
         var evt = new AnswerSubmitted(audienceId, choiceIndex)
         {
             AudienceId = audienceId,
             ChoiceIndex = choiceIndex,
-            CorrelationId = Guid.NewGuid(),
-            CausedByCommandId = Guid.NewGuid(),
+            CorrelationId = correlationId,
+            CausedByCommandId = correlationId,
             SessionCode = session
         };
+        logger.LogInformation("SubmitAnswer: conn={ConnectionId} session={Session} choiceIndex={ChoiceIndex} CorrelationId={CorrelationId}", 
+            Context.ConnectionId, session, choiceIndex, correlationId);
         await bus.PublishAsync(evt);
     }
 }

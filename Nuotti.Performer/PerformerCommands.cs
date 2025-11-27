@@ -122,6 +122,12 @@ public sealed class PerformerCommands
         var http = CreateClient();
 
         var url = $"/v1/message/phase/{route}/{Uri.EscapeDataString(_state.SessionCode!)}";
+        
+        // Add correlation ID header to match command's CommandId
+        // This ensures correlation IDs flow from client through to backend logs
+        http.DefaultRequestHeaders.Remove("X-Correlation-Id");
+        http.DefaultRequestHeaders.Add("X-Correlation-Id", cmd.CommandId.ToString());
+        
         // Try send; if offline or network fails, queue
         var handled = await _offline.TrySendOrQueueAsync(
             send: () => http.PostAsJsonAsync<CommandBase>(url, cmd, ContractsJson.RestOptions, ct),

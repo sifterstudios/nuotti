@@ -20,7 +20,8 @@ public sealed class MetricsSubscriber : IDisposable
     Task OnAnswerSubmittedAsync(AnswerSubmitted evt, CancellationToken ct)
     {
         var count = Interlocked.Increment(ref _answerSubmittedCount);
-        _logger.LogInformation("Metrics: AnswerSubmitted total={Count} session={Session}", count, evt.SessionCode);
+        _logger.LogInformation("Metrics: AnswerSubmitted total={Count} session={Session} CorrelationId={CorrelationId} CausedByCommandId={CausedByCommandId}", 
+            count, evt.SessionCode, evt.CorrelationId, evt.CausedByCommandId);
         return Task.CompletedTask;
     }
 
