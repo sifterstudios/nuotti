@@ -9,6 +9,7 @@ using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
+using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using System.Collections.Concurrent;
@@ -199,17 +200,137 @@ public class IdempotencyAndRateLimitAcceptanceTests : IClassFixture<WebApplicati
     }
 
     [Fact]
+    public async Task Rapid_RequestPlay_Attempts_Return_429_From_Hub()
+    {
+        var store = new InMemorySessionStore(Options.Create(new NuottiOptions()));
+        var bus = new CapturingEventBus();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, bus);
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        // Audience joins
+        var audienceCtx = new TestContext("aud-play-1");
+        hub.SetContext(audienceCtx);
+        await hub.Join("playSess", "Audience", name: "Alice");
+
+        var cmd = new PlayTrack("https://example.com/track.mp3")
+        {
+            SessionCode = "playSess",
+            IssuedByRole = Role.Audience,
+            IssuedById = "aud-play-1"
+        };
+
+        // First RequestPlay allowed
+        await hub.RequestPlay("playSess", cmd);
+        // Immediate second should be rate-limited (2 second window)
+        await hub.RequestPlay("playSess", cmd);
+
+        // Assert a Problem was sent with Status 429
+        var problemSent = clients.CallerProxy.Sent.Where(x => x.method == "Problem")
+            .Select(x => x.args.FirstOrDefault() as NuottiProblem)
+            .FirstOrDefault(p => p is not null && p.Status == 429);
+        Assert.NotNull(problemSent);
+        Assert.Equal("Too Many Requests", problemSent.Title);
+        Assert.Contains("too quickly", problemSent.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SubmitAnswer_After_Window_Expires_Is_Allowed()
+    {
+        var store = new InMemorySessionStore(Options.Create(new NuottiOptions()));
+        var bus = new CapturingEventBus();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, bus);
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        // Audience joins
+        var audienceCtx = new TestContext("aud-window-1");
+        hub.SetContext(audienceCtx);
+        await hub.Join("windowSess", "Audience", name: "Charlie");
+
+        // First SubmitAnswer allowed
+        await hub.SubmitAnswer("windowSess", 1);
+        // Immediate second should be rate-limited
+        await hub.SubmitAnswer("windowSess", 2);
+
+        // Verify rate limit was applied
+        var rateLimited = clients.CallerProxy.Sent.Any(x => 
+            x.method == "Problem" && 
+            x.args[0] is NuottiProblem p && p.Status == 429);
+        Assert.True(rateLimited);
+
+        // Clear the sent messages
+        clients.CallerProxy.Sent.Clear();
+
+        // Wait for the 500ms window to expire
+        await Task.Delay(TimeSpan.FromMilliseconds(600));
+
+        // Should be allowed again after window expires
+        await hub.SubmitAnswer("windowSess", 3);
+
+        // Should not receive a rate limit error
+        var rateLimitedAfter = clients.CallerProxy.Sent.Any(x => 
+            x.method == "Problem" && 
+            x.args[0] is NuottiProblem p && p.Status == 429);
+        Assert.False(rateLimitedAfter);
+
+        // Should have published the answer
+        var publishedCount = bus.Published.Count(e => e is AnswerSubmitted a && a.ChoiceIndex == 3);
+        Assert.Equal(1, publishedCount);
+    }
+
+    [Fact]
+    public async Task Different_Connections_Can_Submit_Answers_Independently()
+    {
+        var store = new InMemorySessionStore(Options.Create(new NuottiOptions()));
+        var bus = new CapturingEventBus();
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, bus);
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        // First audience joins
+        var audience1Ctx = new TestContext("aud-indep-1");
+        hub.SetContext(audience1Ctx);
+        await hub.Join("indepSess", "Audience", name: "Dave");
+        await hub.SubmitAnswer("indepSess", 1);
+
+        // Second audience joins (different connection)
+        var audience2Ctx = new TestContext("aud-indep-2");
+        hub.SetContext(audience2Ctx);
+        await hub.Join("indepSess", "Audience", name: "Eve");
+        await hub.SubmitAnswer("indepSess", 2);
+
+        // Both should have published answers (rate limiting is per-connection)
+        var publishedAnswers = bus.Published.OfType<AnswerSubmitted>().ToList();
+        Assert.Equal(2, publishedAnswers.Count);
+        Assert.Contains(publishedAnswers, a => a.AudienceId == "aud-indep-1" && a.ChoiceIndex == 1);
+        Assert.Contains(publishedAnswers, a => a.AudienceId == "aud-indep-2" && a.ChoiceIndex == 2);
+    }
+
+    [Fact]
     public async Task Two_identical_commands_result_in_single_state_change()
     {
         var session = "idem-sess-2";
         var client = _factory.CreateClient();
         var cmdId = Guid.Parse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb");
 
-        // Get initial state
+        // Get initial state (may be 404 if session doesn't exist yet)
         var initialStatus = await client.GetAsync($"/status/{session}");
-        var initialState = await initialStatus.Content.ReadFromJsonAsync<GameStateSnapshot>(Nuotti.Contracts.V1.ContractsJson.RestOptions);
-        Assert.NotNull(initialState);
-        var initialPhase = initialState.Phase;
+        Phase initialPhase = Phase.Lobby;
+        if (initialStatus.StatusCode == HttpStatusCode.OK)
+        {
+            var initialState = await initialStatus.Content.ReadFromJsonAsync<GameStateSnapshot>(Nuotti.Contracts.V1.ContractsJson.RestOptions);
+            if (initialState != null)
+            {
+                initialPhase = initialState.Phase;
+            }
+        }
 
         // Send StartGame command twice with same CommandId
         var resp1 = await client.PostAsJsonAsync($"/v1/message/phase/start-game/{session}", MakeStart(session, cmdId));
@@ -223,6 +344,7 @@ public class IdempotencyAndRateLimitAcceptanceTests : IClassFixture<WebApplicati
 
         // Check final state - should only have changed once
         var finalStatus = await client.GetAsync($"/status/{session}");
+        Assert.Equal(HttpStatusCode.OK, finalStatus.StatusCode);
         var finalState = await finalStatus.Content.ReadFromJsonAsync<GameStateSnapshot>(Nuotti.Contracts.V1.ContractsJson.RestOptions);
         Assert.NotNull(finalState);
 

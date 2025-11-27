@@ -36,4 +36,40 @@ public class RateLimitingTests
         // Other action still allowed once
         Assert.False(ConnectionRateLimiter.TryAllow(conn, a2, window));
     }
+
+    [Fact]
+    public void Different_connections_are_tracked_independently()
+    {
+        var conn1 = Guid.NewGuid().ToString("N");
+        var conn2 = Guid.NewGuid().ToString("N");
+        var action = "SubmitAnswer";
+        var window = TimeSpan.FromMilliseconds(500);
+
+        // Both connections can perform the action
+        Assert.True(ConnectionRateLimiter.TryAllow(conn1, action, window));
+        Assert.True(ConnectionRateLimiter.TryAllow(conn2, action, window));
+
+        // Each connection is rate-limited independently
+        Assert.False(ConnectionRateLimiter.TryAllow(conn1, action, window));
+        Assert.False(ConnectionRateLimiter.TryAllow(conn2, action, window));
+    }
+
+    [Fact]
+    public void First_call_after_window_expires_is_allowed()
+    {
+        var conn = Guid.NewGuid().ToString("N");
+        var action = "SubmitAnswer";
+        var window = TimeSpan.FromMilliseconds(100);
+
+        // First call allowed
+        Assert.True(ConnectionRateLimiter.TryAllow(conn, action, window));
+        // Immediate repeat blocked
+        Assert.False(ConnectionRateLimiter.TryAllow(conn, action, window));
+
+        // Wait for window to expire
+        Thread.Sleep(window + TimeSpan.FromMilliseconds(50));
+
+        // Should be allowed again
+        Assert.True(ConnectionRateLimiter.TryAllow(conn, action, window));
+    }
 }
