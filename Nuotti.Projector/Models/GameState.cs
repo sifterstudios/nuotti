@@ -34,4 +34,7 @@ public class GameState
             .Select(kvp => (kvp.Key, kvp.Value, 0)) // TODO: Track score changes
             .ToList();
     }
+    
+    public bool HasHints => HintIndex >= 0;
+    public int CurrentHintNumber => Math.Max(1, HintIndex + 1);
 }

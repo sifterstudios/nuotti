@@ -531,9 +531,10 @@ public partial class MainWindow : Window
         _phaseViews[Phase.Lobby] = new LobbyView();
         _phaseViews[Phase.Guessing] = new GuessingView();
         _phaseViews[Phase.Intermission] = new ScoreboardView();
+        _phaseViews[Phase.Hint] = new HintView();
         
         // Use SimplePhaseView for other phases
-        var simplePhases = new[] { Phase.Start, Phase.Hint, Phase.Lock, Phase.Reveal, Phase.Play, Phase.Finished };
+        var simplePhases = new[] { Phase.Start, Phase.Lock, Phase.Reveal, Phase.Play, Phase.Finished };
         foreach (var phase in simplePhases)
         {
             _phaseViews[phase] = new SimplePhaseView();
