@@ -20,6 +20,7 @@
     <MaxCpuCount>0</MaxCpuCount>
     <ResultsDirectory>./TestResults</ResultsDirectory>
     <TreatTestAdapterErrorsAsWarnings>false</TreatTestAdapterErrorsAsWarnings>
+    <!-- Note: xUnit doesn't support retry in .runsettings. Use deterministic seeds and mark flaky tests with [Trait("Flaky", "true")] -->
   </RunConfiguration>
   <MSTest>
     <SettingsFile>$(MSBuildProjectDirectory)\TestSettings.testsettings</SettingsFile>
