@@ -2,12 +2,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="using:Nuotti.Projector.Controls"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="Nuotti.Projector.MainWindow"
         Title="🎵 Nuotti Projector"
         Background="{DynamicResource BackgroundBrush}">
-    <!-- Two columns: main content (2/3) and log panel (1/3) -->
-    <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="2*,*">
+    <!-- Main container with safe area overlay -->
+    <Grid>
+        <!-- Content with safe area margins -->
+        <Grid x:Name="ContentGrid" RowDefinitions="Auto,*,Auto" ColumnDefinitions="2*,*">
         <!-- Header with session code and theme toggle -->
         <Border Background="{DynamicResource HeaderBrush}" 
                 BorderBrush="{DynamicResource DividerBrush}"
@@ -31,6 +34,14 @@
                            VerticalAlignment="Center" 
                            Grid.Column="1"/>
                 <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="2">
+                    <Button x:Name="SafeAreaButton"
+                            Content="🎯"
+                            FontSize="20"
+                            Padding="8"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnToggleSafeAreaFrame"
+                            ToolTip.Tip="Toggle safe area frame"/>
                     <Button x:Name="MonitorButton"
                             Content="📺"
                             FontSize="20"
@@ -193,5 +204,11 @@
                        HorizontalAlignment="Center"
                        FontSize="12"/>
         </Border>
+        </Grid>
+        
+        <!-- Safe area frame overlay -->
+        <controls:SafeAreaFrame x:Name="SafeAreaFrameControl" 
+                               ShowFrame="False"
+                               ZIndex="1000"/>
     </Grid>
 </Window>
