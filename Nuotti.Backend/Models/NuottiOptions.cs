@@ -45,4 +45,16 @@ public sealed class NuottiOptions
     /// Idempotency: maximum number of recent CommandIds stored per session.
     /// </summary>
     public int IdempotencyMaxPerSession { get; init; } = 128;
+
+    /// <summary>
+    /// Alerting: threshold in seconds before alerting on missing Engine/Projector role.
+    /// Default: 30 seconds.
+    /// </summary>
+    public int MissingRoleAlertThresholdSeconds { get; init; } = 30;
+
+    /// <summary>
+    /// Alerting: webhook URL for sending alerts (optional, disabled if not set).
+    /// Environment variable: NUOTTI_ALERTINGWEBHOOKURL
+    /// </summary>
+    public string? AlertingWebhookUrl { get; init; }
 }

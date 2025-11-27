@@ -92,6 +92,10 @@ builder.Services.AddSingleton<BackendMetrics>();
 // Diagnostics
 builder.Services.AddSingleton<Nuotti.Backend.Diagnostics.DiagnosticsBundleService>();
 
+// Alerting
+builder.Services.AddHttpClient("Alerting");
+builder.Services.AddSingleton<Nuotti.Backend.Alerting.CriticalRoleAlertingService>();
+
 // Event bus and subscribers
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<StateApplySubscriber>();
