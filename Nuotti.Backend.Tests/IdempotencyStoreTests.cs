@@ -69,4 +69,68 @@ public class IdempotencyStoreTests
         // a should no longer be considered duplicate
         Assert.True(store.TryRegister(session, a));
     }
+
+    [Fact]
+    public void Duplicate_CommandId_within_TTL_returns_false_no_op()
+    {
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var store = Create(time, ttlSeconds: 60);
+        var session = "test-session";
+        var commandId = Guid.Parse("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa");
+
+        // First registration succeeds
+        var first = store.TryRegister(session, commandId);
+        Assert.True(first);
+
+        // Second registration within TTL returns false (duplicate, no-op)
+        var second = store.TryRegister(session, commandId);
+        Assert.False(second);
+
+        // Third registration also returns false
+        var third = store.TryRegister(session, commandId);
+        Assert.False(third);
+    }
+
+    [Fact]
+    public void Duplicate_CommandId_after_TTL_expires_returns_true()
+    {
+        var now = DateTimeOffset.Parse("2025-01-01T00:00:00Z");
+        var time = new FakeTimeProvider(now);
+        var store = Create(time, ttlSeconds: 10);
+        var session = "test-session";
+        var commandId = Guid.Parse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb");
+
+        // First registration
+        Assert.True(store.TryRegister(session, commandId));
+
+        // Duplicate within TTL
+        Assert.False(store.TryRegister(session, commandId));
+
+        // Advance time beyond TTL
+        time.Advance(TimeSpan.FromSeconds(11));
+
+        // After TTL, same command ID is treated as new
+        Assert.True(store.TryRegister(session, commandId));
+    }
+
+    [Fact]
+    public void Different_CommandIds_in_same_session_all_succeed()
+    {
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var store = Create(time);
+        var session = "test-session";
+        var cmd1 = Guid.Parse("11111111-1111-4111-8111-111111111111");
+        var cmd2 = Guid.Parse("22222222-2222-4222-8222-222222222222");
+        var cmd3 = Guid.Parse("33333333-3333-4333-8333-333333333333");
+
+        // All different command IDs should succeed
+        Assert.True(store.TryRegister(session, cmd1));
+        Assert.True(store.TryRegister(session, cmd2));
+        Assert.True(store.TryRegister(session, cmd3));
+
+        // Duplicates of each should fail
+        Assert.False(store.TryRegister(session, cmd1));
+        Assert.False(store.TryRegister(session, cmd2));
+        Assert.False(store.TryRegister(session, cmd3));
+    }
 }

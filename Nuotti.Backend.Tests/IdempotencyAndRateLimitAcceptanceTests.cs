@@ -197,4 +197,39 @@ public class IdempotencyAndRateLimitAcceptanceTests : IClassFixture<WebApplicati
         var publishedCount = bus.Published.Count(e => e is AnswerSubmitted);
         Assert.Equal(1, publishedCount);
     }
+
+    [Fact]
+    public async Task Two_identical_commands_result_in_single_state_change()
+    {
+        var session = "idem-sess-2";
+        var client = _factory.CreateClient();
+        var cmdId = Guid.Parse("bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb");
+
+        // Get initial state
+        var initialStatus = await client.GetAsync($"/status/{session}");
+        var initialState = await initialStatus.Content.ReadFromJsonAsync<GameStateSnapshot>(Nuotti.Contracts.V1.ContractsJson.RestOptions);
+        Assert.NotNull(initialState);
+        var initialPhase = initialState.Phase;
+
+        // Send StartGame command twice with same CommandId
+        var resp1 = await client.PostAsJsonAsync($"/v1/message/phase/start-game/{session}", MakeStart(session, cmdId));
+        var resp2 = await client.PostAsJsonAsync($"/v1/message/phase/start-game/{session}", MakeStart(session, cmdId));
+
+        Assert.Equal(HttpStatusCode.Accepted, resp1.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, resp2.StatusCode);
+
+        // Wait a bit for state to update
+        await Task.Delay(500);
+
+        // Check final state - should only have changed once
+        var finalStatus = await client.GetAsync($"/status/{session}");
+        var finalState = await finalStatus.Content.ReadFromJsonAsync<GameStateSnapshot>(Nuotti.Contracts.V1.ContractsJson.RestOptions);
+        Assert.NotNull(finalState);
+
+        // If initial phase was Lobby, it should be Start now (only one transition)
+        if (initialPhase == Phase.Lobby)
+        {
+            Assert.Equal(Phase.Start, finalState.Phase);
+        }
+    }
 }
