@@ -34,6 +34,14 @@
                            VerticalAlignment="Center" 
                            Grid.Column="1"/>
                 <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="2">
+                    <Button x:Name="TallyToggleButton"
+                            Content="👁️"
+                            FontSize="20"
+                            Padding="8"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnToggleTallyVisibility"
+                            ToolTip.Tip="Toggle tally visibility during guessing"/>
                     <Button x:Name="SafeAreaButton"
                             Content="🎯"
                             FontSize="20"
