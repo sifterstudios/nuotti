@@ -85,6 +85,9 @@ builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 // Metrics
 builder.Services.AddSingleton<BackendMetrics>();
 
+// Diagnostics
+builder.Services.AddSingleton<Nuotti.Backend.Diagnostics.DiagnosticsBundleService>();
+
 // Event bus and subscribers
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<StateApplySubscriber>();
@@ -108,6 +111,7 @@ app.MapHealthEndpoints();
 app.MapStatusEndpoints();
 app.MapMetricsEndpoints();
 app.MapAboutEndpoints();
+app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapDefaultEndpoints();
 
