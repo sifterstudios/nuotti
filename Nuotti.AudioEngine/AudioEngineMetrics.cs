@@ -2,6 +2,7 @@
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using ServiceDefaults;
 namespace Nuotti.AudioEngine;
 
 public sealed class AudioEngineMetrics
@@ -164,6 +165,22 @@ public static class MetricsHost
             if (string.Equals(path, "/metrics", StringComparison.OrdinalIgnoreCase))
             {
                 var json = metrics.ToJson();
+                var bytes = Encoding.UTF8.GetBytes(json);
+                await writer.WriteLineAsync("HTTP/1.1 200 OK");
+                await writer.WriteLineAsync("Content-Type: application/json");
+                await writer.WriteLineAsync($"Content-Length: {bytes.Length}");
+                await writer.WriteLineAsync("Connection: close");
+                await writer.WriteLineAsync();
+                await writer.FlushAsync();
+                await stream.WriteAsync(bytes, 0, bytes.Length, token);
+            }
+            else if (string.Equals(path, "/about", StringComparison.OrdinalIgnoreCase))
+            {
+                var info = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.AudioEngine");
+                var json = System.Text.Json.JsonSerializer.Serialize(info, new System.Text.Json.JsonSerializerOptions 
+                { 
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+                });
                 var bytes = Encoding.UTF8.GetBytes(json);
                 await writer.WriteLineAsync("HTTP/1.1 200 OK");
                 await writer.WriteLineAsync("Content-Type: application/json");

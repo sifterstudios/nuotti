@@ -11,6 +11,7 @@ using System.Diagnostics;
 using Serilog;
 using Serilog.Formatting.Json;
 using Serilog.Events;
+using ServiceDefaults;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 // Configure structured logging for Blazor WASM
@@ -112,6 +113,8 @@ var otelBuilder = builder.Services.AddOpenTelemetry()
         }
     });
 
-Log.Information("Audience starting. Service={Service}, Version={Version}", "Nuotti.Audience", "1.0.0");
+var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Audience");
+Log.Information("Audience starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
+    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
 
 await builder.Build().RunAsync();

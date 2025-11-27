@@ -20,7 +20,9 @@ class Program
             .Build();
         LoggingExtensions.ConfigureStructuredLogging("Nuotti.Projector", config);
         
-        Log.Information("Projector starting. Service={Service}, Version={Version}", "Nuotti.Projector", "1.0.0");
+        var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Projector");
+        Log.Information("Projector starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
+            versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
         
         try
         {

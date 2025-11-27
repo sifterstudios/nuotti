@@ -107,6 +107,7 @@ app.MapApiEndpoints();
 app.MapHealthEndpoints();
 app.MapStatusEndpoints();
 app.MapMetricsEndpoints();
+app.MapAboutEndpoints();
 app.MapDevEndpoints();
 app.MapDefaultEndpoints();
 
@@ -115,9 +116,11 @@ _ = app.Services.GetRequiredService<StateApplySubscriber>();
 _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
 
-// Log startup with common fields
+// Log startup with version info
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("Backend started. Service={Service}, Version={Version}", "Nuotti.Backend", "1.0.0");
+var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Backend");
+logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
+    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
 
 try
 {

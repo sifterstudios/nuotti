@@ -11,6 +11,7 @@ using Nuotti.Contracts.V1.Message;
 using System.Text.Json;
 using Serilog;
 using Microsoft.Extensions.Hosting;
+using ServiceDefaults;
 
 static string GetArg(string[] args, string name, string? envVar = null, string? fallback = null)
 {
@@ -48,7 +49,9 @@ _ = MetricsHost.RunIfEnabledAsync(engineOptions.Metrics, metrics, CancellationTo
 var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5240");
 var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "dev");
 
-Log.Information("AudioEngine starting. Backend={Backend}, Session={Session}", backend, session);
+var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.AudioEngine");
+Log.Information("AudioEngine starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}, Backend={Backend}, Session={Session}", 
+    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime, backend, session);
 
 var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };

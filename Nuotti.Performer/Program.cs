@@ -41,9 +41,12 @@ app.UseRouting();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 app.MapDefaultEndpoints();
+app.MapAboutEndpoints();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("Performer started. Service={Service}, Version={Version}", "Nuotti.Performer", "1.0.0");
+var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Performer");
+logger.LogInformation("Performer started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
+    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
 
 try
 {
