@@ -52,7 +52,7 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18 & F19
+    // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18, F19 & F22
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
@@ -64,6 +64,7 @@ public partial class MainWindow : Window
     private readonly LocalizationService _localizationService;
     private readonly ContentSafetyService _contentSafetyService;
     private readonly ThemingApiService _themingApiService;
+    private readonly AudioEnforcementService _audioEnforcementService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -102,6 +103,7 @@ public partial class MainWindow : Window
         _localizationService = new LocalizationService();
         _contentSafetyService = new ContentSafetyService();
         _themingApiService = new ThemingApiService(_backend);
+        _audioEnforcementService = new AudioEnforcementService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -134,6 +136,9 @@ public partial class MainWindow : Window
         _themingApiService.ThemeChangeRequested += OnRemoteThemeChangeRequested;
         _themingApiService.TallyModeChangeRequested += OnRemoteTallyModeChangeRequested;
         _themingApiService.StyleSettingsChanged += OnRemoteStyleSettingsChanged;
+        
+        // F22 - Audio enforcement service events
+        _audioEnforcementService.AudioViolationDetected += OnAudioViolationDetected;
         
         // F12 - Performance monitoring
         _performanceService.HeavyAnimationsToggled += OnHeavyAnimationsToggled;
@@ -288,6 +293,9 @@ public partial class MainWindow : Window
                 
                 // F19 - Start theming API connection (optional, non-blocking)
                 _ = StartThemingApiConnection();
+                
+                // F22 - Audio enforcement is already running
+                AppendLocal($"[audio-enforcement] Monitoring started - {_audioEnforcementService.GenerateReport().BlockedProcessCount} processes blocked");
             }
             catch (Exception ex)
             {
@@ -628,6 +636,32 @@ public partial class MainWindow : Window
         }
     }
     
+    // F22 - Audio enforcement functionality
+    private void OnAudioViolationDetected(AudioViolation violation)
+    {
+        var severity = violation.ViolationType switch
+        {
+            AudioViolationType.BlockedProcess => "WARNING",
+            AudioViolationType.AudioWindow => "INFO",
+            AudioViolationType.SystemAudioService => "DEBUG",
+            _ => "NOTICE"
+        };
+        
+        AppendLocal($"[audio-{severity.ToLower()}] {violation.Description}");
+        
+        // For critical violations, we could show a warning overlay
+        if (violation.ViolationType == AudioViolationType.BlockedProcess)
+        {
+            // In a production system, this might show a warning to the operator
+            Console.WriteLine($"[audio-enforcement] CRITICAL: {violation.Description}");
+        }
+    }
+    
+    public AudioEnforcementReport GetAudioEnforcementReport()
+    {
+        return _audioEnforcementService.GenerateReport();
+    }
+    
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
@@ -635,6 +669,7 @@ public partial class MainWindow : Window
         _reconnectService?.Dispose();
         _performanceService?.Dispose();
         _themingApiService?.Dispose(); // F19 - Clean up theming API
+        _audioEnforcementService?.Dispose(); // F22 - Clean up audio enforcement
     }
     
     // F3 - Safe Area & Overscan Margins functionality
@@ -1008,7 +1043,12 @@ Fonts & Typography:
 Content Safety:
   Service active: ✓
   Max choice length: 200 chars
-  HTML/Script filtering: ✓";
+  HTML/Script filtering: ✓
+
+Audio Enforcement:
+  Monitoring: " + (_audioEnforcementService.IsAudioBlocked ? "✓" : "✗") + @"
+  Audio detected: " + (_audioEnforcementService.HasDetectedAudio ? "⚠️" : "✓") + @"
+  Blocked processes: " + _audioEnforcementService.GenerateReport().BlockedProcessCount;
 
         AppendLocal("[help] Keyboard shortcuts:");
         foreach (var line in shortcuts.Split('\n'))
