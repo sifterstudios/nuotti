@@ -2,7 +2,7 @@
 # Multi-stage build: restore/build/publish then run on ASP.NET runtime
 
 # --- Build stage ---
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # copy csproj and restore as distinct layers for better caching
@@ -15,7 +15,7 @@ COPY . .
 RUN dotnet publish Nuotti.Backend/Nuotti.Backend.csproj -c Release -o /app/publish
 
 # --- Runtime stage ---
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 # Allows dotnet to run in containers with limited entropy sources
 ENV DOTNET_RUNNING_IN_CONTAINER=true
