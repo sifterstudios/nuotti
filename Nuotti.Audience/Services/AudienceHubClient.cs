@@ -21,6 +21,7 @@ public class AudienceHubClient : IAsyncDisposable
     public string? AudienceName { get; private set; }
 
     public QuestionPushed? CurrentQuestion { get; private set; }
+    public GameStateSnapshot? CurrentGameState { get; private set; }
     
     // Track participants in the session
     private readonly List<string> _participants = new();
@@ -31,6 +32,7 @@ public class AudienceHubClient : IAsyncDisposable
     public event Action<JoinedAudience>? JoinedAudience;
     public event Action<AnswerSubmitted>? AnswerSubmitted;
     public event Action<NuottiProblem>? ProblemReceived;
+    public event Action<GameStateSnapshot>? GameStateChanged;
     public event Action? ParticipantsChanged;
     public NuottiProblem? LastProblem { get; private set; }
 
@@ -70,6 +72,11 @@ public class AudienceHubClient : IAsyncDisposable
         _ = PublishLogAsync("Debug", "Audience", message);
     }
 
+    public HubConnectionState GetConnectionState()
+    {
+        return _connection?.State ?? HubConnectionState.Disconnected;
+    }
+
     public async Task EnsureConnectedAsync()
     {
         if (_connection is { State: HubConnectionState.Connected })
@@ -82,8 +89,13 @@ public class AudienceHubClient : IAsyncDisposable
             Log($"[Audience] Creating HubConnection to {BackendBaseUrl}/hub");
             _connection = new HubConnectionBuilder()
                 .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/hub"))
-                .WithAutomaticReconnect()
+                .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10) })
                 .Build();
+
+            // Set up reconnection event handlers
+            _connection.Reconnecting += OnReconnecting;
+            _connection.Reconnected += OnReconnected;
+            _connection.Closed += OnConnectionClosed;
 
             _connection.On<QuestionPushed>("QuestionPushed", q =>
             {
@@ -118,6 +130,13 @@ public class AudienceHubClient : IAsyncDisposable
                 Log($"[Audience] AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
                 AnswerSubmitted?.Invoke(a);
             });
+
+            _connection.On<GameStateSnapshot>("GameStateChanged", state =>
+            {
+                Log($"[Audience] GameStateChanged: phase={state.Phase}, songIndex={state.SongIndex}");
+                CurrentGameState = state;
+                GameStateChanged?.Invoke(state);
+            });
         }
 
         if (_connection.State == HubConnectionState.Disconnected)
@@ -126,6 +145,42 @@ public class AudienceHubClient : IAsyncDisposable
             await _connection.StartAsync();
             Log("[Audience] HubConnection started");
         }
+    }
+
+    private Task OnReconnecting(Exception? exception)
+    {
+        Log($"[Audience] Connection lost, attempting to reconnect: {exception?.Message}");
+        return Task.CompletedTask;
+    }
+
+    private async Task OnReconnected(string? connectionId)
+    {
+        Log($"[Audience] Reconnected with connection ID: {connectionId}");
+        
+        // Restore session state after reconnection
+        if (!string.IsNullOrEmpty(SessionCode))
+        {
+            try
+            {
+                // Rejoin the session
+                await _connection!.InvokeAsync("Join", SessionCode, "audience", AudienceName);
+                
+                // Fetch current game state
+                await FetchGameStateAsync();
+                
+                Log($"[Audience] Session state restored for: {SessionCode}");
+            }
+            catch (Exception ex)
+            {
+                Log($"[Audience] Failed to restore session state: {ex.Message}");
+            }
+        }
+    }
+
+    private Task OnConnectionClosed(Exception? exception)
+    {
+        Log($"[Audience] Connection closed: {exception?.Message}");
+        return Task.CompletedTask;
     }
 
     public async Task CreateOrJoinAsync(string sessionCode, string? audienceName = null)
@@ -178,6 +233,45 @@ public class AudienceHubClient : IAsyncDisposable
             IssuedByRole = Role.Audience,
             IssuedById = AudienceName ?? "anonymous"
         });
+    }
+
+    public async Task<GameStateSnapshot?> FetchGameStateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SessionCode))
+        {
+            Log("[Audience] FetchGameState skipped: no session");
+            return null;
+        }
+
+        try
+        {
+            Log($"[Audience] Fetching game state for session: {SessionCode}");
+            var response = await _http.GetAsync($"{BackendBaseUrl}/status/{SessionCode}");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var gameState = System.Text.Json.JsonSerializer.Deserialize<GameStateSnapshot>(json, 
+                    new System.Text.Json.JsonSerializerOptions 
+                    { 
+                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+                    });
+                
+                if (gameState != null)
+                {
+                    CurrentGameState = gameState;
+                    GameStateChanged?.Invoke(gameState);
+                }
+                
+                return gameState;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"[Audience] Failed to fetch game state: {ex.Message}");
+        }
+
+        return null;
     }
 
     async Task PublishLogAsync(string level, string source, string message)

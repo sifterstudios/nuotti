@@ -1,0 +1,218 @@
+@using Nuotti.Contracts.V1.Model
+@using Nuotti.Contracts.V1.Enum
+
+@if (GameState != null && ShouldShowBanner())
+{
+    <div class="flow-banner @GetBannerClass()">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-2">
+            <div class="d-flex align-items-center justify-space-between">
+                <!-- Phase Info -->
+                <div class="d-flex align-items-center">
+                    <div class="phase-icon mr-2">
+                        @GetPhaseIcon()
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600; line-height: 1.2;">
+                            @GetPhaseDisplayName()
+                        </MudText>
+                        @if (!string.IsNullOrEmpty(GetPhaseDescription()))
+                        {
+                            <MudText Typo="Typo.caption" Style="opacity: 0.8; line-height: 1;">
+                                @GetPhaseDescription()
+                            </MudText>
+                        }
+                    </div>
+                </div>
+
+                <!-- Progress Info -->
+                @if (GameState.Catalog.Count > 0)
+                {
+                    <div class="d-flex align-items-center">
+                        <div class="text-right mr-2">
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                @(GameState.SongIndex + 1) / @GameState.Catalog.Count
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="opacity: 0.8;">
+                                Songs
+                            </MudText>
+                        </div>
+                        <div class="progress-circle">
+                            <MudProgressCircular 
+                                Value="@GetProgressPercentage()" 
+                                Size="Size.Small" 
+                                Color="Color.Inherit"
+                                StrokeWidth="3" />
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudContainer>
+    </div>
+}
+
+<style>
+    .flow-banner {
+        position: sticky;
+        top: 0;
+        z-index: 1100;
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--mud-palette-divider);
+        transition: all 0.3s ease;
+    }
+    
+    .flow-banner.phase-lobby {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-info-rgb), 0.1), 
+            rgba(var(--mud-palette-info-rgb), 0.05));
+        color: var(--mud-palette-info);
+    }
+    
+    .flow-banner.phase-guessing {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-warning-rgb), 0.1), 
+            rgba(var(--mud-palette-warning-rgb), 0.05));
+        color: var(--mud-palette-warning);
+    }
+    
+    .flow-banner.phase-reveal {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-success-rgb), 0.1), 
+            rgba(var(--mud-palette-success-rgb), 0.05));
+        color: var(--mud-palette-success);
+    }
+    
+    .flow-banner.phase-intermission {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-secondary-rgb), 0.1), 
+            rgba(var(--mud-palette-secondary-rgb), 0.05));
+        color: var(--mud-palette-secondary);
+    }
+    
+    .flow-banner.phase-finished {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-primary-rgb), 0.1), 
+            rgba(var(--mud-palette-primary-rgb), 0.05));
+        color: var(--mud-palette-primary);
+    }
+    
+    .flow-banner.phase-default {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-text-primary-rgb), 0.05), 
+            rgba(var(--mud-palette-text-primary-rgb), 0.02));
+        color: var(--mud-palette-text-primary);
+    }
+    
+    .phase-icon {
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+    }
+    
+    .progress-circle {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    @media (max-width: 600px) {
+        .flow-banner .mud-container {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public GameStateSnapshot? GameState { get; set; }
+    
+    private bool ShouldShowBanner()
+    {
+        if (GameState == null) return false;
+        
+        // Hide in Lobby phase as specified in requirements
+        if (GameState.Phase == Phase.Lobby || GameState.Phase == Phase.Idle) return false;
+        
+        return true;
+    }
+    
+    private string GetBannerClass()
+    {
+        if (GameState == null) return "phase-default";
+        
+        return GameState.Phase switch
+        {
+            Phase.Lobby => "phase-lobby",
+            Phase.Guessing => "phase-guessing", 
+            Phase.Reveal => "phase-reveal",
+            Phase.Intermission => "phase-intermission",
+            Phase.Finished => "phase-finished",
+            _ => "phase-default"
+        };
+    }
+    
+    private string GetPhaseIcon()
+    {
+        if (GameState == null) return "🎵";
+        
+        return GameState.Phase switch
+        {
+            Phase.Start => "🚀",
+            Phase.Hint => "💡",
+            Phase.Guessing => "🤔",
+            Phase.Lock => "🔒",
+            Phase.Reveal => "✨",
+            Phase.Play => "🎵",
+            Phase.Intermission => "⏸️",
+            Phase.Finished => "🏆",
+            _ => "🎮"
+        };
+    }
+    
+    private string GetPhaseDisplayName()
+    {
+        if (GameState == null) return "Game";
+        
+        return GameState.Phase switch
+        {
+            Phase.Start => "Starting",
+            Phase.Hint => "Hint Time",
+            Phase.Guessing => "Answer Now!",
+            Phase.Lock => "Time's Up",
+            Phase.Reveal => "Results",
+            Phase.Play => "Playing",
+            Phase.Intermission => "Break Time",
+            Phase.Finished => "Game Over",
+            _ => GameState.Phase.ToString()
+        };
+    }
+    
+    private string GetPhaseDescription()
+    {
+        if (GameState == null) return "";
+        
+        return GameState.Phase switch
+        {
+            Phase.Start => "Get ready for the next song",
+            Phase.Hint => "Listen carefully for clues",
+            Phase.Guessing => "Submit your answer quickly",
+            Phase.Lock => "No more answers accepted",
+            Phase.Reveal => "See how you did",
+            Phase.Play => "Enjoy the music",
+            Phase.Intermission => "Check the leaderboard",
+            Phase.Finished => "Thanks for playing!",
+            _ => ""
+        };
+    }
+    
+    private double GetProgressPercentage()
+    {
+        if (GameState == null || GameState.Catalog.Count == 0) return 0;
+        
+        return ((double)(GameState.SongIndex + 1) / GameState.Catalog.Count) * 100;
+    }
+}

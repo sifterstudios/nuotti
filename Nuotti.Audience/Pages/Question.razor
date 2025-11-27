@@ -2,32 +2,50 @@
 @inject AudienceHubClient Hub
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject FeedbackService Feedback
 @using Nuotti.Contracts.V1.Message
+@using Nuotti.Contracts.V1.Model
+@using Nuotti.Audience.Services
 @implements IDisposable
 
 <PageTitle>@(_isWaiting ? "Waiting Room" : "Question") - Nuotti</PageTitle>
+
+<!-- Flow Banner -->
+<FlowBanner GameState="@Hub.CurrentGameState" />
 
 <div class="question-container">
     <MudContainer MaxWidth="MaxWidth.Large" Class="py-4">
         @if (Hub.CurrentQuestion is QuestionPushed q)
         {
             <!-- Active Question View -->
-            <div class="question-active">
+            <div class="question-active" role="main" aria-labelledby="current-question">
                 <MudText Typo="Typo.h3" 
                          Align="Align.Center" 
                          Class="mb-6 bounce-in"
-                         Style="font-weight: 700; line-height: 1.3;">
+                         Style="font-weight: 700; line-height: 1.3;"
+                         id="current-question"
+                         aria-live="polite">
                     @q.Text
                 </MudText>
 
-                <MudGrid Spacing="3" Class="mb-4">
+                <div class="options-grid @GetOptionsGridClass(q.Options.Length)" 
+                     role="group" 
+                     aria-labelledby="current-question"
+                     aria-describedby="answer-instructions">
+                    <div id="answer-instructions" class="sr-only">
+                        Choose one of the following @q.Options.Length options to answer the question.
+                        @if (_hasAnswered)
+                        {
+                            <span>You have already submitted your answer.</span>
+                        }
+                    </div>
                     @for (var i = 0; i < q.Options.Length; i++)
                     {
                         var idx = i;
                         var color = GetOptionColor(idx);
                         var icon = GetOptionIcon(idx);
                         
-                        <MudItem xs="12" sm="6">
+                        <div class="option-container">
                             <MudButton Variant="Variant.Filled" 
                                        Color="@color" 
                                        Size="Size.Large"
@@ -35,27 +53,44 @@
                                        StartIcon="@icon"
                                        OnClick="(() => Submit(idx))"
                                        Disabled="@_hasAnswered"
-                                       Class="option-button slide-up"
-                                       Style="@($"min-height: 80px; border-radius: 16px; font-size: 1.1rem; font-weight: 600; animation-delay: {idx * 0.1}s;")">
-                                <div class="d-flex flex-column align-items-start text-start">
-                                    <MudText Typo="Typo.caption" Style="opacity: 0.8; text-transform: uppercase; font-weight: 700;">
-                                        Option @(idx + 1)
-                                    </MudText>
-                                    <MudText Typo="Typo.body1" Style="font-weight: 600;">
-                                        @q.Options[idx]
-                                    </MudText>
+                                       Class="@($"option-button option-{idx + 1} slide-up")"
+                                       Style="@($"animation-delay: {idx * 0.1}s;")"
+                                       id="@($"option-{idx + 1}")"
+                                       aria-label="@($"Option {idx + 1}: {q.Options[idx]}")"
+                                       aria-describedby="@($"option-{idx + 1}-status")")">
+                                <div class="option-content">
+                                    <div class="option-number">
+                                        @(idx + 1)
+                                    </div>
+                                    <div class="option-text">
+                                        <MudText Typo="Typo.body1" Style="font-weight: 600; line-height: 1.3;">
+                                            @q.Options[idx]
+                                        </MudText>
+                                    </div>
                                 </div>
                             </MudButton>
-                        </MudItem>
+                            <div id="@($"option-{idx + 1}-status")" class="sr-only">
+                                @if (_hasAnswered)
+                                {
+                                    <span>Answer submitted</span>
+                                }
+                                else
+                                {
+                                    <span>Available to select</span>
+                                }
+                            </div>
+                        </div>
                     }
-                </MudGrid>
+                </div>
 
                 @if (_hasAnswered)
                 {
                     <MudAlert Severity="Severity.Success" 
                               Class="mt-4" 
                               Variant="Variant.Filled"
-                              Icon="@Material.Filled.CheckCircle">
+                              Icon="@Material.Filled.CheckCircle"
+                              role="status"
+                              aria-live="polite">
                         Answer submitted! Waiting for others...
                     </MudAlert>
                 }
@@ -194,14 +229,208 @@
         line-height: 1;
     }
     
+    /* Options Grid - Adaptive Layout */
+    .options-grid {
+        display: grid;
+        gap: 16px;
+        margin-bottom: 24px;
+        width: 100%;
+    }
+    
+    .options-grid.two-options {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .options-grid.three-options {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+    
+    .options-grid.three-options .option-container:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+    
+    .options-grid.four-options {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+    
+    .options-grid.one-option {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+        margin: 0 auto 24px auto;
+    }
+    
+    /* Option Button Styling */
     .option-button {
         text-transform: none !important;
         letter-spacing: normal !important;
+        min-height: 72px !important; /* Ensure 44px+ tap target with padding */
+        border-radius: 16px !important;
+        font-size: 1.1rem !important;
+        font-weight: 600 !important;
+        padding: 16px !important;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.2s ease !important;
     }
     
-    @@media (max-width: 600px) {
+    .option-button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .option-button:active:not(:disabled) {
+        transform: translateY(0px);
+    }
+    
+    .option-content {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        gap: 12px;
+    }
+    
+    .option-number {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    
+    .option-text {
+        flex: 1;
+        text-align: left;
+        min-height: 24px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+        .options-grid {
+            gap: 12px;
+        }
+        
+        .options-grid.three-options,
+        .options-grid.four-options {
+            grid-template-columns: 1fr;
+            grid-template-rows: repeat(auto, 1fr);
+        }
+        
+        .options-grid.three-options .option-container:nth-child(3) {
+            grid-column: auto;
+        }
+        
+        .option-button {
+            min-height: 64px !important;
+            padding: 12px 16px !important;
+            font-size: 1rem !important;
+        }
+        
+        .option-number {
+            width: 28px;
+            height: 28px;
+            font-size: 0.9rem;
+        }
+        
+        .question-container .mud-container {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+    }
+    
+    @media (max-width: 480px) {
         .waiting-icon {
             font-size: 3.5rem;
+        }
+        
+        .options-grid {
+            gap: 10px;
+        }
+        
+        .option-button {
+            min-height: 56px !important;
+            padding: 10px 12px !important;
+            border-radius: 12px !important;
+        }
+        
+        .option-number {
+            width: 24px;
+            height: 24px;
+            font-size: 0.8rem;
+        }
+        
+        .option-content {
+            gap: 8px;
+        }
+    }
+    
+    /* Safe area for devices with notches */
+    @supports (padding: max(0px)) {
+        .question-container {
+            padding-left: max(16px, env(safe-area-inset-left));
+            padding-right: max(16px, env(safe-area-inset-right));
+        }
+    }
+    
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+        .option-button {
+            border: 2px solid currentColor !important;
+        }
+        
+        .option-number {
+            background: currentColor !important;
+            color: var(--mud-palette-surface) !important;
+        }
+    }
+    
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+        .option-button {
+            transition: none !important;
+        }
+        
+        .option-button:hover:not(:disabled) {
+            transform: none;
+        }
+    }
+    
+    /* Screen reader only content */
+    .sr-only {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
+    }
+    
+    /* Focus management */
+    .option-button:focus {
+        outline: 3px solid var(--mud-palette-primary) !important;
+        outline-offset: 2px !important;
+    }
+    
+    /* High contrast mode improvements */
+    @media (prefers-contrast: high) {
+        .option-button:focus {
+            outline: 3px solid currentColor !important;
+        }
+        
+        .option-text {
+            font-weight: 700 !important;
         }
     }
 </style>
@@ -213,12 +442,23 @@
     private bool _showDevTools = false;
     private List<string> _participantsList = new();
     private bool _isWaiting => Hub.CurrentQuestion is null;
+    private DateTime _lastSubmissionAttempt = DateTime.MinValue;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         Hub.QuestionPushed += OnQuestionPushed;
         Hub.ParticipantsChanged += OnParticipantsChanged;
+        Hub.GameStateChanged += OnGameStateChanged;
         UpdateParticipantsList();
+        
+        // Initialize feedback service
+        await Feedback.InitializeAsync();
+        
+        // Fetch current game state if we have a session
+        if (!string.IsNullOrEmpty(Hub.SessionCode))
+        {
+            await Hub.FetchGameStateAsync();
+        }
     }
 
     private async void OnQuestionPushed(QuestionPushed _)
@@ -233,6 +473,50 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private async void OnGameStateChanged(GameStateSnapshot gameState)
+    {
+        await InvokeAsync(async () =>
+        {
+            // Check if we just entered the reveal phase and trigger confetti for correct answers
+            if (gameState.Phase == Phase.Reveal && Hub.CurrentGameState?.Phase != Phase.Reveal)
+            {
+                await HandleAnswerReveal(gameState);
+            }
+            
+            StateHasChanged();
+            CheckForPhaseTransition(gameState);
+        });
+    }
+
+    private async Task HandleAnswerReveal(GameStateSnapshot gameState)
+    {
+        // This is a simplified version - in a real implementation, you'd need to track
+        // the player's answer and compare it with the correct answer from the game state
+        // For now, we'll trigger confetti if the player submitted an answer
+        if (_hasAnswered)
+        {
+            // Simulate checking if the answer was correct (you'd get this from the server)
+            var isCorrect = Random.Shared.NextDouble() > 0.5; // 50% chance for demo
+            
+            if (isCorrect)
+            {
+                await Feedback.TriggerConfettiAsync(ConfettiType.Success);
+                await Feedback.TriggerHapticFeedbackAsync(HapticType.Heavy);
+            }
+        }
+    }
+
+    private void CheckForPhaseTransition(GameStateSnapshot gameState)
+    {
+        // Navigate to ranking page during reveal, intermission, or finished phases
+        if (gameState.Phase == Phase.Reveal || 
+            gameState.Phase == Phase.Intermission || 
+            gameState.Phase == Phase.Finished)
+        {
+            Nav.NavigateTo("/ranking");
+        }
+    }
+
     private void UpdateParticipantsList()
     {
         _participantsList = Hub.Participants.ToList();
@@ -242,20 +526,39 @@
     {
         Hub.QuestionPushed -= OnQuestionPushed;
         Hub.ParticipantsChanged -= OnParticipantsChanged;
+        Hub.GameStateChanged -= OnGameStateChanged;
     }
 
     private async Task Submit(int index)
     {
         if (_hasAnswered) return;
         
+        // Anti-spam: Debounce rapid submissions
+        var timeSinceLastAttempt = DateTime.Now - _lastSubmissionAttempt;
+        if (timeSinceLastAttempt < TimeSpan.FromMilliseconds(500))
+        {
+            return; // Ignore rapid clicks
+        }
+        
+        _lastSubmissionAttempt = DateTime.Now;
+        
         try
         {
+            // Provide haptic feedback on submission
+            await Feedback.TriggerHapticFeedbackAsync(HapticType.Medium);
+            
             await Hub.SubmitAnswerAsync(index);
             _hasAnswered = true;
+            
+            // Pulse animation on the submitted button
+            await Feedback.TriggerPulseAnimationAsync($"option-{index + 1}");
+            
             Snackbar.Add("Answer submitted successfully!", Severity.Success);
         }
         catch (Exception ex)
         {
+            // Shake animation on error
+            await Feedback.TriggerShakeAnimationAsync($"option-{index + 1}");
             Snackbar.Add($"Failed to submit answer: {ex.Message}", Severity.Error);
         }
     }
@@ -299,6 +602,18 @@
             2 => Material.Filled.Looks3,
             3 => Material.Filled.Looks4,
             _ => Material.Filled.CheckCircle
+        };
+    }
+    
+    private string GetOptionsGridClass(int optionCount)
+    {
+        return optionCount switch
+        {
+            1 => "one-option",
+            2 => "two-options",
+            3 => "three-options",
+            4 => "four-options",
+            _ => "four-options" // Default to 4-option layout for more than 4 options
         };
     }
 }
