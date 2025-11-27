@@ -1,0 +1,216 @@
+@using Microsoft.AspNetCore.SignalR.Client
+@inject AudienceHubClient Hub
+
+@if (_showBanner)
+{
+    <div class="reconnect-banner @GetBannerClass()">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-2">
+            <div class="d-flex align-items-center justify-space-between">
+                <div class="d-flex align-items-center">
+                    <div class="status-icon mr-2">
+                        @if (_isReconnecting)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" />
+                        }
+                        else if (_isConnected)
+                        {
+                            <MudIcon Icon="@Material.Filled.CheckCircle" Size="Size.Small" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Material.Filled.WifiOff" Size="Size.Small" />
+                        }
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                            @GetStatusText()
+                        </MudText>
+                        @if (!string.IsNullOrEmpty(GetStatusDescription()))
+                        {
+                            <MudText Typo="Typo.caption" Style="opacity: 0.9;">
+                                @GetStatusDescription()
+                            </MudText>
+                        }
+                    </div>
+                </div>
+
+                @if (!_isConnected && !_isReconnecting)
+                {
+                    <MudButton Variant="Variant.Text" 
+                               Size="Size.Small"
+                               StartIcon="@Material.Filled.Refresh"
+                               OnClick="RetryConnection"
+                               Style="color: inherit;">
+                        Retry
+                    </MudButton>
+                }
+            </div>
+        </MudContainer>
+    </div>
+}
+
+<style>
+    .reconnect-banner {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1200;
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        transform: translateY(-100%);
+    }
+    
+    .reconnect-banner.show {
+        transform: translateY(0);
+    }
+    
+    .reconnect-banner.reconnecting {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-warning-rgb), 0.9), 
+            rgba(var(--mud-palette-warning-rgb), 0.8));
+        color: var(--mud-palette-warning-text);
+        border-bottom: 1px solid rgba(var(--mud-palette-warning-rgb), 0.3);
+    }
+    
+    .reconnect-banner.disconnected {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-error-rgb), 0.9), 
+            rgba(var(--mud-palette-error-rgb), 0.8));
+        color: var(--mud-palette-error-text);
+        border-bottom: 1px solid rgba(var(--mud-palette-error-rgb), 0.3);
+    }
+    
+    .reconnect-banner.connected {
+        background: linear-gradient(90deg, 
+            rgba(var(--mud-palette-success-rgb), 0.9), 
+            rgba(var(--mud-palette-success-rgb), 0.8));
+        color: var(--mud-palette-success-text);
+        border-bottom: 1px solid rgba(var(--mud-palette-success-rgb), 0.3);
+    }
+    
+    .status-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+    }
+    
+    @media (max-width: 600px) {
+        .reconnect-banner .mud-container {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+    }
+</style>
+
+@code {
+    private bool _showBanner = false;
+    private bool _isConnected = true;
+    private bool _isReconnecting = false;
+    private Timer? _hideTimer;
+
+    protected override void OnInitialized()
+    {
+        // Monitor connection state changes
+        CheckConnectionState();
+        
+        // Set up a timer to periodically check connection state
+        var timer = new Timer(async _ => await InvokeAsync(CheckConnectionState), null, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+    }
+
+    private void CheckConnectionState()
+    {
+        var wasConnected = _isConnected;
+        var wasReconnecting = _isReconnecting;
+        
+        // Check the actual connection state from the Hub
+        var connectionState = Hub.GetConnectionState();
+        
+        _isConnected = connectionState == HubConnectionState.Connected;
+        _isReconnecting = connectionState == HubConnectionState.Reconnecting;
+        
+        var shouldShow = !_isConnected || _isReconnecting;
+        
+        if (shouldShow != _showBanner || 
+            _isConnected != wasConnected || 
+            _isReconnecting != wasReconnecting)
+        {
+            _showBanner = shouldShow;
+            
+            // Auto-hide success message after 3 seconds
+            if (_isConnected && !wasConnected)
+            {
+                _hideTimer?.Dispose();
+                _hideTimer = new Timer(_ => InvokeAsync(() =>
+                {
+                    _showBanner = false;
+                    StateHasChanged();
+                }), null, TimeSpan.FromSeconds(3), Timeout.InfiniteTimeSpan);
+            }
+            
+            StateHasChanged();
+        }
+    }
+
+    private string GetBannerClass()
+    {
+        var classes = new List<string>();
+        
+        if (_showBanner)
+            classes.Add("show");
+            
+        if (_isReconnecting)
+            classes.Add("reconnecting");
+        else if (!_isConnected)
+            classes.Add("disconnected");
+        else
+            classes.Add("connected");
+            
+        return string.Join(" ", classes);
+    }
+
+    private string GetStatusText()
+    {
+        if (_isReconnecting)
+            return "Reconnecting...";
+        else if (!_isConnected)
+            return "Connection Lost";
+        else
+            return "Connected";
+    }
+
+    private string GetStatusDescription()
+    {
+        if (_isReconnecting)
+            return "Attempting to restore connection";
+        else if (!_isConnected)
+            return "Check your internet connection";
+        else
+            return "Connection restored";
+    }
+
+    private async Task RetryConnection()
+    {
+        try
+        {
+            await Hub.EnsureConnectedAsync();
+            
+            // Restore state after reconnection
+            if (!string.IsNullOrEmpty(Hub.SessionCode))
+            {
+                await Hub.FetchGameStateAsync();
+            }
+        }
+        catch (Exception)
+        {
+            // Connection retry failed, will be handled by the periodic check
+        }
+    }
+
+    public void Dispose()
+    {
+        _hideTimer?.Dispose();
+    }
+}
