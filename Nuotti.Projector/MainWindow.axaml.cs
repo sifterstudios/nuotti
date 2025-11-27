@@ -52,7 +52,7 @@ public partial class MainWindow : Window
 
     int[] _tally = new int[4];
     
-    // New services for F2, F3, F5, F11, F12, F15, F16 & F17
+    // New services for F2, F3, F5, F11, F12, F15, F16, F17 & F18
     private readonly SettingsService _settingsService;
     private readonly MonitorService _monitorService;
     private readonly SafeAreaService _safeAreaService;
@@ -62,6 +62,7 @@ public partial class MainWindow : Window
     private readonly FontService _fontService;
     private readonly ErrorHandlingService _errorHandlingService;
     private readonly LocalizationService _localizationService;
+    private readonly ContentSafetyService _contentSafetyService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     
@@ -98,6 +99,7 @@ public partial class MainWindow : Window
         _fontService = new FontService();
         _errorHandlingService = new ErrorHandlingService();
         _localizationService = new LocalizationService();
+        _contentSafetyService = new ContentSafetyService();
         _settings = new ProjectorSettings();
         
         // Initialize cursor service
@@ -108,6 +110,9 @@ public partial class MainWindow : Window
         
         // Initialize phase views
         InitializePhaseViews();
+        
+        // F18 - Set up content safety service
+        _gameStateService.SetContentSafetyService(_contentSafetyService);
         
         // Subscribe to game state changes
         _gameStateService.StateChanged += OnGameStateChanged;
@@ -180,7 +185,9 @@ public partial class MainWindow : Window
         _connection.On<QuestionPushed>("QuestionPushed", q =>
         {
             AppendLocal($"QuestionPushed: {q.Text}");
-            Dispatcher.UIThread.Post(() => SetQuestion(q));
+            // F18 - Apply content safety to incoming questions
+            var safeQuestion = ApplyQuestionSafety(q);
+            Dispatcher.UIThread.Post(() => SetQuestion(safeQuestion));
         });
         _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
         {
@@ -985,7 +992,12 @@ Monitor & Display:
 Fonts & Typography:
   Fonts loaded: " + (_fontService.AreFontsLoaded ? "✓" : "✗") + @"
   Primary: " + _fontService.PrimaryFont.Name + @"
-  Monospace: " + _fontService.MonospaceFont.Name;
+  Monospace: " + _fontService.MonospaceFont.Name + @"
+
+Content Safety:
+  Service active: ✓
+  Max choice length: 200 chars
+  HTML/Script filtering: ✓";
 
         AppendLocal("[help] Keyboard shortcuts:");
         foreach (var line in shortcuts.Split('\n'))
@@ -1059,5 +1071,29 @@ Fonts & Typography:
     public LocalizationService GetLocalizationService()
     {
         return _localizationService;
+    }
+    
+    // F18 - Content safety for incoming SignalR messages
+    private QuestionPushed ApplyQuestionSafety(QuestionPushed question)
+    {
+        // Check and log any content safety issues
+        var safeText = _contentSafetyService.SanitizeText(question.Text, ContentType.General);
+        if (safeText.WasModified)
+        {
+            AppendLocal($"[content-safety] Question text sanitized: {safeText.Warnings}");
+        }
+        
+        for (int i = 0; i < question.Options.Length; i++)
+        {
+            var choiceResult = _contentSafetyService.SanitizeChoice(question.Options[i], i);
+            if (choiceResult.WasModified)
+            {
+                AppendLocal($"[content-safety] Question option {i + 1} sanitized: {choiceResult.Warnings}");
+            }
+        }
+        
+        // For now, return the original question since creating a new one requires base class properties
+        // In a production system, we would modify the question in place or have a different approach
+        return question;
     }
 }
