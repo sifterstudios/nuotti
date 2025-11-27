@@ -25,6 +25,12 @@ builder.Services.AddScoped<AudienceHubClient>();
 // Theme service for light/dark mode
 builder.Services.AddScoped<ThemeService>();
 
+// Feedback service for haptics and animations
+builder.Services.AddScoped<FeedbackService>();
+
+// Name validation service
+builder.Services.AddSingleton<NameValidationService>();
+
 // OpenTelemetry: configure tracing/logging for Blazor WASM
 // Note: Use HTTP/protobuf exporter; endpoint can be provided via appsettings.json or environment-equivalent
 var serviceName = "Nuotti.Audience";
