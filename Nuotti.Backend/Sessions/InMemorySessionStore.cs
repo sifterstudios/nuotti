@@ -51,6 +51,20 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
         return new RoleCounts(0, 0, 0, 0);
     }
 
+    public RoleCounts GetAggregateCounts()
+    {
+        int performer = 0, projector = 0, engine = 0, audiences = 0;
+        foreach (var kvp in _sessions)
+        {
+            var counts = kvp.Value.GetCounts();
+            performer += counts.Performer;
+            projector += counts.Projector;
+            engine += counts.Engine;
+            audiences += counts.Audiences;
+        }
+        return new RoleCounts(performer, projector, engine, audiences);
+    }
+
     public void Clear(string session)
     {
         if (_sessions.TryRemove(session, out var state))

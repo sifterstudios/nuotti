@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Exception;
 using Nuotti.Backend.Idempotency;
+using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Middleware;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
@@ -13,11 +14,14 @@ namespace Nuotti.Backend.Endpoints;
 
 internal static class PhaseEndpoints
 {
-    static async Task<IResult> HandlePhaseChangeAsync<T>(HttpContext? httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, T cmd)
+    static async Task<IResult> HandlePhaseChangeAsync<T>(HttpContext? httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics? metrics, string session, T cmd)
         where T : CommandBase, IPhaseChange
     {
         if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
         if (!idem.TryRegister(session, cmd.CommandId)) { return Results.Accepted(); }
+
+        // Record command received for latency tracking
+        metrics?.RecordCommandReceived(cmd.CommandId);
 
         var state = stateStore.GetOrCreate(session, GameReducer.Initial);
         if (!cmd.IsPhaseChangeAllowed(state.Phase))
@@ -50,6 +54,10 @@ internal static class PhaseEndpoints
 
         stateStore.Set(session, newState);
         await hub.Clients.Group(session).SendAsync("GameStateChanged", newState);
+        
+        // Record command applied (event broadcast = command applied)
+        metrics?.RecordCommandApplied(cmd.CommandId);
+        
         return Results.Accepted();
     }
 
@@ -67,19 +75,22 @@ internal static class PhaseEndpoints
             return Results.Accepted();
         }).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/start-game/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, StartGame cmd)
-            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        app.MapPost("/v1/message/phase/start-game/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics metrics, string session, StartGame cmd)
+            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, metrics, session, cmd)).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/end-song/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, EndSong cmd)
-            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        app.MapPost("/v1/message/phase/end-song/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics metrics, string session, EndSong cmd)
+            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, metrics, session, cmd)).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/lock-answers/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, LockAnswers cmd)
-            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        app.MapPost("/v1/message/phase/lock-answers/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics metrics, string session, LockAnswers cmd)
+            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, metrics, session, cmd)).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/reveal-answer/{session}", async (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, RevealAnswer cmd) =>
+        app.MapPost("/v1/message/phase/reveal-answer/{session}", async (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics metrics, string session, RevealAnswer cmd) =>
         {
             if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
             if (!idem.TryRegister(session, cmd.CommandId)) { return Results.Accepted(); }
+
+            // Record command received for latency tracking
+            metrics?.RecordCommandReceived(cmd.CommandId);
 
             var state = stateStore.GetOrCreate(session, GameReducer.Initial);
             // Validate phase restriction explicitly for RevealAnswer
@@ -124,14 +135,18 @@ internal static class PhaseEndpoints
 
             stateStore.Set(session, finalState);
             await hub.Clients.Group(session).SendAsync("GameStateChanged", finalState);
+            
+            // Record command applied (event broadcast = command applied)
+            metrics?.RecordCommandApplied(cmd.CommandId);
+            
             return Results.Accepted();
         }).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/next-round/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, NextRound cmd)
-            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        app.MapPost("/v1/message/phase/next-round/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics metrics, string session, NextRound cmd)
+            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, metrics, session, cmd)).RequireCors("NuottiCors");
 
-        app.MapPost("/v1/message/phase/play-song/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, PlaySong cmd)
-            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, session, cmd)).RequireCors("NuottiCors");
+        app.MapPost("/v1/message/phase/play-song/{session}", (HttpContext httpContext, IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, BackendMetrics metrics, string session, PlaySong cmd)
+            => HandlePhaseChangeAsync(httpContext, hub, idem, stateStore, metrics, session, cmd)).RequireCors("NuottiCors");
         
         // Non-phase-change but phase-restricted commands
         app.MapPost("/v1/message/phase/give-hint/{session}", (IHubContext<QuizHub> hub, IIdempotencyStore idem, IGameStateStore stateStore, string session, GiveHint cmd) =>

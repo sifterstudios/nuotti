@@ -209,6 +209,8 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore se
         };
         logger.LogInformation("SubmitAnswer: conn={ConnectionId} session={Session} choiceIndex={ChoiceIndex} CorrelationId={CorrelationId}", 
             Context.ConnectionId, session, choiceIndex, correlationId);
+        
+        // Record answer submission in metrics (via MetricsSubscriber listening to the event)
         await bus.PublishAsync(evt);
     }
 }

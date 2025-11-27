@@ -4,6 +4,7 @@ using Nuotti.Backend.Eventing;
 using Nuotti.Backend.Eventing.Subscribers;
 using Nuotti.Backend.Exception;
 using Nuotti.Backend.Idempotency;
+using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
@@ -81,6 +82,9 @@ builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 
+// Metrics
+builder.Services.AddSingleton<BackendMetrics>();
+
 // Event bus and subscribers
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<StateApplySubscriber>();
@@ -102,6 +106,7 @@ if (app.Environment.IsDevelopment())
 app.MapApiEndpoints();
 app.MapHealthEndpoints();
 app.MapStatusEndpoints();
+app.MapMetricsEndpoints();
 app.MapDevEndpoints();
 app.MapDefaultEndpoints();
 
