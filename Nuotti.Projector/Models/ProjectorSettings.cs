@@ -17,7 +17,7 @@ public class ProjectorSettings
     public bool ShowSafeAreaFrame { get; set; }
     
     [JsonPropertyName("hideTalliesUntilReveal")]
-    public bool HideTalliesUntilReveal { get; set; }
+    public bool HideTalliesUntilReveal { get; set; } = true; // Default to hiding tallies during guessing
     
     [JsonPropertyName("themeVariant")]
     public string ThemeVariant { get; set; } = "Default";

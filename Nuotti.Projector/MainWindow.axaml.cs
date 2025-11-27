@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     readonly Button _themeToggleButton;
     readonly Button _monitorButton;
     readonly Button _safeAreaButton;
+    readonly Button _tallyToggleButton;
     readonly Grid _contentGrid;
     readonly SafeAreaFrame _safeAreaFrame;
     readonly AvaloniaList<string> _logs = new();
@@ -70,7 +71,8 @@ public partial class MainWindow : Window
         _themeToggleButton = this.FindControl<Button>("ThemeToggleButton")!;
         _monitorButton = this.FindControl<Button>("MonitorButton")!;
         _safeAreaButton = this.FindControl<Button>("SafeAreaButton")!;
-        _contentGrid = this.FindControl<Grid>("ContentGrid")!;
+        _tallyToggleButton = this.FindControl<Button>("TallyToggleButton")!;
+        _contentGrid = this.FindControl<Grid>("ContentGrid")!
         _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
         _logList.ItemsSource = _logs;
         
@@ -171,6 +173,9 @@ public partial class MainWindow : Window
                 _safeAreaService.ShowSafeAreaFrame = _settings.ShowSafeAreaFrame;
                 _safeAreaFrame.ShowFrame = _settings.ShowSafeAreaFrame;
                 ApplySafeArea();
+                
+                // Apply tally visibility settings
+                _tallyToggleButton.Content = _settings.HideTalliesUntilReveal ? "🙈" : "👁️";
                 
                 // Apply saved fullscreen state
                 if (_settings.IsFullscreen && !string.IsNullOrEmpty(_settings.SelectedMonitorId))
@@ -465,6 +470,12 @@ public partial class MainWindow : Window
             OnToggleSafeAreaFrame(null, new RoutedEventArgs());
             e.Handled = true;
         }
+        // T key toggles tally visibility
+        else if (e.Key == Key.T && !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            OnToggleTallyVisibility(null, new RoutedEventArgs());
+            e.Handled = true;
+        }
     }
     
     protected override void OnClosed(EventArgs e)
@@ -565,6 +576,13 @@ public partial class MainWindow : Window
         
         // Add new view
         _currentPhaseView = phaseView;
+        
+        // Update settings for views that support it
+        if (_currentPhaseView is GuessingView guessingView)
+        {
+            guessingView.UpdateSettings(_settings);
+        }
+        
         _currentPhaseView.UpdateState(state);
         
         // Add to main content area (replace the current question/options area)
@@ -573,5 +591,25 @@ public partial class MainWindow : Window
         _contentGrid.Children.Add(_currentPhaseView);
         
         AppendLocal($"[gamestate] Switched to {phase} view");
+    }
+    
+    // F7 - Live Tallies & Animations functionality
+    private async void OnToggleTallyVisibility(object? sender, RoutedEventArgs e)
+    {
+        _settings.HideTalliesUntilReveal = !_settings.HideTalliesUntilReveal;
+        await _settingsService.SaveSettingsAsync(_settings);
+        
+        // Update button appearance
+        _tallyToggleButton.Content = _settings.HideTalliesUntilReveal ? "🙈" : "👁️";
+        
+        // Refresh current view if it's a guessing view
+        if (_currentPhaseView is GuessingView guessingView)
+        {
+            guessingView.UpdateSettings(_settings);
+            guessingView.UpdateState(_gameStateService.CurrentState);
+        }
+        
+        var status = _settings.HideTalliesUntilReveal ? "hidden" : "visible";
+        AppendLocal($"[tallies] Tallies during guessing: {status}");
     }
 }
