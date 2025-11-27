@@ -15,4 +15,12 @@
     <PackageReference Include="FluentAssertions" Version="8.7.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>

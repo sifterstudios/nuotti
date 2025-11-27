@@ -1,0 +1,31 @@
+{
+  "sessionCode": "TEST-SESSION",
+  "phase": "Guessing",
+  "songIndex": 1,
+  "currentSong": {
+    "id": {
+      "value": "song-001"
+    },
+    "title": "Test Song Title",
+    "artist": "Test Artist"
+  },
+  "catalog": [
+    {
+      "id": {
+        "value": "song-001"
+      },
+      "title": "Test Song Title",
+      "artist": "Test Artist"
+    }
+  ],
+  "choices": ["Option A", "Option B", "Option C"],
+  "hintIndex": 0,
+  "tallies": [5, 3, 2],
+  "scores": {
+    "player-1": 10,
+    "player-2": 8,
+    "player-3": 5
+  },
+  "songStartedAtUtc": "2024-01-01T12:00:00Z"
+}
+

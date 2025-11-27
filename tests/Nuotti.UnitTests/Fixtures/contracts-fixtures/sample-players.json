@@ -1,0 +1,18 @@
+[
+  {
+    "id": "player-1",
+    "name": "Alice",
+    "score": 10
+  },
+  {
+    "id": "player-2",
+    "name": "Bob",
+    "score": 8
+  },
+  {
+    "id": "player-3",
+    "name": "Charlie",
+    "score": 5
+  }
+]
+
