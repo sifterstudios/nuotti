@@ -57,4 +57,11 @@ public sealed class NuottiOptions
     /// Environment variable: NUOTTI_ALERTINGWEBHOOKURL
     /// </summary>
     public string? AlertingWebhookUrl { get; init; }
+
+    /// <summary>
+    /// Feature flags dictionary for runtime feature toggles.
+    /// Example: Features:ExperimentalFeature: true
+    /// Environment variable: NUOTTI_FEATURES__EXPERIMENTALFEATURE=true
+    /// </summary>
+    public Dictionary<string, bool> Features { get; init; } = new();
 }

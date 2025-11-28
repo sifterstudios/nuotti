@@ -141,8 +141,10 @@ _ = app.Services.GetRequiredService<MetricsSubscriber>();
 // Log startup with version info
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Backend");
-logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
-    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
+var features = ServiceDefaults.FeatureFlags.GetAll(app.Configuration);
+var enabledFeatures = features.Where(f => f.Value).Select(f => f.Key).ToList();
+logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}, EnabledFeatures=[{EnabledFeatures}]", 
+    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime, string.Join(", ", enabledFeatures));
 
 // Check time drift at startup
 try
