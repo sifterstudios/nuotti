@@ -65,9 +65,43 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: test-results-${{ github.run_number }}
           path: |
             **/TestResults/**/*.trx
             **/TestResults/**/coverage.cobertura.xml
           retention-days: 30
+
+      - name: Upload E2E screenshots
+        uses: actions/upload-artifact@v4
+        if: failure() || always()
+        with:
+          name: e2e-screenshots-${{ github.run_number }}
+          path: |
+            **/Screenshots/**/*.png
+            tests/**/TestResults/**/*.png
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs-${{ github.run_number }}
+          path: |
+            **/*.log
+            **/bin/**/*.log
+            **/obj/**/*.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload diagnostics bundles (if available)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: diagnostics-bundles-${{ github.run_number }}
+          path: |
+            **/*diagnostics*.zip
+            **/nuotti-diagnostics-*.zip
+          retention-days: 30
+          if-no-files-found: ignore
 
