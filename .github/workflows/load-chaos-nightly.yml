@@ -49,6 +49,29 @@ jobs:
             **/TestResults/**/*.trx
           retention-days: 90
 
+      - name: Upload test logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: load-chaos-logs-${{ github.run_number }}
+          path: |
+            **/*.log
+            **/bin/**/*.log
+            **/obj/**/*.log
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload diagnostics bundles on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: load-chaos-diagnostics-${{ github.run_number }}
+          path: |
+            **/*diagnostics*.zip
+            **/nuotti-diagnostics-*.zip
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Create summary
         if: always()
         run: |
