@@ -1,4 +1,6 @@
-﻿using Nuotti.Backend.Telemetry;
+﻿using Nuotti.Backend.Audit;
+using Nuotti.Backend.Telemetry;
+using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -30,6 +32,12 @@ public sealed class InMemoryEventBus : IEventBus
 
     readonly ConcurrentDictionary<Type, List<Delegate>> _handlers = new();
     readonly ConcurrentDictionary<Type, object> _locks = new();
+    private readonly AuditLogService? _auditService;
+    
+    public InMemoryEventBus(AuditLogService? auditService = null)
+    {
+        _auditService = auditService;
+    }
 
     public IDisposable Subscribe<TEvent>(Func<TEvent, CancellationToken, Task> handler)
     {
@@ -80,6 +88,12 @@ public sealed class InMemoryEventBus : IEventBus
         // Create OpenTelemetry span for event broadcast
         using var activity = BackendActivitySource.StartEventBroadcast(eventTypeName, session ?? "unknown", correlationId);
         activity?.SetTag("event.subscriber_count", _handlers.TryGetValue(type, out var handlers) ? handlers.Count : 0);
+
+        // Log audit entry for event published
+        if (evt is EventBase eventBase && _auditService != null)
+        {
+            _auditService.LogEventPublished(eventBase);
+        }
 
         if (!_handlers.TryGetValue(type, out var list) || list.Count == 0) return;
         Delegate[] snapshot;

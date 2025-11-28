@@ -105,6 +105,25 @@ builder.Services.AddSingleton<Nuotti.Backend.Alerting.CriticalRoleAlertingServic
 // Time drift checking
 builder.Services.AddSingleton<Nuotti.Backend.TimeDrift.TimeDriftService>();
 
+// Audit logging - create separate audit logger with file sink
+var auditLogDir = ServiceDefaults.LogFileHelper.GetLogDirectory("Nuotti.Backend");
+var auditLogPath = Path.Combine(auditLogDir, "audit-.log");
+var auditLogger = new Serilog.LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.WithProperty("service", "Nuotti.Backend")
+    .Enrich.WithProperty("audit", true)
+    .Enrich.FromLogContext()
+    .WriteTo.File(
+        new Serilog.Formatting.Json.JsonFormatter(renderMessage: true),
+        auditLogPath,
+        rollingInterval: Serilog.Sinks.RollingInterval.Day,
+        retainedFileCountLimit: 30, // Keep 30 days of audit logs
+        fileSizeLimitBytes: 100_000_000, // 100MB per file
+        rollOnFileSizeLimit: true)
+    .CreateLogger();
+builder.Services.AddSingleton<Serilog.ILogger>(provider => auditLogger);
+builder.Services.AddSingleton<Nuotti.Backend.Audit.AuditLogService>();
+
 // Event bus and subscribers
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<StateApplySubscriber>();
