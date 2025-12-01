@@ -3,7 +3,9 @@
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject FeedbackService Feedback
+@using Nuotti.Contracts.V1.Enum
 @using Nuotti.Contracts.V1.Message
+@using Nuotti.Contracts.V1.Model
 @implements IDisposable
 
 <PageTitle>@(_isWaiting ? "Waiting Room" : "Question") - Nuotti</PageTitle>
@@ -49,13 +51,12 @@
                                        Size="Size.Large"
                                        FullWidth="true"
                                        StartIcon="@icon"
-                                       OnClick="(() => Submit(idx))"
+                                       OnClick="@(() => Submit(idx))"
                                        Disabled="@_hasAnswered"
                                        Class="@($"option-button option-{idx + 1} slide-up")"
-                                       Style="@($"animation-delay: {idx * 0.1}s;")"
                                        id="@($"option-{idx + 1}")"
                                        aria-label="@($"Option {idx + 1}: {q.Options[idx]}")"
-                                       aria-describedby="@($"option-{idx + 1}-status")")">
+                                       aria-describedby="@($"option-{idx + 1}-status")">
                                 <div class="option-content">
                                     <div class="option-number">
                                         @(idx + 1)
@@ -111,7 +112,7 @@
                 </div>
 
                 <!-- Session Info Card -->
-                <MudPaper Elevation="4" Class="pa-4 mb-4" Style="border-radius: 16px; background: linear-gradient(135deg, rgba(var(--mud-palette-primary-rgb), 0.1) 0%, rgba(var(--mud-palette-secondary-rgb), 0.1) 100%);">
+                <MudPaper Elevation="4" Class="pa-4 mb-4" Style="border-radius: 16px; background: linear-gradient(135deg, rgba(25,118,210,0.1) 0%, rgba(156,39,176,0.1) 100%);">
                     <div class="d-flex align-items-center justify-space-between">
                         <div>
                             <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform: uppercase; font-weight: 700;">
@@ -134,7 +135,7 @@
                                   Class="mb-4" />
 
                 <!-- Tips Card -->
-                <MudPaper Elevation="0" Class="pa-4" Style="background: transparent; border: 2px dashed var(--mud-palette-divider); border-radius: 16px;">
+                <MudPaper Elevation="0" Class="pa-4" Style="background: transparent; border: 2px dashed rgba(0,0,0,0.12); border-radius: 16px;">
                     <div class="d-flex align-items-center mb-3">
                         <MudIcon Icon="@Material.Filled.Lightbulb" Color="Color.Warning" Class="mr-2" />
                         <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
@@ -327,7 +328,7 @@
         .options-grid.three-options,
         .options-grid.four-options {
             grid-template-columns: 1fr;
-            grid-template-rows: repeat(auto, 1fr);
+            grid-auto-rows: 1fr;
         }
 
         .options-grid.three-options .option-container:nth-child(3) {
@@ -388,14 +389,14 @@
     }
 
     /* High contrast mode support */
-    @@media (prefers-contrast: high) {
+    @@media (prefers-contrast: more) {
         .option-button {
             border: 2px solid currentColor !important;
         }
 
         .option-number {
             background: currentColor !important;
-            color: var(--mud-palette-surface) !important;
+            color: #ffffff !important;
         }
     }
 
@@ -425,12 +426,12 @@
 
     /* Focus management */
     .option-button:focus {
-        outline: 3px solid var(--mud-palette-primary) !important;
+        outline: 3px solid #1976d2 !important;
         outline-offset: 2px !important;
     }
 
     /* High contrast mode improvements */
-    @@media (prefers-contrast: high) {
+    @@media (prefers-contrast: more) {
         .option-button:focus {
             outline: 3px solid currentColor !important;
         }
@@ -609,6 +610,11 @@
             3 => Material.Filled.Looks4,
             _ => Material.Filled.CheckCircle
         };
+    }
+
+    private string GetOptionStyle(int index)
+    {
+        return $"animation-delay: {index * 0.1}s;";
     }
 
     private string GetOptionsGridClass(int optionCount)

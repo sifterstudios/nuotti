@@ -5,6 +5,7 @@ using Nuotti.Backend.Exception;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.Http.Json;
 namespace Nuotti.Backend.Tests;
@@ -59,7 +60,14 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
             builder.Configure(app =>
             {
                 app.UseMiddleware<ProblemHandlingMiddleware>();
-                app.MapGet("/test/argnull", () => throw new ArgumentNullException("testParam"));
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapGet("/test/argnull", async context =>
+                    {
+                        throw new ArgumentNullException("testParam");
+                    });
+                });
             });
         });
 
@@ -81,7 +89,14 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
             builder.Configure(app =>
             {
                 app.UseMiddleware<ProblemHandlingMiddleware>();
-                app.MapGet("/test/validation", () => throw new System.ComponentModel.DataAnnotations.ValidationException("Invalid data"));
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapGet("/test/validation", async context =>
+                    {
+                        throw new ValidationException("Invalid data");
+                    });
+                });
             });
         });
 
