@@ -1,7 +1,4 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using ServiceDefaults;
-using System.IO;
 using Xunit;
 
 namespace Nuotti.Performer.Tests;

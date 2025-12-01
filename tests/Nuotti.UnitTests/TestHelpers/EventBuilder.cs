@@ -1,6 +1,5 @@
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
-using Nuotti.Contracts.V1.Message;
 
 namespace Nuotti.UnitTests.TestHelpers;
 

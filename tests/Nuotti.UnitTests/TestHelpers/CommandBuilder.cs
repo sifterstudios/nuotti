@@ -1,5 +1,4 @@
 using Nuotti.Contracts.V1.Enum;
-using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 

@@ -4,9 +4,6 @@
 @inject ISnackbar Snackbar
 @inject FeedbackService Feedback
 @using Nuotti.Contracts.V1.Message
-@using Nuotti.Contracts.V1.Model
-@using Nuotti.Contracts.V1.Enum
-@using Nuotti.Audience.Services
 @implements IDisposable
 
 <PageTitle>@(_isWaiting ? "Waiting Room" : "Question") - Nuotti</PageTitle>
@@ -20,8 +17,8 @@
         {
             <!-- Active Question View -->
             <div class="question-active" role="main" aria-labelledby="current-question">
-                <MudText Typo="Typo.h3" 
-                         Align="Align.Center" 
+                <MudText Typo="Typo.h3"
+                         Align="Align.Center"
                          Class="mb-6 bounce-in"
                          Style="font-weight: 700; line-height: 1.3;"
                          id="current-question"
@@ -29,8 +26,8 @@
                     @q.Text
                 </MudText>
 
-                <div class="options-grid @GetOptionsGridClass(q.Options.Length)" 
-                     role="group" 
+                <div class="options-grid @GetOptionsGridClass(q.Options.Length)"
+                     role="group"
                      aria-labelledby="current-question"
                      aria-describedby="answer-instructions">
                     <div id="answer-instructions" class="sr-only">
@@ -45,10 +42,10 @@
                         var idx = i;
                         var color = GetOptionColor(idx);
                         var icon = GetOptionIcon(idx);
-                        
+
                         <div class="option-container">
-                            <MudButton Variant="Variant.Filled" 
-                                       Color="@color" 
+                            <MudButton Variant="Variant.Filled"
+                                       Color="@color"
                                        Size="Size.Large"
                                        FullWidth="true"
                                        StartIcon="@icon"
@@ -86,8 +83,8 @@
 
                 @if (_hasAnswered)
                 {
-                    <MudAlert Severity="Severity.Success" 
-                              Class="mt-4" 
+                    <MudAlert Severity="Severity.Success"
+                              Class="mt-4"
                               Variant="Variant.Filled"
                               Icon="@Material.Filled.CheckCircle"
                               role="status"
@@ -124,16 +121,16 @@
                                 @Hub.SessionCode
                             </MudText>
                         </div>
-                        <MudIcon Icon="@Material.Filled.QrCode2" 
-                                 Size="Size.Large" 
+                        <MudIcon Icon="@Material.Filled.QrCode2"
+                                 Size="Size.Large"
                                  Color="Color.Primary" />
                     </div>
                 </MudPaper>
 
                 <!-- Participants List -->
-                <ParticipantsList Participants="@_participantsList" 
+                <ParticipantsList Participants="@_participantsList"
                                   Title="In the Room"
-                                  EmptyMessage="Be the first to join!" 
+                                  EmptyMessage="Be the first to join!"
                                   Class="mb-4" />
 
                 <!-- Tips Card -->
@@ -164,16 +161,16 @@
 
         <!-- Action Buttons -->
         <div class="mt-6 d-flex justify-space-between align-items-center">
-            <MudButton Variant="Variant.Text" 
+            <MudButton Variant="Variant.Text"
                        StartIcon="@Material.Filled.ExitToApp"
                        OnClick="GoHome"
                        Color="Color.Default">
                 Leave Session
             </MudButton>
-            
+
             @if (_showDevTools)
             {
-                <MudButton Variant="Variant.Text" 
+                <MudButton Variant="Variant.Text"
                            StartIcon="@Material.Filled.BugReport"
                            OnClick="@(() => _showDevPanel = !_showDevPanel)"
                            Color="Color.Secondary">
@@ -196,16 +193,16 @@
                     🛠️ Developer Tools
                 </MudText>
                 <MudDivider Class="mb-3" />
-                
+
                 <MudText Typo="Typo.body2" Class="mb-2" Style="font-weight: 600;">Test Audio Playback</MudText>
                 <MudStack Row="true" Spacing="2" Class="mb-3">
-                    <MudTextField @bind-Value="fileUrl" 
-                                  Variant="Variant.Outlined" 
+                    <MudTextField @bind-Value="fileUrl"
+                                  Variant="Variant.Outlined"
                                   Label="Audio URL"
                                   FullWidth="true"
                                   Dense="true" />
-                    <MudButton Variant="Variant.Filled" 
-                               Color="Color.Success" 
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
                                OnClick="RequestPlay"
                                Style="min-width: 120px;">
                         Play
@@ -224,19 +221,19 @@
         min-height: calc(100vh - 64px);
         padding: 24px 0;
     }
-    
+
     /* Question text responsive sizing */
     .question-active .mud-typography-h3 {
         font-size: clamp(1.5rem, 4vw + 1rem, 2.5rem) !important;
         min-height: 3em; /* Reserve space to prevent layout shift */
         line-height: 1.3;
     }
-    
+
     .waiting-icon {
         font-size: clamp(2rem, 8vw + 1rem, 5rem);
         line-height: 1;
     }
-    
+
     /* Options Grid - Adaptive Layout */
     .options-grid {
         display: grid;
@@ -244,31 +241,31 @@
         margin-bottom: 24px;
         width: 100%;
     }
-    
+
     .options-grid.two-options {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .options-grid.three-options {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
     }
-    
+
     .options-grid.three-options .option-container:nth-child(3) {
         grid-column: 1 / -1;
     }
-    
+
     .options-grid.four-options {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
     }
-    
+
     .options-grid.one-option {
         grid-template-columns: 1fr;
         max-width: 400px;
         margin: 0 auto 24px auto;
     }
-    
+
     /* Option Button Styling */
     .option-button {
         text-transform: none !important;
@@ -282,16 +279,16 @@
         overflow: hidden;
         transition: all 0.2s ease !important;
     }
-    
+
     .option-button:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
     }
-    
+
     .option-button:active:not(:disabled) {
         transform: translateY(0px);
     }
-    
+
     .option-content {
         display: flex;
         align-items: center;
@@ -299,7 +296,7 @@
         width: 100%;
         gap: 12px;
     }
-    
+
     .option-number {
         background: rgba(255, 255, 255, 0.2);
         border-radius: 50%;
@@ -312,7 +309,7 @@
         font-size: clamp(0.8rem, 1.5vw + 0.3rem, 1rem);
         flex-shrink: 0;
     }
-    
+
     .option-text {
         flex: 1;
         text-align: left;
@@ -320,68 +317,68 @@
         display: flex;
         align-items: center;
     }
-    
+
     /* Mobile Optimizations */
     @@media (max-width: 768px) {
         .options-grid {
             gap: 12px;
         }
-        
+
         .options-grid.three-options,
         .options-grid.four-options {
             grid-template-columns: 1fr;
             grid-template-rows: repeat(auto, 1fr);
         }
-        
+
         .options-grid.three-options .option-container:nth-child(3) {
             grid-column: auto;
         }
-        
+
         .option-button {
             min-height: 64px !important;
             padding: 12px 16px !important;
             font-size: clamp(0.875rem, 2vw + 0.4rem, 1rem) !important;
         }
-        
+
         .option-number {
             width: clamp(24px, 3vw + 6px, 28px);
             height: clamp(24px, 3vw + 6px, 28px);
             font-size: clamp(0.75rem, 1.2vw + 0.25rem, 0.9rem);
         }
-        
+
         .question-container .mud-container {
             padding-left: 16px;
             padding-right: 16px;
         }
     }
-    
+
     @@media (max-width: 480px) {
         .waiting-icon {
             font-size: clamp(2rem, 6vw + 0.5rem, 3.5rem);
         }
-        
+
         .options-grid {
             gap: 10px;
         }
-        
+
         .option-button {
             min-height: 56px !important;
             padding: 10px 12px !important;
             border-radius: 12px !important;
             font-size: clamp(0.875rem, 2vw + 0.3rem, 0.95rem) !important;
         }
-        
+
         .option-number {
             width: clamp(20px, 2.5vw + 4px, 24px);
             height: clamp(20px, 2.5vw + 4px, 24px);
             font-size: clamp(0.7rem, 1vw + 0.2rem, 0.8rem);
         }
-        
+
         .option-content {
             gap: 8px;
         }
     }
-    
+
     /* Safe area for devices with notches */
     @@supports (padding: max(0px)) {
         .question-container {
@@ -389,30 +386,30 @@
             padding-right: max(16px, env(safe-area-inset-right));
         }
     }
-    
+
     /* High contrast mode support */
     @@media (prefers-contrast: high) {
         .option-button {
             border: 2px solid currentColor !important;
         }
-        
+
         .option-number {
             background: currentColor !important;
             color: var(--mud-palette-surface) !important;
         }
     }
-    
+
     /* Reduced motion support */
     @@media (prefers-reduced-motion: reduce) {
         .option-button {
             transition: none !important;
         }
-        
+
         .option-button:hover:not(:disabled) {
             transform: none;
         }
     }
-    
+
     /* Screen reader only content */
     .sr-only {
         position: absolute !important;
@@ -425,19 +422,19 @@
         white-space: nowrap !important;
         border: 0 !important;
     }
-    
+
     /* Focus management */
     .option-button:focus {
         outline: 3px solid var(--mud-palette-primary) !important;
         outline-offset: 2px !important;
     }
-    
+
     /* High contrast mode improvements */
     @@media (prefers-contrast: high) {
         .option-button:focus {
             outline: 3px solid currentColor !important;
         }
-        
+
         .option-text {
             font-weight: 700 !important;
         }
@@ -459,10 +456,10 @@
         Hub.ParticipantsChanged += OnParticipantsChanged;
         Hub.GameStateChanged += OnGameStateChanged;
         UpdateParticipantsList();
-        
+
         // Initialize feedback service
         await Feedback.InitializeAsync();
-        
+
         // Fetch current game state if we have a session
         if (!string.IsNullOrEmpty(Hub.SessionCode))
         {
@@ -491,7 +488,7 @@
             {
                 await HandleAnswerReveal(gameState);
             }
-            
+
             StateHasChanged();
             CheckForPhaseTransition(gameState);
         });
@@ -506,7 +503,7 @@
         {
             // Simulate checking if the answer was correct (you'd get this from the server)
             var isCorrect = Random.Shared.NextDouble() > 0.5; // 50% chance for demo
-            
+
             if (isCorrect)
             {
                 await Feedback.TriggerConfettiAsync(ConfettiType.Success);
@@ -518,8 +515,8 @@
     private void CheckForPhaseTransition(GameStateSnapshot gameState)
     {
         // Navigate to ranking page during reveal, intermission, or finished phases
-        if (gameState.Phase == Phase.Reveal || 
-            gameState.Phase == Phase.Intermission || 
+        if (gameState.Phase == Phase.Reveal ||
+            gameState.Phase == Phase.Intermission ||
             gameState.Phase == Phase.Finished)
         {
             Nav.NavigateTo("/ranking");
@@ -541,27 +538,27 @@
     private async Task Submit(int index)
     {
         if (_hasAnswered) return;
-        
+
         // Anti-spam: Debounce rapid submissions
         var timeSinceLastAttempt = DateTime.Now - _lastSubmissionAttempt;
         if (timeSinceLastAttempt < TimeSpan.FromMilliseconds(500))
         {
             return; // Ignore rapid clicks
         }
-        
+
         _lastSubmissionAttempt = DateTime.Now;
-        
+
         try
         {
             // Provide haptic feedback on submission
             await Feedback.TriggerHapticFeedbackAsync(HapticType.Medium);
-            
+
             await Hub.SubmitAnswerAsync(index);
             _hasAnswered = true;
-            
+
             // Pulse animation on the submitted button
             await Feedback.TriggerPulseAnimationAsync($"option-{index + 1}");
-            
+
             Snackbar.Add("Answer submitted successfully!", Severity.Success);
         }
         catch (Exception ex)
@@ -613,7 +610,7 @@
             _ => Material.Filled.CheckCircle
         };
     }
-    
+
     private string GetOptionsGridClass(int optionCount)
     {
         return optionCount switch
