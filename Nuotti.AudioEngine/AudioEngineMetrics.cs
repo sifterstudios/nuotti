@@ -2,7 +2,6 @@
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using ServiceDefaults;
 namespace Nuotti.AudioEngine;
 
 public sealed class AudioEngineMetrics

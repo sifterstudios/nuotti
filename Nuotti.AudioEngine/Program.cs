@@ -10,8 +10,6 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using System.Text.Json;
 using Serilog;
-using Microsoft.Extensions.Hosting;
-using ServiceDefaults;
 
 static string GetArg(string[] args, string name, string? envVar = null, string? fallback = null)
 {

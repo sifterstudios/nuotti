@@ -5,7 +5,6 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
-using Xunit;
 
 namespace Nuotti.Contracts.Tests.V1.Serialization;
 

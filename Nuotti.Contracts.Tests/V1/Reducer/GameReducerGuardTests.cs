@@ -1,9 +1,7 @@
-using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Reducer;
-using Xunit;
 
 namespace Nuotti.Contracts.Tests.V1.Reducer;
 

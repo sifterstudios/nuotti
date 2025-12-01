@@ -1,7 +1,5 @@
-using System;
 using FluentAssertions;
 using Nuotti.Contracts.V1.Design;
-using Xunit;
 
 namespace Nuotti.Contracts.Tests.V1.Design;
 

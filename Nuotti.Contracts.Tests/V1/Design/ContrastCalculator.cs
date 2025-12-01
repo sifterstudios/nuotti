@@ -1,5 +1,3 @@
-using Nuotti.Contracts.V1.Design;
-
 namespace Nuotti.Contracts.Tests.V1.Design;
 
 /// <summary>
