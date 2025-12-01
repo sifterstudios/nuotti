@@ -9,6 +9,7 @@ using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Microsoft.AspNetCore.SignalR.Client;
+using Nuotti.Contracts.V1.Design;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
@@ -266,11 +267,12 @@ public partial class MainWindow : Window
                 {
                     var themeVariant = _settings.ThemeVariant switch
                     {
-                        "Light" => ThemeVariant.Light,
-                        "Dark" => ThemeVariant.Dark,
-                        _ => ThemeVariant.Default
+                        "Light" => Design.ThemeVariant.Light,
+                        "Dark" => Design.ThemeVariant.Dark,
+                        "HighContrast" => Design.ThemeVariant.HighContrast,
+                        _ => Design.ThemeVariant.Light // Default to Light instead of system preference for consistency
                     };
-                    Application.Current!.RequestedThemeVariant = themeVariant;
+                    ThemeHelper.ApplyThemeVariant(themeVariant);
                     UpdateThemeToggleButton();
                 }, "theme application");
                 
@@ -453,13 +455,14 @@ public partial class MainWindow : Window
 
     private void ToggleTheme(object? sender, RoutedEventArgs e)
     {
-        var currentTheme = Application.Current?.ActualThemeVariant;
-        var newTheme = currentTheme == ThemeVariant.Dark ? ThemeVariant.Light : ThemeVariant.Dark;
+        var currentTheme = ThemeHelper.GetCurrentThemeVariant();
+        var newTheme = ThemeHelper.GetNextThemeVariant(currentTheme);
         
-        if (Application.Current != null)
-        {
-            Application.Current.RequestedThemeVariant = newTheme;
-        }
+        ThemeHelper.ApplyThemeVariant(newTheme);
+        _settings.ThemeVariant = newTheme.ToString();
+        
+        // Save the new theme preference
+        _ = Task.Run(async () => await _settingsService.SaveSettingsAsync(_settings));
         
         UpdateThemeToggleButton();
         AppendLocal($"[Theme] Switched to {newTheme}");
@@ -467,8 +470,13 @@ public partial class MainWindow : Window
 
     private void UpdateThemeToggleButton()
     {
-        var isDark = Application.Current?.ActualThemeVariant == ThemeVariant.Dark;
-        _themeToggleButton.Content = isDark ? "☀️" : "🌙";
+        var currentTheme = ThemeHelper.GetCurrentThemeVariant();
+        _themeToggleButton.Content = currentTheme switch
+        {
+            Design.ThemeVariant.Dark => "☀️",
+            Design.ThemeVariant.HighContrast => "♿", // Accessibility symbol for high contrast
+            _ => "🌙" // Light theme
+        };
     }
 
     private async Task ForwardPlayToBackend(PlayTrack p)
@@ -1220,14 +1228,22 @@ Monitor Hotplug:
     {
         try
         {
-            Application.Current!.RequestedThemeVariant = themeVariant;
-            _settings.ThemeVariant = themeVariant.ToString();
+            // Convert Avalonia ThemeVariant to our Design.ThemeVariant
+            var designTheme = themeVariant switch
+            {
+                Avalonia.Styling.ThemeVariant.Dark => Design.ThemeVariant.Dark,
+                Avalonia.Styling.ThemeVariant.Light => Design.ThemeVariant.Light,
+                _ => Design.ThemeVariant.Light
+            };
+            
+            ThemeHelper.ApplyThemeVariant(designTheme);
+            _settings.ThemeVariant = designTheme.ToString();
             
             // Save the new theme preference
             _ = Task.Run(async () => await _settingsService.SaveSettingsAsync(_settings));
             
             UpdateThemeToggleButton();
-            AppendLocal($"[theming-api] Theme changed to: {themeVariant}");
+            AppendLocal($"[theming-api] Theme changed to: {designTheme}");
         }
         catch (Exception ex)
         {
@@ -1264,11 +1280,12 @@ Monitor Hotplug:
             {
                 var themeVariant = styleSettings.ThemeVariant switch
                 {
-                    "Light" => ThemeVariant.Light,
-                    "Dark" => ThemeVariant.Dark,
-                    _ => ThemeVariant.Default
+                    "Light" => Design.ThemeVariant.Light,
+                    "Dark" => Design.ThemeVariant.Dark,
+                    "HighContrast" => Design.ThemeVariant.HighContrast,
+                    _ => Design.ThemeVariant.Light
                 };
-                Application.Current!.RequestedThemeVariant = themeVariant;
+                ThemeHelper.ApplyThemeVariant(themeVariant);
                 _settings.ThemeVariant = styleSettings.ThemeVariant;
                 UpdateThemeToggleButton();
             }

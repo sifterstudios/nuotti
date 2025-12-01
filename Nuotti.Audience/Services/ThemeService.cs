@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 using MudBlazor;
+using Nuotti.Contracts.V1.Design;
 namespace Nuotti.Audience.Services;
 
 public class ThemeService : IAsyncDisposable
@@ -8,6 +9,7 @@ public class ThemeService : IAsyncDisposable
     private DotNetObjectReference<ThemeService>? _objRef;
     
     public bool IsDarkMode { get; private set; }
+    public ThemeVariant CurrentVariant { get; private set; } = ThemeVariant.Light;
     public event Action? OnThemeChanged;
 
     public ThemeService(IJSRuntime jsRuntime)
@@ -22,14 +24,23 @@ public class ThemeService : IAsyncDisposable
         // Check for saved preference, otherwise use system preference
         var savedPreference = await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", "theme-preference");
         
-        if (savedPreference == "dark" || savedPreference == "light")
+        if (!string.IsNullOrEmpty(savedPreference))
         {
-            IsDarkMode = savedPreference == "dark";
+            CurrentVariant = savedPreference switch
+            {
+                "light" => ThemeVariant.Light,
+                "dark" => ThemeVariant.Dark,
+                "highcontrast" => ThemeVariant.HighContrast,
+                _ => ThemeVariant.Light
+            };
+            // HighContrast uses light theme base (white background)
+            IsDarkMode = CurrentVariant == ThemeVariant.Dark;
         }
         else
         {
             // Use system preference
             IsDarkMode = await _jsRuntime.InvokeAsync<bool>("matchMedia", "(prefers-color-scheme: dark)");
+            CurrentVariant = IsDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
         }
         
         // Setup listener for system theme changes
@@ -38,8 +49,19 @@ public class ThemeService : IAsyncDisposable
 
     public async Task ToggleThemeAsync()
     {
-        IsDarkMode = !IsDarkMode;
-        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "theme-preference", IsDarkMode ? "dark" : "light");
+        // Cycle through: Light -> Dark -> HighContrast -> Light
+        CurrentVariant = CurrentVariant switch
+        {
+            ThemeVariant.Light => ThemeVariant.Dark,
+            ThemeVariant.Dark => ThemeVariant.HighContrast,
+            ThemeVariant.HighContrast => ThemeVariant.Light,
+            _ => ThemeVariant.Light
+        };
+        
+        // HighContrast uses light theme base (white background), so IsDarkMode is false
+        IsDarkMode = CurrentVariant == ThemeVariant.Dark;
+        var preference = CurrentVariant.ToString().ToLowerInvariant();
+        await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "theme-preference", preference);
         OnThemeChanged?.Invoke();
     }
 
@@ -53,6 +75,7 @@ public class ThemeService : IAsyncDisposable
             if (string.IsNullOrEmpty(savedPreference))
             {
                 IsDarkMode = isDark;
+                CurrentVariant = isDark ? ThemeVariant.Dark : ThemeVariant.Light;
                 OnThemeChanged?.Invoke();
             }
         });
@@ -60,49 +83,28 @@ public class ThemeService : IAsyncDisposable
 
     public MudTheme GetTheme()
     {
+        // Use shared design tokens from Nuotti.Contracts
+        var lightPalette = DesignTokens.LightPalette;
+        var darkPalette = DesignTokens.DarkPalette;
+        var highContrastPalette = DesignTokens.HighContrastPalette;
+        
+        // Determine which palettes to use based on current variant
+        var lightPaletteToUse = CurrentVariant == ThemeVariant.HighContrast 
+            ? highContrastPalette 
+            : lightPalette;
+        
+        // Dark palette is always normal (HighContrast is light-based)
+        var darkPaletteToUse = darkPalette;
+        
         return new MudTheme
         {
-            PaletteLight = new PaletteLight
-            {
-                Primary = "#FF6B35",        // Vibrant orange (Kahoot-inspired)
-                Secondary = "#004E89",      // Deep blue
-                Tertiary = "#1B9AAA",       // Teal
-                Info = "#06BEE1",           // Bright cyan
-                Success = "#46B283",        // Green
-                Warning = "#F77F00",        // Amber
-                Error = "#EF476F",          // Pink-red
-                Background = "#FAFAFA",     // Light gray
-                Surface = "#FFFFFF",
-                AppbarBackground = "#FFFFFF",
-                DrawerBackground = "#FFFFFF",
-                TextPrimary = "#1A1A1A",
-                TextSecondary = "#666666",
-                ActionDefault = "#1A1A1A",
-                Divider = "#E0E0E0",
-            },
-            PaletteDark = new PaletteDark
-            {
-                Primary = "#FF8C61",        // Softer orange for dark mode
-                Secondary = "#2E7DAF",      // Lighter blue
-                Tertiary = "#48C9B0",       // Brighter teal
-                Info = "#3DD9FF",           // Lighter cyan
-                Success = "#5EC99D",        // Lighter green
-                Warning = "#FFA040",        // Lighter amber
-                Error = "#FF6B93",          // Lighter pink-red
-                Background = "#0A0E27",     // Very dark blue-black (Bandle-inspired)
-                Surface = "#151B3B",        // Dark blue surface
-                AppbarBackground = "#151B3B",
-                DrawerBackground = "#0A0E27",
-                TextPrimary = "#E8E8E8",
-                TextSecondary = "#B0B0B0",
-                ActionDefault = "#E8E8E8",
-                Divider = "#2A2F4F",
-            },
+            PaletteLight = CreatePaletteLight(lightPaletteToUse),
+            PaletteDark = CreatePaletteDark(darkPaletteToUse),
             // Use default Typography to ensure compatibility with current MudBlazor version
             Typography = new Typography(),
             LayoutProperties = new LayoutProperties
             {
-                DefaultBorderRadius = "12px",
+                DefaultBorderRadius = DesignTokens.BorderRadius,
             },
             ZIndex = new ZIndex
             {
@@ -115,6 +117,51 @@ public class ThemeService : IAsyncDisposable
             }
         };
     }
+    
+    private static PaletteLight CreatePaletteLight(ColorPalette palette)
+    {
+        return new PaletteLight
+        {
+            Primary = palette.Primary,
+            Secondary = palette.Secondary,
+            Tertiary = palette.Tertiary,
+            Info = palette.Info,
+            Success = palette.Success,
+            Warning = palette.Warning,
+            Error = palette.Error,
+            Background = palette.Background,
+            Surface = palette.Surface,
+            AppbarBackground = palette.Header ?? palette.Surface,
+            DrawerBackground = palette.Surface,
+            TextPrimary = palette.TextPrimary,
+            TextSecondary = palette.TextSecondary,
+            ActionDefault = palette.TextPrimary,
+            Divider = palette.Divider,
+        };
+    }
+    
+    private static PaletteDark CreatePaletteDark(ColorPalette palette)
+    {
+        return new PaletteDark
+        {
+            Primary = palette.Primary,
+            Secondary = palette.Secondary,
+            Tertiary = palette.Tertiary,
+            Info = palette.Info,
+            Success = palette.Success,
+            Warning = palette.Warning,
+            Error = palette.Error,
+            Background = palette.Background,
+            Surface = palette.Surface,
+            AppbarBackground = palette.Header ?? palette.Surface,
+            DrawerBackground = palette.Background,
+            TextPrimary = palette.TextPrimary,
+            TextSecondary = palette.TextSecondary,
+            ActionDefault = palette.TextPrimary,
+            Divider = palette.Divider,
+        };
+    }
+    
 
     public async ValueTask DisposeAsync()
     {

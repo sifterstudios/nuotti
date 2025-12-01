@@ -1,7 +1,9 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
 @using Nuotti.Contracts.V1
 @using Nuotti.Contracts.V1.Model
+@using Nuotti.Contracts.V1.Design
 @inherits LayoutComponentBase
+@implements IAsyncDisposable
 @inject PerformerUiState State
 @inject OfflineCommandQueue OfflineQueue
 @inject ISnackbar Snackbar
@@ -10,6 +12,7 @@
 @inject PerformerCommands Commands
 @inject IDialogService Dialogs
 @inject IServiceProvider Services
+@inject IJSRuntime JSRuntime
 
 <div @onkeydown="OnKeyDown">
     <MudThemeProvider @ref="@_mudThemeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
@@ -36,8 +39,8 @@
                            Size="Size.Large"
                            Class="ml-2" />
         </MudTooltip>
-        <MudTooltip Text="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
-            <MudIconButton Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+        <MudTooltip Text="@GetThemeTooltip()">
+            <MudIconButton Icon="@GetThemeIcon()" 
                            Color="Color.Inherit"
                            OnClick="ToggleTheme"
                            Size="Size.Large"
@@ -66,9 +69,9 @@
             <MudDivider Class="my-2" />
             <MudNavGroup Title="Settings" Icon="@Material.Filled.Settings" Expanded="false">
                 <MudNavLink Icon="@Material.Filled.Info">About</MudNavLink>
-                <MudNavLink Icon="@(_isDarkMode ? Material.Filled.LightMode : Material.Filled.DarkMode)" 
+                <MudNavLink Icon="@GetThemeIcon()" 
                             OnClick="ToggleTheme">
-                    @(_isDarkMode ? "Light" : "Dark") Mode
+                    @GetThemeLabel()
                 </MudNavLink>
             </MudNavGroup>
             <MudNavGroup Title="Help" Icon="@Material.Filled.HelpOutline" Expanded="false">
@@ -124,14 +127,19 @@
         if (_palette is not null) _palette.ExecuteRequested += OnPaletteExecuteRequested;
         _tour = Services.GetService(typeof(ITourService)) as ITourService;
     }
-
-    private bool _tourCheckedOnce;
-    private bool _tourOpen;
-    private ITourService? _tour;
-
+    
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !_tourCheckedOnce)
+        if (firstRender)
+        {
+            // Initialize theme service with JS runtime for OS preference detection
+            await _themeService.InitializeAsync(JSRuntime);
+            _isDarkMode = _themeService.IsDarkMode;
+            _theme = _themeService.GetTheme(); // Refresh theme after initialization
+            StateHasChanged();
+        }
+        
+        if (!_tourCheckedOnce)
         {
             _tourCheckedOnce = true;
             if (_tour is not null && !await _tour.GetSeenAsync())
@@ -140,6 +148,11 @@
             }
         }
     }
+
+    private bool _tourCheckedOnce;
+    private bool _tourOpen;
+    private ITourService? _tour;
+
 
     private void OnStateChanged()
     {
@@ -173,6 +186,7 @@
     private void OnThemeChanged()
     {
         _isDarkMode = _themeService.IsDarkMode;
+        _theme = _themeService.GetTheme(); // Update theme in case variant changed
         InvokeAsync(StateHasChanged);
     }
 
@@ -186,9 +200,9 @@
         _historyOpen = !_historyOpen;
     }
 
-    private void ToggleTheme()
+    private async Task ToggleTheme()
     {
-        _themeService.ToggleTheme();
+        await _themeService.ToggleThemeAsync(JSRuntime);
     }
 
     private Task OpenTourAsync()
@@ -268,12 +282,50 @@
         }
     }
 
-    public void Dispose()
+    private string GetThemeIcon()
+    {
+        return _themeService.CurrentVariant switch
+        {
+            ThemeVariant.Dark => Material.Filled.LightMode,
+            ThemeVariant.HighContrast => Material.Filled.Accessibility,
+            _ => Material.Filled.DarkMode
+        };
+    }
+    
+    private string GetThemeTooltip()
+    {
+        return _themeService.CurrentVariant switch
+        {
+            ThemeVariant.Light => "Switch to dark mode",
+            ThemeVariant.Dark => "Switch to high contrast mode",
+            ThemeVariant.HighContrast => "Switch to light mode",
+            _ => "Switch theme"
+        };
+    }
+    
+    private string GetThemeLabel()
+    {
+        return _themeService.CurrentVariant switch
+        {
+            ThemeVariant.Light => "Dark Mode",
+            ThemeVariant.Dark => "High Contrast",
+            ThemeVariant.HighContrast => "Light Mode",
+            _ => "Theme"
+        };
+    }
+    
+    public async ValueTask DisposeAsync()
     {
         _themeService.OnThemeChanged -= OnThemeChanged;
         State.Changed -= OnStateChanged;
         OfflineQueue.Changed -= OnQueueChanged;
         if (_palette is not null) _palette.ExecuteRequested -= OnPaletteExecuteRequested;
+        await _themeService.DisposeAsync();
+    }
+    
+    public void Dispose()
+    {
+        // Legacy dispose - async dispose is preferred
     }
 }
 </div>
