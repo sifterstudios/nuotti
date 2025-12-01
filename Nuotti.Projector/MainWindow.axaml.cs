@@ -285,15 +285,40 @@ public partial class MainWindow : Window
                 // Apply tally visibility settings
                 _tallyToggleButton.Content = _settings.HideTalliesUntilReveal ? "🙈" : "👁️";
 
+                // DEBUG: Disable fullscreen restoration to ensure window is visible
                 // Apply saved fullscreen state
-                if (_settings.IsFullscreen && !string.IsNullOrEmpty(_settings.SelectedMonitorId))
+                // if (_settings.IsFullscreen && !string.IsNullOrEmpty(_settings.SelectedMonitorId))
+                // {
+                //     var monitor = _monitorService.GetMonitorById(_settings.SelectedMonitorId);
+                //     if (monitor != null)
+                //     {
+                //         EnterFullscreen(monitor);
+                //     }
+                //     else
+                //     {
+                //         // Monitor no longer exists, reset fullscreen state
+                //         _settings.IsFullscreen = false;
+                //         _settings.SelectedMonitorId = null;
+                //         await _settingsService.SaveSettingsAsync(_settings);
+                //         WindowState = WindowState.Normal;
+                //         AppendLocal("[window] Saved monitor not found, reset to windowed mode");
+                //     }
+                // }
+                
+                // Force windowed mode for debugging
+                WindowState = WindowState.Normal;
+                _settings.IsFullscreen = false;
+                AppendLocal("[window] Starting in windowed mode (fullscreen restoration disabled for debugging)");
+                
+                // Ensure window is visible and on-screen
+                if (WindowState == WindowState.Minimized)
                 {
-                    var monitor = _monitorService.GetMonitorById(_settings.SelectedMonitorId);
-                    if (monitor != null)
-                    {
-                        EnterFullscreen(monitor);
-                    }
+                    WindowState = WindowState.Normal;
                 }
+                Show();
+                Activate();
+                // Ensure window is positioned on primary screen
+                Position = new PixelPoint(100, 100);
 
                 await StartConnection();
                 _connectionTextBlock.Text = "Connected";

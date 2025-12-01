@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
-
 namespace ServiceDefaults;
 
 /// <summary>
@@ -85,6 +84,7 @@ public sealed record VersionInfoResult(
     string? BuildTime,
     string Runtime
 );
+
 
 
 

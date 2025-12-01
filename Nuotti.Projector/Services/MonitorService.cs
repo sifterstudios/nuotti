@@ -1,8 +1,7 @@
+using Nuotti.Projector.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Nuotti.Projector.Models;
-
 namespace Nuotti.Projector.Services;
 
 public class MonitorService
@@ -10,10 +9,13 @@ public class MonitorService
     public List<MonitorInfo> GetAvailableMonitors()
     {
         var monitors = new List<MonitorInfo>();
-        
+
         try
         {
-            // For now, create a simple fallback monitor since Screen API is complex in Avalonia
+            // For now, return a single safe primary monitor placeholder.
+            // NOTE: Returning a fake "secondary" monitor can cause the window
+            // to be positioned off-screen at startup when auto-fullscreen is enabled.
+            // Keep only the primary until real screen enumeration is implemented.
             monitors.Add(new MonitorInfo
             {
                 Id = "primary",
@@ -23,18 +25,6 @@ public class MonitorService
                 X = 0,
                 Y = 0,
                 IsPrimary = true
-            });
-            
-            // Add a secondary display for testing
-            monitors.Add(new MonitorInfo
-            {
-                Id = "secondary",
-                Name = "Secondary Display",
-                Width = 1920,
-                Height = 1080,
-                X = 1920,
-                Y = 0,
-                IsPrimary = false
             });
         }
         catch (Exception ex)
@@ -52,15 +42,15 @@ public class MonitorService
                 IsPrimary = true
             });
         }
-        
+
         return monitors;
     }
-    
+
     public MonitorInfo? GetMonitorById(string monitorId)
     {
         return GetAvailableMonitors().FirstOrDefault(m => m.Id == monitorId);
     }
-    
+
     public MonitorInfo GetPrimaryMonitor()
     {
         var monitors = GetAvailableMonitors();

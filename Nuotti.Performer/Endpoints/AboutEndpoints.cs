@@ -1,5 +1,5 @@
 using ServiceDefaults;
-
+using System.Text.Json;
 namespace Nuotti.Performer.Endpoints;
 
 /// <summary>
@@ -12,14 +12,15 @@ internal static class AboutEndpoints
         app.MapGet("/about", () =>
         {
             var info = VersionInfo.GetVersionInfo("Nuotti.Performer");
-            return Results.Json(info, new System.Text.Json.JsonSerializerOptions 
+            return Results.Json(info, new JsonSerializerOptions 
             { 
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
             },
             contentType: "application/json");
         });
     }
 }
+
 
 
 
