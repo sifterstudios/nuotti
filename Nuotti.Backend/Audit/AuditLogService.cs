@@ -1,8 +1,5 @@
-using System.Linq;
 using Nuotti.Backend.Sessions;
-using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
-using Serilog;
 using Serilog.Context;
 
 namespace Nuotti.Backend.Audit;
@@ -29,7 +26,7 @@ public class AuditLogService
         where TCommand : CommandBase
     {
         var stateSummaryFinal = stateSummary ?? GetStateSummary(command.SessionCode);
-        
+
         using (LogContext.PushProperty("audit.type", "command_applied"))
         using (LogContext.PushProperty("audit.command_type", typeof(TCommand).Name))
         using (LogContext.PushProperty("audit.command_id", command.CommandId))
@@ -58,7 +55,7 @@ public class AuditLogService
         where TEvent : EventBase
     {
         var stateSummary = GetStateSummary(evt.SessionCode);
-        
+
         using (LogContext.PushProperty("audit.type", "event_published"))
         using (LogContext.PushProperty("audit.event_type", typeof(TEvent).Name))
         using (LogContext.PushProperty("audit.event_id", evt.EventId))

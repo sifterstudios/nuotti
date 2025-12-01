@@ -1,8 +1,5 @@
 using System.IO.Compression;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
-using Nuotti.Backend.Metrics;
-using Nuotti.Backend.Sessions;
 using ServiceDefaults;
 
 namespace Nuotti.Backend.Diagnostics;
