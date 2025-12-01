@@ -3,6 +3,7 @@ using Nuotti.Performer;
 using Nuotti.Performer.Endpoints;
 using Nuotti.Performer.Services;
 using Serilog;
+using ServiceDefaults;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorPages();
@@ -19,7 +20,7 @@ builder.Services.AddScoped<SessionSelectionService>();
 builder.Services.AddSingleton<PerformerUiState>();
 builder.Services.AddScoped<PerformerCommands>();
 builder.Services.AddSingleton<IManifestService, ManifestService>();
-builder.Services.AddSingleton<ThemeService>();
+builder.Services.AddScoped<ThemeService>();
 builder.Services.AddSingleton<CommandHistoryService>();
 builder.Services.AddSingleton<KeyboardShortcutsService>();
 builder.Services.AddSingleton<OfflineCommandQueue>();
@@ -45,8 +46,8 @@ app.MapDefaultEndpoints();
 app.MapAboutEndpoints();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Performer");
-logger.LogInformation("Performer started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
+var versionInfo = VersionInfo.GetVersionInfo("Nuotti.Performer");
+logger.LogInformation("Performer started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}",
     versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
 
 try

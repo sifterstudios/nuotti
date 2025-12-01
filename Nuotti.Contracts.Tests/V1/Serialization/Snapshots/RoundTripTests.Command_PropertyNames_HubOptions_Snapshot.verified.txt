@@ -1,0 +1,16 @@
+﻿{
+  AllowedPhases: [
+    Lobby,
+    Finished
+  ],
+  TargetPhase: Start,
+  AllowedSourcePhases: [
+    Lobby,
+    Finished
+  ],
+  CommandId: Guid_1,
+  SessionCode: TEST-SESSION,
+  IssuedByRole: Performer,
+  IssuedById: perf-1,
+  IssuedAtUtc: DateTimeOffset_1
+}

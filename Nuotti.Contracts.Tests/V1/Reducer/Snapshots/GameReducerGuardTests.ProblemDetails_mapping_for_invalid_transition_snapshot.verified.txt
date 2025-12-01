@@ -1,0 +1,8 @@
+﻿{
+  title: Invalid state transition,
+  status: 409,
+  detail: Cannot change phase from Lobby to Reveal.,
+  reason: InvalidStateTransition,
+  field: null,
+  correlationId: Guid_1
+}

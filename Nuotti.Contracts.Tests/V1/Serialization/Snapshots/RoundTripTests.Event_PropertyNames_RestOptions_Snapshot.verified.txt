@@ -1,0 +1,9 @@
+﻿{
+  currentPhase: Lobby,
+  newPhase: Start,
+  eventId: Guid_1,
+  correlationId: Guid_2,
+  causedByCommandId: Guid_3,
+  sessionCode: TEST-SESSION,
+  emittedAtUtc: DateTimeOffset_1
+}

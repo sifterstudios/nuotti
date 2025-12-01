@@ -1,0 +1,37 @@
+﻿{
+  sessionCode: TEST-SESSION,
+  phase: Guessing,
+  songIndex: 1,
+  currentSong: {
+    id: {
+      value: song-001
+    },
+    title: Test Song,
+    artist: Test Artist
+  },
+  catalog: [
+    {
+      id: {
+        value: song-001
+      },
+      title: Test Song,
+      artist: Test Artist
+    }
+  ],
+  choices: [
+    Option A,
+    Option B,
+    Option C
+  ],
+  hintIndex: 0,
+  tallies: [
+    5,
+    3,
+    2
+  ],
+  scores: {
+    player-1: 10,
+    player-2: 8
+  },
+  songStartedAtUtc: null
+}
