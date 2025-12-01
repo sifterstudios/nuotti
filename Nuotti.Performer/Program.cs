@@ -1,5 +1,6 @@
 ﻿using MudBlazor.Services;
 using Nuotti.Performer;
+using Nuotti.Performer.Endpoints;
 using Nuotti.Performer.Services;
 using Serilog;
 var builder = WebApplication.CreateBuilder(args);

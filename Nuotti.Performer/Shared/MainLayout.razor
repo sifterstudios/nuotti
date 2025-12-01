@@ -2,6 +2,7 @@
 @using Nuotti.Contracts.V1
 @using Nuotti.Contracts.V1.Model
 @using Nuotti.Contracts.V1.Design
+@using Microsoft.JSInterop
 @inherits LayoutComponentBase
 @implements IAsyncDisposable
 @inject PerformerUiState State
@@ -22,9 +23,9 @@
 
     <MudLayout>
     <MudAppBar Elevation="0" Dense="true" Style="backdrop-filter: blur(10px);">
-        <MudIconButton Icon="@Material.Filled.Menu" 
-                       Color="Color.Inherit" 
-                       Edge="Edge.Start" 
+        <MudIconButton Icon="@Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
                        OnClick="@ToggleDrawer"
                        Size="Size.Large" />
         <MudText Typo="Typo.h5" Style="font-weight: 700; margin-left: 12px;">
@@ -40,7 +41,7 @@
                            Class="ml-2" />
         </MudTooltip>
         <MudTooltip Text="@GetThemeTooltip()">
-            <MudIconButton Icon="@GetThemeIcon()" 
+            <MudIconButton Icon="@GetThemeIcon()"
                            Color="Color.Inherit"
                            OnClick="ToggleTheme"
                            Size="Size.Large"
@@ -56,20 +57,20 @@
             </div>
         </MudDrawerHeader>
         <MudNavMenu>
-            <MudNavLink Href="/" 
-                        Match="NavLinkMatch.All" 
+            <MudNavLink Href="/"
+                        Match="NavLinkMatch.All"
                         Icon="@Material.Filled.Dashboard">
                 Dashboard
             </MudNavLink>
-            <MudNavLink Href="/setlist" 
-                        Match="NavLinkMatch.Prefix" 
+            <MudNavLink Href="/setlist"
+                        Match="NavLinkMatch.Prefix"
                         Icon="@Material.Filled.QueueMusic">
                 Setlist Manager
             </MudNavLink>
             <MudDivider Class="my-2" />
             <MudNavGroup Title="Settings" Icon="@Material.Filled.Settings" Expanded="false">
                 <MudNavLink Icon="@Material.Filled.Info">About</MudNavLink>
-                <MudNavLink Icon="@GetThemeIcon()" 
+                <MudNavLink Icon="@GetThemeIcon()"
                             OnClick="ToggleTheme">
                     @GetThemeLabel()
                 </MudNavLink>
@@ -127,7 +128,7 @@
         if (_palette is not null) _palette.ExecuteRequested += OnPaletteExecuteRequested;
         _tour = Services.GetService(typeof(ITourService)) as ITourService;
     }
-    
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -138,7 +139,7 @@
             _theme = _themeService.GetTheme(); // Refresh theme after initialization
             StateHasChanged();
         }
-        
+
         if (!_tourCheckedOnce)
         {
             _tourCheckedOnce = true;
@@ -291,7 +292,7 @@
             _ => Material.Filled.DarkMode
         };
     }
-    
+
     private string GetThemeTooltip()
     {
         return _themeService.CurrentVariant switch
@@ -302,7 +303,7 @@
             _ => "Switch theme"
         };
     }
-    
+
     private string GetThemeLabel()
     {
         return _themeService.CurrentVariant switch
@@ -313,7 +314,7 @@
             _ => "Theme"
         };
     }
-    
+
     public async ValueTask DisposeAsync()
     {
         _themeService.OnThemeChanged -= OnThemeChanged;
@@ -322,7 +323,7 @@
         if (_palette is not null) _palette.ExecuteRequested -= OnPaletteExecuteRequested;
         await _themeService.DisposeAsync();
     }
-    
+
     public void Dispose()
     {
         // Legacy dispose - async dispose is preferred
