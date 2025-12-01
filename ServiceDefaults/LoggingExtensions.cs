@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Json;
 using Serilog.Sinks;
+using ServiceDefaults;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -23,12 +25,12 @@ public static class LoggingExtensions
     public static TBuilder ConfigureStructuredLogging<TBuilder>(this TBuilder builder, bool enableFileSink = false) where TBuilder : IHostApplicationBuilder
     {
         var serviceName = builder.Environment.ApplicationName;
-        
+
         // Get log level from config or environment variable
-        var logLevel = builder.Configuration["Logging:LogLevel:Default"] 
-            ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL") 
+        var logLevel = builder.Configuration["Logging:LogLevel:Default"]
+            ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL")
             ?? "Information";
-        
+
         if (!Enum.TryParse<LogEventLevel>(logLevel, ignoreCase: true, out var minLevel))
         {
             minLevel = LogEventLevel.Information;
@@ -57,7 +59,7 @@ public static class LoggingExtensions
         {
             var logDir = LogFileHelper.GetLogDirectory(serviceName);
             var logPath = Path.Combine(logDir, $"{serviceName}-.log");
-            
+
             loggerConfig.WriteTo.File(
                 new JsonFormatter(renderMessage: true),
                 logPath,
@@ -81,10 +83,10 @@ public static class LoggingExtensions
     /// </summary>
     public static void ConfigureStructuredLogging(string serviceName, IConfiguration? configuration = null, bool enableFileSink = false)
     {
-        var logLevel = configuration?["Logging:LogLevel:Default"] 
-            ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL") 
+        var logLevel = configuration?["Logging:LogLevel:Default"]
+            ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL")
             ?? "Information";
-        
+
         if (!Enum.TryParse<LogEventLevel>(logLevel, ignoreCase: true, out var minLevel))
         {
             minLevel = LogEventLevel.Information;
@@ -104,7 +106,7 @@ public static class LoggingExtensions
         {
             var logDir = LogFileHelper.GetLogDirectory(serviceName);
             var logPath = Path.Combine(logDir, $"{serviceName}-.log");
-            
+
             loggerConfig.WriteTo.File(
                 new JsonFormatter(renderMessage: true),
                 logPath,
