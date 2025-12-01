@@ -11,13 +11,12 @@ using System.Diagnostics;
 using Serilog;
 using Serilog.Formatting.Json;
 using Serilog.Events;
-using ServiceDefaults;
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 // Configure structured logging for Blazor WASM
 // Note: In WASM, console logging goes to browser console
-var logLevel = builder.Configuration["Logging:LogLevel:Default"] 
-    ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL") 
+var logLevel = builder.Configuration["Logging:LogLevel:Default"]
+    ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL")
     ?? "Information";
 
 if (!Enum.TryParse<LogEventLevel>(logLevel, ignoreCase: true, out var minLevel))
@@ -113,8 +112,6 @@ var otelBuilder = builder.Services.AddOpenTelemetry()
         }
     });
 
-var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Audience");
-Log.Information("Audience starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
-    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
+Log.Information("Audience starting");
 
 await builder.Build().RunAsync();

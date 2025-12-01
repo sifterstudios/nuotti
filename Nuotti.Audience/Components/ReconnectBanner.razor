@@ -36,7 +36,7 @@
 
                 @if (!_isConnected && !_isReconnecting)
                 {
-                    <MudButton Variant="Variant.Text" 
+                    <MudButton Variant="Variant.Text"
                                Size="Size.Small"
                                StartIcon="@Material.Filled.Refresh"
                                OnClick="RetryConnection"
@@ -60,35 +60,35 @@
         transition: all 0.3s ease;
         transform: translateY(-100%);
     }
-    
+
     .reconnect-banner.show {
         transform: translateY(0);
     }
-    
+
     .reconnect-banner.reconnecting {
-        background: linear-gradient(90deg, 
-            rgba(var(--mud-palette-warning-rgb), 0.9), 
+        background: linear-gradient(90deg,
+            rgba(var(--mud-palette-warning-rgb), 0.9),
             rgba(var(--mud-palette-warning-rgb), 0.8));
         color: var(--mud-palette-warning-text);
         border-bottom: 1px solid rgba(var(--mud-palette-warning-rgb), 0.3);
     }
-    
+
     .reconnect-banner.disconnected {
-        background: linear-gradient(90deg, 
-            rgba(var(--mud-palette-error-rgb), 0.9), 
+        background: linear-gradient(90deg,
+            rgba(var(--mud-palette-error-rgb), 0.9),
             rgba(var(--mud-palette-error-rgb), 0.8));
         color: var(--mud-palette-error-text);
         border-bottom: 1px solid rgba(var(--mud-palette-error-rgb), 0.3);
     }
-    
+
     .reconnect-banner.connected {
-        background: linear-gradient(90deg, 
-            rgba(var(--mud-palette-success-rgb), 0.9), 
+        background: linear-gradient(90deg,
+            rgba(var(--mud-palette-success-rgb), 0.9),
             rgba(var(--mud-palette-success-rgb), 0.8));
         color: var(--mud-palette-success-text);
         border-bottom: 1px solid rgba(var(--mud-palette-success-rgb), 0.3);
     }
-    
+
     .status-icon {
         display: flex;
         align-items: center;
@@ -96,8 +96,8 @@
         width: 20px;
         height: 20px;
     }
-    
-    @media (max-width: 600px) {
+
+    @@media (max-width: 600px) {
         .reconnect-banner .mud-container {
             padding-left: 16px;
             padding-right: 16px;
@@ -115,7 +115,7 @@
     {
         // Monitor connection state changes
         CheckConnectionState();
-        
+
         // Set up a timer to periodically check connection state
         var timer = new Timer(async _ => await InvokeAsync(CheckConnectionState), null, TimeSpan.Zero, TimeSpan.FromSeconds(2));
     }
@@ -124,21 +124,21 @@
     {
         var wasConnected = _isConnected;
         var wasReconnecting = _isReconnecting;
-        
+
         // Check the actual connection state from the Hub
         var connectionState = Hub.GetConnectionState();
-        
+
         _isConnected = connectionState == HubConnectionState.Connected;
         _isReconnecting = connectionState == HubConnectionState.Reconnecting;
-        
+
         var shouldShow = !_isConnected || _isReconnecting;
-        
-        if (shouldShow != _showBanner || 
-            _isConnected != wasConnected || 
+
+        if (shouldShow != _showBanner ||
+            _isConnected != wasConnected ||
             _isReconnecting != wasReconnecting)
         {
             _showBanner = shouldShow;
-            
+
             // Auto-hide success message after 3 seconds
             if (_isConnected && !wasConnected)
             {
@@ -149,7 +149,7 @@
                     StateHasChanged();
                 }), null, TimeSpan.FromSeconds(3), Timeout.InfiniteTimeSpan);
             }
-            
+
             StateHasChanged();
         }
     }
@@ -157,17 +157,17 @@
     private string GetBannerClass()
     {
         var classes = new List<string>();
-        
+
         if (_showBanner)
             classes.Add("show");
-            
+
         if (_isReconnecting)
             classes.Add("reconnecting");
         else if (!_isConnected)
             classes.Add("disconnected");
         else
             classes.Add("connected");
-            
+
         return string.Join(" ", classes);
     }
 
@@ -196,7 +196,7 @@
         try
         {
             await Hub.EnsureConnectedAsync();
-            
+
             // Restore state after reconnection
             if (!string.IsNullOrEmpty(Hub.SessionCode))
             {

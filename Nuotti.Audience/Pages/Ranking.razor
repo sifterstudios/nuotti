@@ -201,7 +201,7 @@
         animation: pulse 2s ease-in-out infinite;
     }
     
-    @keyframes pulse {
+    @@keyframes pulse {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.05); }
     }
@@ -290,7 +290,7 @@
         font-size: clamp(0.875rem, 1.5vw + 0.4rem, 1rem) !important;
     }
     
-    @keyframes slideInUp {
+    @@keyframes slideInUp {
         from {
             opacity: 0;
             transform: translateY(30px);
@@ -301,7 +301,7 @@
         }
     }
     
-    @media (max-width: 600px) {
+    @@media (max-width: 600px) {
         .ranking-icon {
             font-size: clamp(2rem, 5vw + 0.5rem, 3rem);
         }
@@ -345,7 +345,7 @@
     }
     
     /* High contrast support */
-    @media (prefers-contrast: high) {
+    @@media (prefers-contrast: high) {
         .leaderboard-item {
             border: 2px solid var(--mud-palette-text-primary) !important;
         }
