@@ -6,7 +6,6 @@ using Nuotti.Projector.Models;
 using Nuotti.Projector.Services;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Nuotti.Projector.Views;
 

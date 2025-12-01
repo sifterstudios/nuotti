@@ -5,7 +5,6 @@ using Avalonia.Media;
 using Nuotti.Projector.Models;
 using Nuotti.Projector.Services;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Nuotti.Projector.Views;

@@ -2,7 +2,6 @@ using System;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Nuotti.Projector.Models;

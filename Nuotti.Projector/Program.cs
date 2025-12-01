@@ -1,9 +1,7 @@
 ﻿using Avalonia;
 using System;
 using Serilog;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
-using HostingLoggingExtensions = Microsoft.Extensions.Hosting.LoggingExtensions;
 
 namespace Nuotti.Projector;
 
@@ -20,11 +18,11 @@ class Program
             .AddEnvironmentVariables(prefix: "NUOTTI_")
             .Build();
         Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.Projector", config);
-        
+
         var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Projector");
-        Log.Information("Projector starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
+        Log.Information("Projector starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}",
             versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
-        
+
         try
         {
             BuildAvaloniaApp()

@@ -1,7 +1,6 @@
 using System;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Extensions;
