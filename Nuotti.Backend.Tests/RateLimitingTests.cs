@@ -1,5 +1,4 @@
 ﻿using Nuotti.Backend.RateLimiting;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class RateLimitingTests

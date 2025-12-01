@@ -16,7 +16,6 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 // Minimal test doubles copied from QuizHubInProcTests to be self-contained

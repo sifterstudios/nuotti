@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class HealthEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>

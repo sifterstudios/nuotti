@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Models;
-using Xunit;
 
 namespace Nuotti.Backend.Tests;
 

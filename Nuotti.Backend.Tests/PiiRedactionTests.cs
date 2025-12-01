@@ -1,5 +1,4 @@
 using ServiceDefaults;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 /// <summary>

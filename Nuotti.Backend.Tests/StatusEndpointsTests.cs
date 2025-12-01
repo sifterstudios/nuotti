@@ -5,7 +5,6 @@ using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using System.Net;
 using System.Net.Http.Json;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class StatusEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub>>

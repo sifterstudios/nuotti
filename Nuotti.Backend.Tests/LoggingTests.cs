@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 /// <summary>
@@ -17,7 +15,7 @@ public class LoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
         _factory = factory.WithWebHostBuilder(builder =>
         {
             // Ensure log level is configurable
-            builder.ConfigureAppConfiguration(config =>
+            builder.ConfigureAppConfiguration((_, config )=>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -45,7 +43,7 @@ public class LoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
         // This is implicitly tested by the application starting with different log levels
         var factoryWithDebug = _factory.WithWebHostBuilder(builder =>
         {
-            builder.ConfigureAppConfiguration(config =>
+            builder.ConfigureAppConfiguration((_, config) =>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
@@ -53,7 +51,7 @@ public class LoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
                 });
             });
         });
-        
+
         var client = factoryWithDebug.CreateClient();
         Assert.NotNull(client);
     }

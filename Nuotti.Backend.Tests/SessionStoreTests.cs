@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class SessionStoreTests

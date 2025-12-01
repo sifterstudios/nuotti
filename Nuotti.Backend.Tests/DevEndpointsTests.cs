@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using System.Net.Http.Json;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class DevEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub>>

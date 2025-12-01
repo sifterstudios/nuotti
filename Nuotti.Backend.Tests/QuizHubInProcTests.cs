@@ -10,7 +10,6 @@ using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Security.Claims;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class QuizHubInProcTests

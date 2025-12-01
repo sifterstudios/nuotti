@@ -1,6 +1,5 @@
 ﻿using Nuotti.Backend.Eventing;
 using Nuotti.Contracts.V1.Eventing;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class EventBusTests

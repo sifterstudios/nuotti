@@ -7,7 +7,6 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class ProblemDetailsTests(WebApplicationFactory<QuizHub> factory) : IClassFixture<WebApplicationFactory<QuizHub>>

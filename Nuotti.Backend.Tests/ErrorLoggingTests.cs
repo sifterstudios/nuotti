@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Nuotti.Backend.Exception;
 using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using System.Net;
 using System.Net.Http.Json;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 /// <summary>
@@ -24,12 +27,12 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
     {
         var client = _factory.CreateClient();
         var correlationId = Guid.NewGuid();
-        
+
         var req = new HttpRequestMessage(HttpMethod.Get, "/api/demo/problem/400");
         req.Headers.Add("X-Correlation-Id", correlationId.ToString());
-        
+
         var resp = await client.SendAsync(req);
-        
+
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<NuottiProblem>(ContractsJson.RestOptions);
         Assert.NotNull(problem);
@@ -41,7 +44,7 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
     {
         var client = _factory.CreateClient();
         var resp = await client.GetAsync("/api/demo/problem/400");
-        
+
         var problem = await resp.Content.ReadFromJsonAsync<NuottiProblem>(ContractsJson.RestOptions);
         Assert.NotNull(problem);
         Assert.Equal(ReasonCode.InvalidStateTransition, problem!.Reason);
@@ -62,7 +65,7 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
 
         var client = factory.CreateClient();
         var resp = await client.GetAsync("/test/argnull");
-        
+
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<NuottiProblem>(ContractsJson.RestOptions);
         Assert.NotNull(problem);
@@ -84,7 +87,7 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
 
         var client = factory.CreateClient();
         var resp = await client.GetAsync("/test/validation");
-        
+
         Assert.Equal(HttpStatusCode.UnprocessableEntity, resp.StatusCode);
         var problem = await resp.Content.ReadFromJsonAsync<NuottiProblem>(ContractsJson.RestOptions);
         Assert.NotNull(problem);
@@ -96,13 +99,13 @@ public class ErrorLoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
     {
         var client = _factory.CreateClient();
         var correlationId = Guid.NewGuid();
-        
+
         var req = new HttpRequestMessage(HttpMethod.Get, "/api/demo/problem/409");
         req.Headers.Add("X-Correlation-Id", correlationId.ToString());
-        
+
         var resp = await client.SendAsync(req);
         var problem = await resp.Content.ReadFromJsonAsync<NuottiProblem>(ContractsJson.RestOptions);
-        
+
         Assert.NotNull(problem);
         Assert.NotNull(problem!.Title);
         Assert.NotNull(problem.Detail);

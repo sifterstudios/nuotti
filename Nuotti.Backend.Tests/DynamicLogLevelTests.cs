@@ -1,8 +1,8 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 /// <summary>
@@ -27,9 +27,9 @@ public class DynamicLogLevelTests : IClassFixture<WebApplicationFactory<QuizHub>
     {
         var client = _factory.CreateClient();
         var payload = new { level = "Debug" };
-        
+
         var resp = await client.PostAsJsonAsync("/dev/log-level", payload);
-        
+
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var result = await resp.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Debug", result.GetProperty("level").GetString());
@@ -40,9 +40,9 @@ public class DynamicLogLevelTests : IClassFixture<WebApplicationFactory<QuizHub>
     {
         var client = _factory.CreateClient();
         var payload = new { level = "InvalidLevel" };
-        
+
         var resp = await client.PostAsJsonAsync("/dev/log-level", payload);
-        
+
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
@@ -51,9 +51,9 @@ public class DynamicLogLevelTests : IClassFixture<WebApplicationFactory<QuizHub>
     {
         var client = _factory.CreateClient();
         var payload = new { };
-        
+
         var resp = await client.PostAsJsonAsync("/dev/log-level", payload);
-        
+
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
@@ -67,9 +67,9 @@ public class DynamicLogLevelTests : IClassFixture<WebApplicationFactory<QuizHub>
 
         var client = factory.CreateClient();
         var payload = new { level = "Debug" };
-        
+
         var resp = await client.PostAsJsonAsync("/dev/log-level", payload);
-        
+
         // In Production, DEV endpoints are not mapped
         Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
     }

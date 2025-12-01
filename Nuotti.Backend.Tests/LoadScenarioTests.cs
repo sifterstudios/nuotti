@@ -8,7 +8,6 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
 using System.Collections.Concurrent;
 using System.Security.Claims;
-using Xunit;
 namespace Nuotti.Backend.Tests;
 
 public class LoadScenarioTests
