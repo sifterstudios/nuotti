@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using NUnit.Framework;
 
 namespace Nuotti.Projector.Tests;
 

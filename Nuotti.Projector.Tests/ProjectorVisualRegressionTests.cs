@@ -2,10 +2,8 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using FluentAssertions;
-using NUnit.Framework;
 using Nuotti.Projector.Tests.Helpers;
 using Nuotti.Projector.Tests.TestData;
-using Microsoft.Playwright;
 
 namespace Nuotti.Projector.Tests;
 

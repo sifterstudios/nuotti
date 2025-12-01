@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Enum;
 
