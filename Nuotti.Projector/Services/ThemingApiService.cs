@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Avalonia;
 using Avalonia.Styling;
 using Microsoft.AspNetCore.SignalR.Client;
 

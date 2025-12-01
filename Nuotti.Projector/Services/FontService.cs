@@ -4,7 +4,6 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia.Media;
-using Avalonia.Platform;
 
 namespace Nuotti.Projector.Services;
 

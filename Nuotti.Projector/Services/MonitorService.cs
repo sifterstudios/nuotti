@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Platform;
 using Nuotti.Projector.Models;
 
 namespace Nuotti.Projector.Services;

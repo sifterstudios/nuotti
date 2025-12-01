@@ -1,8 +1,4 @@
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
-using Avalonia.Styling;
-using Nuotti.Contracts.V1.Design;
 // Disambiguate theme types: our domain enum vs Avalonia's ThemeVariant
 using AvaloniaThemeVariant = Avalonia.Styling.ThemeVariant;
 using NuottiThemeVariant = Nuotti.Contracts.V1.Design.NuottiThemeVariant;
