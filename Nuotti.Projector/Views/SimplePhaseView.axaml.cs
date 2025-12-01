@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Nuotti.Contracts.V1.Enum;
@@ -26,9 +27,46 @@ public partial class SimplePhaseView : PhaseViewBase
         _additionalInfoText = this.FindControl<TextBlock>("AdditionalInfoText")!;
     }
     
+    protected override void UpdateResponsiveFontSizes()
+    {
+        var windowSize = GetWindowSize();
+        var safeAreaMargin = 0.05; // 5% default
+        
+        _phaseIconText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.PhaseIconMin,
+            ResponsiveTypographyService.FontSizes.PhaseIconMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _phaseTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.PhaseTitleMin,
+            ResponsiveTypographyService.FontSizes.PhaseTitleMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _songTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.SongTitleMin,
+            ResponsiveTypographyService.FontSizes.SongTitleMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _songArtistText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.SongArtistMin,
+            ResponsiveTypographyService.FontSizes.SongArtistMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _additionalInfoText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.BodyMin,
+            ResponsiveTypographyService.FontSizes.BodyMax,
+            windowSize,
+            safeAreaMargin);
+    }
+    
     public override void UpdateState(GameState state)
     {
         UpdateForPhase(state.Phase, state);
+        UpdateResponsiveFontSizes();
     }
     
     public void UpdateForPhase(Phase phase, GameState state)

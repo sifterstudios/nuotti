@@ -11,13 +11,11 @@
             <!-- Phase icon/emoji -->
             <TextBlock x:Name="PhaseIconText"
                        Text="🎵"
-                       FontSize="96"
                        HorizontalAlignment="Center"/>
             
             <!-- Phase title -->
             <TextBlock x:Name="PhaseTitleText"
                        Text="Phase Title"
-                       FontSize="48"
                        FontWeight="Bold"
                        Foreground="{DynamicResource PrimaryBrush}"
                        HorizontalAlignment="Center"/>
@@ -29,13 +27,11 @@
                         IsVisible="False">
                 <TextBlock x:Name="SongTitleText"
                            Text="Song Title"
-                           FontSize="32"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            HorizontalAlignment="Center"/>
                 <TextBlock x:Name="SongArtistText"
                            Text="Artist Name"
-                           FontSize="24"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            HorizontalAlignment="Center"/>
             </StackPanel>
@@ -43,7 +39,6 @@
             <!-- Additional info -->
             <TextBlock x:Name="AdditionalInfoText"
                        Text=""
-                       FontSize="24"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        HorizontalAlignment="Center"
                        IsVisible="False"/>

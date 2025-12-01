@@ -12,7 +12,9 @@ namespace Nuotti.Projector.Views;
 
 public partial class HintView : PhaseViewBase
 {
+    private readonly TextBlock _hintTitleText;
     private readonly TextBlock _songTitleText;
+    private readonly TextBlock _byText;
     private readonly TextBlock _songArtistText;
     private readonly TextBlock _hintCountText;
     private readonly StackPanel _hintsPanel;
@@ -25,7 +27,9 @@ public partial class HintView : PhaseViewBase
     {
         InitializeComponent();
         
+        _hintTitleText = this.FindControl<TextBlock>("HintTitleText")!;
         _songTitleText = this.FindControl<TextBlock>("SongTitleText")!;
+        _byText = this.FindControl<TextBlock>("ByText")!;
         _songArtistText = this.FindControl<TextBlock>("SongArtistText")!;
         _hintCountText = this.FindControl<TextBlock>("HintCountText")!;
         _hintsPanel = this.FindControl<StackPanel>("HintsPanel")!;
@@ -51,6 +55,48 @@ public partial class HintView : PhaseViewBase
         _hintCountText.Text = totalHints > 0 
             ? $"Hint {currentHintNumber} of {totalHints}"
             : $"Hint {currentHintNumber}";
+        
+        // Update responsive font sizes
+        UpdateResponsiveFontSizes();
+    }
+    
+    protected override void UpdateResponsiveFontSizes()
+    {
+        var windowSize = GetWindowSize();
+        var safeAreaMargin = 0.05; // 5% default
+        
+        // Header "Hint Time!"
+        _hintTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.PhaseTitleMin,
+            ResponsiveTypographyService.FontSizes.PhaseTitleMax,
+            windowSize,
+            safeAreaMargin);
+        
+        // Song info
+        _songTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.SongTitleMin,
+            ResponsiveTypographyService.FontSizes.SongTitleMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _byText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.BodyMin,
+            ResponsiveTypographyService.FontSizes.BodyMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _songArtistText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.SongArtistMin,
+            ResponsiveTypographyService.FontSizes.SongArtistMax,
+            windowSize,
+            safeAreaMargin);
+        
+        // Hint count
+        _hintCountText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.BodyMin,
+            ResponsiveTypographyService.FontSizes.BodyMax,
+            windowSize,
+            safeAreaMargin);
     }
     
     private void UpdateHints(GameState state)
@@ -118,10 +164,19 @@ public partial class HintView : PhaseViewBase
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
         };
         
+        var windowSize = GetWindowSize();
+        var safeAreaMargin = 0.05;
+        
+        var numberFontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.BodyMin,
+            ResponsiveTypographyService.FontSizes.BodyMax,
+            windowSize,
+            safeAreaMargin);
+        
         var numberText = new TextBlock
         {
             Text = hintNumber.ToString(),
-            FontSize = 20,
+            FontSize = numberFontSize,
             FontWeight = FontWeight.Bold,
             Foreground = Brushes.White,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
@@ -132,10 +187,16 @@ public partial class HintView : PhaseViewBase
         Grid.SetColumn(numberBadge, 0);
         
         // Hint text
+        var hintFontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.OptionMin,
+            ResponsiveTypographyService.FontSizes.OptionMax,
+            windowSize,
+            safeAreaMargin);
+        
         var hintTextBlock = new TextBlock
         {
             Text = hintText,
-            FontSize = 28,
+            FontSize = hintFontSize,
             FontWeight = FontWeight.Medium,
             Foreground = GetBrush("TextPrimaryBrush"),
             TextWrapping = TextWrapping.Wrap,

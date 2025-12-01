@@ -10,8 +10,8 @@
                     Spacing="32">
             
             <!-- Main title -->
-            <TextBlock Text="🎵 Welcome to Nuotti!"
-                       FontSize="72"
+            <TextBlock x:Name="WelcomeText"
+                       Text="🎵 Welcome to Nuotti!"
                        FontWeight="Bold"
                        Foreground="{DynamicResource PrimaryBrush}"
                        HorizontalAlignment="Center"/>
@@ -23,27 +23,25 @@
                     CornerRadius="16"
                     Padding="32,16">
                 <StackPanel Orientation="Horizontal" Spacing="16">
-                    <TextBlock Text="Session Code:"
-                               FontSize="36"
+                    <TextBlock x:Name="SessionCodeLabel"
+                               Text="Session Code:"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock x:Name="SessionCodeText"
                                Text="LOADING"
-                               FontSize="48"
                                FontWeight="Bold"
                                Foreground="{DynamicResource PrimaryBrush}"/>
                 </StackPanel>
             </Border>
             
             <!-- Instructions -->
-            <TextBlock Text="Scan the QR code or visit the website to join!"
-                       FontSize="28"
+            <TextBlock x:Name="InstructionsText"
+                       Text="Scan the QR code or visit the website to join!"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        HorizontalAlignment="Center"/>
             
             <!-- Player count -->
             <TextBlock x:Name="PlayerCountText"
                        Text="Waiting for players..."
-                       FontSize="24"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        HorizontalAlignment="Center"/>
         </StackPanel>

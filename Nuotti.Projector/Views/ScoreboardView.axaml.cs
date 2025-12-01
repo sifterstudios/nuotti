@@ -12,6 +12,7 @@ namespace Nuotti.Projector.Views;
 
 public partial class ScoreboardView : PhaseViewBase
 {
+    private readonly TextBlock _scoreboardTitleText;
     private readonly TextBlock _songInfoText;
     private readonly TextBlock _footerText;
     private readonly StackPanel _scoreboardPanel;
@@ -24,6 +25,7 @@ public partial class ScoreboardView : PhaseViewBase
     {
         InitializeComponent();
         
+        _scoreboardTitleText = this.FindControl<TextBlock>("ScoreboardTitleText")!;
         _songInfoText = this.FindControl<TextBlock>("SongInfoText")!;
         _footerText = this.FindControl<TextBlock>("FooterText")!;
         _scoreboardPanel = this.FindControl<StackPanel>("ScoreboardPanel")!;
@@ -47,8 +49,38 @@ public partial class ScoreboardView : PhaseViewBase
             _footerText.Text = "Get ready for the next song!";
         }
         
+        // Update responsive font sizes
+        UpdateResponsiveFontSizes();
+        
         // Update scoreboard
         UpdateScoreboard(state);
+    }
+    
+    protected override void UpdateResponsiveFontSizes()
+    {
+        var windowSize = GetWindowSize();
+        var safeAreaMargin = 0.05; // 5% default
+        
+        // Header "Scoreboard" text
+        _scoreboardTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.PhaseTitleMin,
+            ResponsiveTypographyService.FontSizes.PhaseTitleMax,
+            windowSize,
+            safeAreaMargin);
+        
+        // Song info text
+        _songInfoText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.BodyMin,
+            ResponsiveTypographyService.FontSizes.BodyMax,
+            windowSize,
+            safeAreaMargin);
+        
+        // Footer text
+        _footerText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.BodyMin,
+            ResponsiveTypographyService.FontSizes.BodyMax,
+            windowSize,
+            safeAreaMargin);
     }
     
     private void UpdateScoreboard(GameState state)
@@ -59,10 +91,18 @@ public partial class ScoreboardView : PhaseViewBase
         if (!state.HasScores)
         {
             // Show "no players" message
+            var windowSize = GetWindowSize();
+            var safeAreaMargin = 0.05;
+            var noPlayersFontSize = TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.BodyMin,
+                ResponsiveTypographyService.FontSizes.BodyMax,
+                windowSize,
+                safeAreaMargin);
+            
             var noPlayersText = new TextBlock
             {
                 Text = "No players yet...",
-                FontSize = 24,
+                FontSize = noPlayersFontSize,
                 Foreground = GetBrush("TextSecondaryBrush"),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 Margin = new Thickness(0, 32)
@@ -122,11 +162,26 @@ public partial class ScoreboardView : PhaseViewBase
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto")
         };
         
+        var windowSize = GetWindowSize();
+        var safeAreaMargin = 0.05;
+        
         // Position
+        var positionFontSize = position <= 3 
+            ? TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.ScorePositionMin * 1.2,
+                ResponsiveTypographyService.FontSizes.ScorePositionMax * 1.2,
+                windowSize,
+                safeAreaMargin)
+            : TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.ScorePositionMin,
+                ResponsiveTypographyService.FontSizes.ScorePositionMax,
+                windowSize,
+                safeAreaMargin);
+        
         var positionText = new TextBlock
         {
             Text = positionIcon ?? position.ToString(),
-            FontSize = position <= 3 ? 32 : 24,
+            FontSize = positionFontSize,
             FontWeight = FontWeight.Bold,
             Foreground = textBrush,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
@@ -135,10 +190,16 @@ public partial class ScoreboardView : PhaseViewBase
         Grid.SetColumn(positionText, 0);
         
         // Player name
+        var nameFontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.ScoreNameMin,
+            ResponsiveTypographyService.FontSizes.ScoreNameMax,
+            windowSize,
+            safeAreaMargin);
+        
         var nameText = new TextBlock
         {
             Text = displayName,
-            FontSize = 24,
+            FontSize = nameFontSize,
             FontWeight = FontWeight.Medium,
             Foreground = GetBrush("TextPrimaryBrush"),
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
@@ -149,10 +210,16 @@ public partial class ScoreboardView : PhaseViewBase
         // Score change (if any)
         if (change != 0)
         {
+            var changeFontSize = TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.BodyMin,
+                ResponsiveTypographyService.FontSizes.BodyMax,
+                windowSize,
+                safeAreaMargin);
+            
             var changeText = new TextBlock
             {
                 Text = change > 0 ? $"+{change}" : change.ToString(),
-                FontSize = 18,
+                FontSize = changeFontSize,
                 FontWeight = FontWeight.Medium,
                 Foreground = change > 0 ? GetBrush("SuccessBrush") : GetBrush("ErrorBrush"),
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
@@ -163,10 +230,16 @@ public partial class ScoreboardView : PhaseViewBase
         }
         
         // Total score
+        var scoreFontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.ScoreValueMin,
+            ResponsiveTypographyService.FontSizes.ScoreValueMax,
+            windowSize,
+            safeAreaMargin);
+        
         var scoreText = new TextBlock
         {
             Text = score.ToString(),
-            FontSize = 28,
+            FontSize = scoreFontSize,
             FontWeight = FontWeight.Bold,
             Foreground = textBrush,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center

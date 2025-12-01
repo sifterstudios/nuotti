@@ -12,13 +12,11 @@
             <StackPanel>
                 <TextBlock x:Name="SongTitleText"
                            Text="Song Title"
-                           FontSize="32"
                            FontWeight="Bold"
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            HorizontalAlignment="Center"/>
                 <TextBlock x:Name="SongArtistText"
                            Text="Artist Name"
-                           FontSize="24"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            HorizontalAlignment="Center"/>
             </StackPanel>
@@ -30,12 +28,12 @@
                 <!-- Question text -->
                 <TextBlock x:Name="QuestionText"
                            Text="What song is this?"
-                           FontSize="48"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            TextWrapping="Wrap"
                            HorizontalAlignment="Center"
-                           TextAlignment="Center"/>
+                           TextAlignment="Center"
+                           MinHeight="60"/>
                 
                 <!-- Options grid (2x2) -->
                 <Grid x:Name="OptionsGrid"
@@ -55,7 +53,6 @@
                             BorderThickness="3">
                         <DockPanel>
                             <TextBlock Text="A"
-                                       FontSize="32"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Left"
@@ -63,18 +60,17 @@
                                        Margin="0,0,16,0"/>
                             <TextBlock x:Name="OptionACount"
                                        Text="0"
-                                       FontSize="28"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Right"
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="OptionAText"
                                        Text="Option A"
-                                       FontSize="24"
                                        FontWeight="Medium"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        TextWrapping="Wrap"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       MinHeight="40"/>
                         </DockPanel>
                     </Border>
                     
@@ -89,7 +85,6 @@
                             BorderThickness="3">
                         <DockPanel>
                             <TextBlock Text="B"
-                                       FontSize="32"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Left"
@@ -97,18 +92,17 @@
                                        Margin="0,0,16,0"/>
                             <TextBlock x:Name="OptionBCount"
                                        Text="0"
-                                       FontSize="28"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Right"
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="OptionBText"
                                        Text="Option B"
-                                       FontSize="24"
                                        FontWeight="Medium"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        TextWrapping="Wrap"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       MinHeight="40"/>
                         </DockPanel>
                     </Border>
                     
@@ -123,7 +117,6 @@
                             BorderThickness="3">
                         <DockPanel>
                             <TextBlock Text="C"
-                                       FontSize="32"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Left"
@@ -131,18 +124,17 @@
                                        Margin="0,0,16,0"/>
                             <TextBlock x:Name="OptionCCount"
                                        Text="0"
-                                       FontSize="28"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Right"
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="OptionCText"
                                        Text="Option C"
-                                       FontSize="24"
                                        FontWeight="Medium"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        TextWrapping="Wrap"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       MinHeight="40"/>
                         </DockPanel>
                     </Border>
                     
@@ -157,7 +149,6 @@
                             BorderThickness="3">
                         <DockPanel>
                             <TextBlock Text="D"
-                                       FontSize="32"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Left"
@@ -165,18 +156,17 @@
                                        Margin="0,0,16,0"/>
                             <TextBlock x:Name="OptionDCount"
                                        Text="0"
-                                       FontSize="28"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        DockPanel.Dock="Right"
                                        VerticalAlignment="Center"/>
                             <TextBlock x:Name="OptionDText"
                                        Text="Option D"
-                                       FontSize="24"
                                        FontWeight="Medium"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        TextWrapping="Wrap"
-                                       VerticalAlignment="Center"/>
+                                       VerticalAlignment="Center"
+                                       MinHeight="40"/>
                         </DockPanel>
                     </Border>
                 </Grid>

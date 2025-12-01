@@ -76,7 +76,7 @@
                            OnClick="JoinAsync" 
                            Disabled="@(isBusy || !IsFormValid())"
                            StartIcon="@(isBusy ? null : Material.Filled.Login)"
-                           Style="height: 56px; border-radius: 12px; font-size: 1.1rem; font-weight: 700;"
+                           Style="height: 56px; border-radius: 12px; font-size: clamp(0.9rem, 1.5vw + 0.5rem, 1.1rem); font-weight: 700;"
                            aria-describedby="join-button-status"
                            aria-label="@(isBusy ? "Joining session, please wait" : "Join the quiz session")">
                     @if (isBusy)
@@ -179,8 +179,15 @@
         width: 100%;
     }
     
+    /* Hero/headline text responsive sizing */
+    .hero-section .mud-typography-h2 {
+        font-size: clamp(2rem, 6vw + 1.5rem, 5rem) !important;
+        min-height: 1.2em; /* Reserve space to prevent layout shift */
+        line-height: 1.2;
+    }
+    
     .hero-icon {
-        font-size: 5rem;
+        font-size: clamp(2rem, 8vw + 1rem, 5rem);
         line-height: 1;
         animation: float 3s ease-in-out infinite;
     }
@@ -214,9 +221,14 @@
             var(--mud-palette-tertiary));
     }
     
+    /* Input field text sizing */
+    .join-card .mud-input {
+        font-size: clamp(0.875rem, 1.5vw + 0.5rem, 1.1rem) !important;
+    }
+    
     @@media (max-width: 600px) {
         .hero-icon {
-            font-size: 3.5rem;
+            font-size: clamp(2rem, 6vw + 0.5rem, 3.5rem);
         }
     }
     

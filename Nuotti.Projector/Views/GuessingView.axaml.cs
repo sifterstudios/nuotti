@@ -113,11 +113,58 @@ public partial class GuessingView : PhaseViewBase
         {
             _ = HighlightLeadersAnimated(state.Tallies);
         }
+        
+        // Update responsive font sizes
+        UpdateResponsiveFontSizes();
     }
     
     public void UpdateSettings(ProjectorSettings settings)
     {
         _settings = settings;
+    }
+    
+    protected override void UpdateResponsiveFontSizes()
+    {
+        var windowSize = GetWindowSize();
+        var safeAreaMargin = 0.05; // 5% default
+        
+        _songTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.SongTitleMin,
+            ResponsiveTypographyService.FontSizes.SongTitleMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _songArtistText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.SongArtistMin,
+            ResponsiveTypographyService.FontSizes.SongArtistMax,
+            windowSize,
+            safeAreaMargin);
+        
+        _questionText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+            ResponsiveTypographyService.FontSizes.QuestionMin,
+            ResponsiveTypographyService.FontSizes.QuestionMax,
+            windowSize,
+            safeAreaMargin);
+        
+        // Update option text sizes
+        foreach (var optionText in _optionTexts)
+        {
+            optionText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.OptionMin,
+                ResponsiveTypographyService.FontSizes.OptionMax,
+                windowSize,
+                safeAreaMargin);
+        }
+        
+        // Update option count sizes (slightly smaller than option text)
+        foreach (var optionCount in _optionCounts)
+        {
+            optionCount.FontSize = TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.OptionMin * 0.9,
+                ResponsiveTypographyService.FontSizes.OptionMax * 0.9,
+                windowSize,
+                safeAreaMargin);
+        }
     }
     
     private bool ShouldHideTallies(Phase phase)

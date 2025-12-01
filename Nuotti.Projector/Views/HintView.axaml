@@ -10,8 +10,8 @@
                 BorderThickness="0,0,0,2"
                 Padding="24,16">
             <StackPanel>
-                <TextBlock Text="💡 Hint Time!"
-                           FontSize="48"
+                <TextBlock x:Name="HintTitleText"
+                           Text="💡 Hint Time!"
                            FontWeight="Bold"
                            Foreground="{DynamicResource PrimaryBrush}"
                            HorizontalAlignment="Center"/>
@@ -21,15 +21,13 @@
                             Spacing="16">
                     <TextBlock x:Name="SongTitleText"
                                Text="Song Title"
-                               FontSize="24"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="by"
-                               FontSize="20"
+                    <TextBlock x:Name="ByText"
+                               Text="by"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <TextBlock x:Name="SongArtistText"
                                Text="Artist Name"
-                               FontSize="24"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </StackPanel>
@@ -54,7 +52,6 @@
                 Padding="24,12">
             <TextBlock x:Name="HintCountText"
                        Text="Hint 1 of 3"
-                       FontSize="20"
                        Foreground="{DynamicResource TextSecondaryBrush}"
                        HorizontalAlignment="Center"/>
         </Border>
