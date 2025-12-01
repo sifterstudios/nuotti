@@ -1,8 +1,9 @@
 ﻿using Avalonia;
-using System;
-using Serilog;
 using Microsoft.Extensions.Configuration;
-
+using Serilog;
+using ServiceDefaults;
+using System;
+using LoggingExtensions = Microsoft.Extensions.Hosting.LoggingExtensions;
 namespace Nuotti.Projector;
 
 class Program
@@ -13,24 +14,63 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Configure structured logging for Avalonia app
-        var config = new ConfigurationBuilder()
-            .AddEnvironmentVariables(prefix: "NUOTTI_")
-            .Build();
-        Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.Projector", config);
-
-        var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Projector");
-        Log.Information("Projector starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}",
-            versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
+        // Early console output to verify the process is starting
+        Console.WriteLine("[Projector] Main() called");
+        Console.WriteLine($"[Projector] Args: {string.Join(" ", args)}");
+        Console.WriteLine($"[Projector] Working Directory: {Environment.CurrentDirectory}");
 
         try
         {
-            BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
+            // Configure structured logging for Avalonia app
+            Console.WriteLine("[Projector] Configuring logging...");
+            var config = new ConfigurationBuilder()
+                .AddEnvironmentVariables(prefix: "NUOTTI_")
+                .Build();
+            LoggingExtensions.ConfigureStructuredLogging("Nuotti.Projector", config);
+            Console.WriteLine("[Projector] Logging configured");
+
+            var versionInfo = VersionInfo.GetVersionInfo("Nuotti.Projector");
+            Log.Information("Projector starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}",
+                versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
+            Console.WriteLine("[Projector] Logged startup message");
+
+            Console.WriteLine("[Projector] Building Avalonia app...");
+            var appBuilder = BuildAvaloniaApp();
+            Console.WriteLine("[Projector] Starting desktop lifetime...");
+            appBuilder.StartWithClassicDesktopLifetime(args);
+            Console.WriteLine("[Projector] Desktop lifetime started");
+        }
+        catch (Exception ex)
+        {
+            // Catch any exceptions and write to console before logging might be available
+            Console.WriteLine($"[Projector] FATAL ERROR: {ex.GetType().Name}: {ex.Message}");
+            Console.WriteLine($"[Projector] Stack trace: {ex.StackTrace}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"[Projector] Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            }
+
+            // Try to log if possible
+            try
+            {
+                Log.Error(ex, "Fatal error starting Projector");
+            }
+            catch { }
+
+            // Re-throw so the process exits with error code
+            throw;
         }
         finally
         {
-            Log.CloseAndFlush();
+            Console.WriteLine("[Projector] Cleaning up...");
+            try
+            {
+                Log.CloseAndFlush();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Projector] Error closing log: {ex.Message}");
+            }
         }
     }
 

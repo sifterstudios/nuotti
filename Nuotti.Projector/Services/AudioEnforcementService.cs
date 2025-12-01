@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-
 namespace Nuotti.Projector.Services;
 
 public class AudioEnforcementService : IDisposable
 {
     private readonly Timer _monitoringTimer;
     private readonly List<string> _blockedAudioProcesses = new();
+    private readonly HashSet<string> _reportedViolations = new(); // Track reported violations to avoid spam
     private bool _isMonitoring = false;
     private bool _audioDetected = false;
     
@@ -117,11 +118,32 @@ public class AudioEnforcementService : IDisposable
                 }
             }
             
-            // Report violations
+            // Report violations (with deduplication to avoid spam)
             foreach (var violation in violations)
             {
-                AudioViolationDetected?.Invoke(violation);
+                // Create a unique key for this violation
+                var violationKey = $"{violation.ProcessName}_{violation.ProcessId}";
+                
+                // Only report if we haven't seen this violation before
+                if (!_reportedViolations.Contains(violationKey))
+                {
+                    _reportedViolations.Add(violationKey);
+                    AudioViolationDetected?.Invoke(violation);
+                }
             }
+            
+            // Clean up reported violations for processes that no longer exist
+            // (so we can report them again if they restart)
+            var currentProcessIds = new HashSet<int>(violations.Select(v => v.ProcessId));
+            _reportedViolations.RemoveWhere(key => 
+            {
+                var parts = key.Split('_');
+                if (parts.Length == 2 && int.TryParse(parts[1], out var processId))
+                {
+                    return !currentProcessIds.Contains(processId);
+                }
+                return false;
+            });
             
             // Platform-specific audio system checks
             CheckPlatformAudioSystems();

@@ -19,25 +19,10 @@
                     MaxWidth="400">
                 
                 <StackPanel Spacing="24" HorizontalAlignment="Center">
-                    <!-- Spinning icon -->
+                    <!-- Spinning icon (animation disabled temporarily to fix startup crash) -->
                     <TextBlock Text="🔄" 
                                FontSize="64" 
-                               HorizontalAlignment="Center">
-                        <TextBlock.Styles>
-                            <Style Selector="TextBlock">
-                                <Style.Animations>
-                                    <Animation Duration="0:0:2" IterationCount="INFINITE">
-                                        <KeyFrame Cue="0%">
-                                            <Setter Property="RenderTransform" Value="rotate(0deg)"/>
-                                        </KeyFrame>
-                                        <KeyFrame Cue="100%">
-                                            <Setter Property="RenderTransform" Value="rotate(360deg)"/>
-                                        </KeyFrame>
-                                    </Animation>
-                                </Style.Animations>
-                            </Style>
-                        </TextBlock.Styles>
-                    </TextBlock>
+                               HorizontalAlignment="Center"/>
                     
                     <!-- Status text -->
                     <TextBlock x:Name="StatusTextBlock"

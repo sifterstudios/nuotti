@@ -18,6 +18,7 @@ using Nuotti.Projector.Services;
 using Nuotti.Projector.Views;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -77,6 +78,14 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // DEBUG: Ensure window is configured for visibility
+        Debug.WriteLine("[MainWindow] Constructor called");
+        Debug.WriteLine($"[MainWindow] Initial WindowState={WindowState}, IsVisible={IsVisible}");
+
+        // Ensure window decorations are correct
+        ExtendClientAreaToDecorationsHint = false;
+        Debug.WriteLine("[MainWindow] Window decorations configured");
 
         _connectionTextBlock = this.FindControl<TextBlock>("ConnectionStatus")!;
         _sessionCodeText = this.FindControl<TextBlock>("SessionCodeText")!;
@@ -304,12 +313,12 @@ public partial class MainWindow : Window
                 //         AppendLocal("[window] Saved monitor not found, reset to windowed mode");
                 //     }
                 // }
-                
+
                 // Force windowed mode for debugging
                 WindowState = WindowState.Normal;
                 _settings.IsFullscreen = false;
                 AppendLocal("[window] Starting in windowed mode (fullscreen restoration disabled for debugging)");
-                
+
                 // Ensure window is visible and on-screen
                 if (WindowState == WindowState.Minimized)
                 {
@@ -559,6 +568,13 @@ public partial class MainWindow : Window
 
     void AppendLocal(string message)
     {
+        // Ensure we're on the UI thread when modifying UI-bound collections
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => AppendLocal(message));
+            return;
+        }
+
         var ts = DateTimeOffset.Now.ToString("HH:mm:ss.fff");
         _logs.Add($"{ts} LOCAL  Projector: {message}");
         TrimAndScroll();
@@ -569,9 +585,19 @@ public partial class MainWindow : Window
         const int max = 500;
         while (_logs.Count > max)
             _logs.RemoveAt(0);
-        // Scroll to bottom
-        if (_logList.ItemCount > 0)
-            _logList.ScrollIntoView(_logList.ItemCount - 1);
+        // Scroll to bottom - but only if the control is properly laid out
+        try
+        {
+            if (_logList.ItemCount > 0 && _logList.IsVisible && _logList.Bounds.Height > 0)
+            {
+                _logList.ScrollIntoView(_logList.ItemCount - 1);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Ignore layout errors - the control might not be ready yet
+            Debug.WriteLine($"[Projector] ScrollIntoView error (non-fatal): {ex.Message}");
+        }
     }
 
     // F2 - Monitor Selection & Fullscreen functionality
@@ -681,22 +707,26 @@ public partial class MainWindow : Window
     // F22 - Audio enforcement functionality
     private void OnAudioViolationDetected(AudioViolation violation)
     {
-        var severity = violation.ViolationType switch
+        // Marshal to UI thread - AudioEnforcementService timer runs on background thread
+        Dispatcher.UIThread.Post(() =>
         {
-            AudioViolationType.BlockedProcess => "WARNING",
-            AudioViolationType.AudioWindow => "INFO",
-            AudioViolationType.SystemAudioService => "DEBUG",
-            _ => "NOTICE"
-        };
+            var severity = violation.ViolationType switch
+            {
+                AudioViolationType.BlockedProcess => "WARNING",
+                AudioViolationType.AudioWindow => "INFO",
+                AudioViolationType.SystemAudioService => "DEBUG",
+                _ => "NOTICE"
+            };
 
-        AppendLocal($"[audio-{severity.ToLower()}] {violation.Description}");
+            AppendLocal($"[audio-{severity.ToLower()}] {violation.Description}");
 
-        // For critical violations, we could show a warning overlay
-        if (violation.ViolationType == AudioViolationType.BlockedProcess)
-        {
-            // In a production system, this might show a warning to the operator
-            Console.WriteLine($"[audio-enforcement] CRITICAL: {violation.Description}");
-        }
+            // For critical violations, we could show a warning overlay
+            if (violation.ViolationType == AudioViolationType.BlockedProcess)
+            {
+                // In a production system, this might show a warning to the operator
+                Console.WriteLine($"[audio-enforcement] CRITICAL: {violation.Description}");
+            }
+        });
     }
 
     public AudioEnforcementReport GetAudioEnforcementReport()
@@ -939,7 +969,11 @@ public partial class MainWindow : Window
 
     private void OnPerformanceMetricsUpdated(PerformanceMetrics metrics)
     {
-        _debugOverlay.UpdatePerformanceMetrics(metrics);
+        // Marshal to UI thread - PerformanceService timer runs on background thread
+        Dispatcher.UIThread.Post(() =>
+        {
+            _debugOverlay.UpdatePerformanceMetrics(metrics);
+        });
     }
 
     // F13 - Debug Overlay functionality & F14 - Window Management Controls
