@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Nuotti.Backend.Diagnostics;
 using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Sessions;

@@ -10,7 +10,6 @@ using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
 using Serilog;
-using Serilog.Sinks.File;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.AddServiceDefaults();
@@ -112,7 +111,7 @@ var auditLogger = new Serilog.LoggerConfiguration()
     .WriteTo.File(
         new Serilog.Formatting.Json.JsonFormatter(renderMessage: true),
         auditLogPath,
-        rollingInterval: Serilog.Sinks.File.RollingInterval.Day,
+        rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 30, // Keep 30 days of audit logs
         fileSizeLimitBytes: 100_000_000, // 100MB per file
         rollOnFileSizeLimit: true)
@@ -158,7 +157,7 @@ var logger = app.Services.GetRequiredService<ILogger<Program>>();
 var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Backend");
 var features = ServiceDefaults.FeatureFlags.GetAll(app.Configuration);
 var enabledFeatures = features.Where(f => f.Value).Select(f => f.Key).ToList();
-logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}, EnabledFeatures=[{EnabledFeatures}]", 
+logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}, EnabledFeatures=[{EnabledFeatures}]",
     versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime, string.Join(", ", enabledFeatures));
 
 // Check time drift at startup
@@ -169,12 +168,12 @@ try
     if (driftResult.Success)
     {
         var driftClassification = Nuotti.Backend.TimeDrift.TimeDriftService.ClassifyDrift(driftResult.DriftMs);
-        logger.LogInformation("Time drift check. DriftMs={DriftMs:F2}, Classification={Classification}, NtpServer={NtpServer}, LocalTime={LocalTime:O}, NtpTime={NtpTime:O}", 
+        logger.LogInformation("Time drift check. DriftMs={DriftMs:F2}, Classification={Classification}, NtpServer={NtpServer}, LocalTime={LocalTime:O}, NtpTime={NtpTime:O}",
             driftResult.DriftMs, driftClassification, driftResult.NtpServer, driftResult.LocalTime, driftResult.NtpTime);
-        
+
         if (Math.Abs(driftResult.DriftMs) > 250)
         {
-            logger.LogWarning("Significant time drift detected. DriftMs={DriftMs:F2}, Classification={Classification}", 
+            logger.LogWarning("Significant time drift detected. DriftMs={DriftMs:F2}, Classification={Classification}",
                 driftResult.DriftMs, driftClassification);
         }
     }

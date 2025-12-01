@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Nuotti.Contracts.V1;
+﻿using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;

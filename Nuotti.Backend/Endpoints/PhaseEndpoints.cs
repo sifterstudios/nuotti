@@ -1,5 +1,4 @@
-﻿using System.Linq;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Exception;
 using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Metrics;
@@ -11,7 +10,6 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Reducer;
-using Serilog.Context;
 namespace Nuotti.Backend.Endpoints;
 
 internal static class PhaseEndpoints

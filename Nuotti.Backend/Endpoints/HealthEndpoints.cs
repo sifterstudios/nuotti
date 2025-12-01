@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Nuotti.Backend.Sessions;
 
 namespace Nuotti.Backend.Endpoints;
 
