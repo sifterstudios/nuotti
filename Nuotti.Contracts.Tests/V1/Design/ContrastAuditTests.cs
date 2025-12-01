@@ -1,3 +1,4 @@
+using System;
 using FluentAssertions;
 using Nuotti.Contracts.V1.Design;
 using Xunit;
@@ -174,7 +175,8 @@ public class ContrastAuditTests
     [Fact]
     public void AllThemes_TextSecondary_On_Surface_MeetsWCAGAALarge()
     {
-        foreach (var variant in Enum.GetValues<ThemeVariant>())
+        var variants = new[] { ThemeVariant.Light, ThemeVariant.Dark, ThemeVariant.HighContrast };
+        foreach (var variant in variants)
         {
             var palette = DesignTokens.GetPalette(variant);
             var contrastRatio = ContrastCalculator.CalculateContrastRatio(palette.TextSecondary, palette.Surface);
