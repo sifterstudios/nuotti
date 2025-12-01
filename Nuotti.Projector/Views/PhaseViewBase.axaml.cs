@@ -29,7 +29,7 @@ public abstract partial class PhaseViewBase : UserControl
     /// </summary>
     protected Size GetWindowSize()
     {
-        var current = this;
+        var current = (Control?)this;
         while (current != null)
         {
             if (current is Window window)

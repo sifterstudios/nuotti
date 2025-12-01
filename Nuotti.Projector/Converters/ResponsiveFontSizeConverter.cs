@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia;
+using Avalonia.Controls;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Converters;
