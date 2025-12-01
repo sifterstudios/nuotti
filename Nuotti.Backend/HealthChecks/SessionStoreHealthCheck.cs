@@ -25,7 +25,7 @@ internal class SessionStoreHealthCheck : IHealthCheck
             _ = _sessionStore.GetCounts("__health__");
             return Task.FromResult(HealthCheckResult.Healthy("SessionStore is accessible"));
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             return Task.FromResult(HealthCheckResult.Unhealthy("SessionStore is not accessible", ex));
         }

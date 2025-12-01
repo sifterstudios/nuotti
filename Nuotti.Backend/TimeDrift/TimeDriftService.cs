@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 
 namespace Nuotti.Backend.TimeDrift;
 
@@ -35,7 +34,7 @@ public class TimeDriftService
                     {
                         var localTime = DateTimeOffset.UtcNow;
                         var drift = (localTime - ntpTime.Value).TotalMilliseconds;
-                        
+
                         return new TimeDriftResult
                         {
                             DriftMs = drift,
@@ -46,14 +45,14 @@ public class TimeDriftService
                         };
                     }
                 }
-                catch (Exception ex)
+                catch (System.Exception ex)
                 {
                     _logger.LogDebug("Failed to get time from NTP server {Server}: {Message}", server, ex.Message);
                     continue;
                 }
             }
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             _logger.LogWarning("Time drift check failed: {Message}", ex.Message);
         }
@@ -89,39 +88,39 @@ public class TimeDriftService
 
             using var client = new UdpClient();
             client.Client.ReceiveTimeout = 2000; // 2 second timeout
-            
+
             var ntpData = new byte[48];
             ntpData[0] = 0x1B; // NTP request packet
 
             client.Send(ntpData, ntpData.Length, endPoint);
-            
+
             var response = client.Receive(ref endPoint);
             if (response.Length >= 48)
             {
                 // Extract timestamp from NTP response (bytes 40-43: seconds, 44-47: fraction)
                 var intPart = BitConverter.ToUInt32(response, 40);
                 var fractPart = BitConverter.ToUInt32(response, 44);
-                
+
                 // Convert from network byte order (big-endian) to host byte order
                 if (BitConverter.IsLittleEndian)
                 {
                     intPart = (uint)IPAddress.NetworkToHostOrder((int)intPart);
                     fractPart = (uint)IPAddress.NetworkToHostOrder((int)fractPart);
                 }
-                
+
                 // NTP epoch is January 1, 1900
                 var ntpEpoch = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
                 var seconds = intPart;
                 var milliseconds = (fractPart * 1000UL) / 0x100000000UL;
-                
+
                 return ntpEpoch.AddSeconds(seconds).AddMilliseconds((long)milliseconds);
             }
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             _logger.LogDebug("NTP query failed for {Server}: {Message}", server, ex.Message);
         }
-        
+
         return null;
     }
 

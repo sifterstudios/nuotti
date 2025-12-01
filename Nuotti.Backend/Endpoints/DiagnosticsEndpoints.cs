@@ -29,7 +29,7 @@ internal static class DiagnosticsEndpoints
                 // Fetch current metrics, about, and status before creating bundle
                 var aboutInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Backend");
                 var metricsSnapshot = metrics.Snapshot(sessionStore);
-                
+
                 // Create enhanced bundle with live data
                 var bundlePath = await CreateEnhancedBundleAsync(
                     bundleService,
@@ -38,24 +38,24 @@ internal static class DiagnosticsEndpoints
                     session,
                     gameStateStore,
                     logFileCount);
-                
+
                 // Return bundle
                 var bundleBytes = await File.ReadAllBytesAsync(bundlePath);
                 var fileName = Path.GetFileName(bundlePath);
-                
+
                 // Cleanup temp bundle after returning (fire and forget)
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(TimeSpan.FromMinutes(5));
                     try { File.Delete(bundlePath); } catch { }
                 });
-                
+
                 return Results.File(
                     bundleBytes,
                     "application/zip",
                     fileName);
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 return Results.Problem(
                     detail: $"Failed to create diagnostics bundle: {ex.Message}",
@@ -68,8 +68,8 @@ internal static class DiagnosticsEndpoints
 
     private static async Task<string> CreateEnhancedBundleAsync(
         DiagnosticsBundleService bundleService,
-        ServiceDefaults.VersionInfo aboutInfo,
-        BackendMetrics.MetricsSnapshot metricsSnapshot,
+        ServiceDefaults.VersionInfoResult aboutInfo,
+        MetricsSnapshot metricsSnapshot,
         string? sessionCode,
         IGameStateStore gameStateStore,
         int logFileCount)
@@ -79,11 +79,11 @@ internal static class DiagnosticsEndpoints
             ? $"nuotti-diagnostics-{timestamp}.zip"
             : $"nuotti-diagnostics-{sessionCode}-{timestamp}.zip";
         var finalPath = Path.Combine(Path.GetTempPath(), fileName);
-        
+
         using var archive = System.IO.Compression.ZipFile.Open(finalPath, System.IO.Compression.ZipArchiveMode.Create);
-        
+
         var includedFiles = new List<string>();
-        
+
         // Add about.json
         var aboutEntry = archive.CreateEntry("about.json");
         await using var aboutStream = aboutEntry.Open();
@@ -95,7 +95,7 @@ internal static class DiagnosticsEndpoints
         });
         await aboutWriter.WriteAsync(aboutJson);
         includedFiles.Add("about.json");
-        
+
         // Add metrics.json
         var metricsEntry = archive.CreateEntry("metrics.json");
         await using var metricsStream = metricsEntry.Open();
@@ -107,7 +107,7 @@ internal static class DiagnosticsEndpoints
         });
         await metricsWriter.WriteAsync(metricsJson);
         includedFiles.Add("metrics.json");
-        
+
         // Add status.json if session provided
         if (!string.IsNullOrWhiteSpace(sessionCode) && gameStateStore.TryGet(sessionCode, out var snapshot))
         {
@@ -122,7 +122,7 @@ internal static class DiagnosticsEndpoints
             await statusWriter.WriteAsync(statusJson);
             includedFiles.Add($"status-{sessionCode}.json");
         }
-        
+
         // Add redacted config (using service helper)
         var configEntry = archive.CreateEntry("config-redacted.json");
         await using var configStream = configEntry.Open();
@@ -134,7 +134,7 @@ internal static class DiagnosticsEndpoints
         });
         await configWriter.WriteAsync(configJson);
         includedFiles.Add("config-redacted.json");
-        
+
         // Add logs info (indicating where logs are located)
         var logsInfoEntry = archive.CreateEntry("logs-info.txt");
         await using var logsInfoStream = logsInfoEntry.Open();
@@ -146,7 +146,7 @@ internal static class DiagnosticsEndpoints
         await logsInfoWriter.WriteLineAsync();
         await logsInfoWriter.WriteLineAsync($"Collect the last {logFileCount} log files from each service and add them to this bundle.");
         includedFiles.Add("logs-info.txt");
-        
+
         // Add manifest
         var manifestEntry = archive.CreateEntry("manifest.json");
         await using var manifestStream = manifestEntry.Open();
@@ -167,7 +167,7 @@ internal static class DiagnosticsEndpoints
         });
         await manifestWriter.WriteAsync(manifestJson);
         includedFiles.Add("manifest.json");
-        
+
         return finalPath;
     }
 }

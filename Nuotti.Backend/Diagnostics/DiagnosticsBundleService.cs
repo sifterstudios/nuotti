@@ -69,7 +69,7 @@ public class DiagnosticsBundleService
             // Add bundle manifest
             await AddManifestAsync(archive, sessionCode, timestamp, cancellationToken);
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             _logger.LogError(ex, "Failed to create diagnostics bundle: {Message}", ex.Message);
             throw;
@@ -105,7 +105,7 @@ public class DiagnosticsBundleService
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        
+
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream);
         await writer.WriteAsync(json);
@@ -137,7 +137,7 @@ public class DiagnosticsBundleService
         {
             WriteIndented = true
         });
-        
+
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream);
         await writer.WriteAsync(json);
@@ -149,7 +149,7 @@ public class DiagnosticsBundleService
         // They are stored in AppData\Roaming\Nuotti\Logs\Nuotti.Backend\
         // Since this is the Backend service, we won't have access to Performer/Engine logs
         // For now, we'll add a note that logs should be collected from the respective services
-        
+
         var entry = archive.CreateEntry("logs-info.txt");
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream);
@@ -173,13 +173,13 @@ public class DiagnosticsBundleService
             runtime = VersionInfo.GetVersionInfo("Nuotti.Backend").Runtime,
             includedFiles = archive.Entries.Select(e => e.FullName).ToList()
         };
-        
+
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions
         {
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
-        
+
         await using var stream = entry.Open();
         await using var writer = new StreamWriter(stream);
         await writer.WriteAsync(json);

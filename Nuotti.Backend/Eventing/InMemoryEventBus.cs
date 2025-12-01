@@ -2,6 +2,7 @@
 using Nuotti.Backend.Telemetry;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
+using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 namespace Nuotti.Backend.Eventing;

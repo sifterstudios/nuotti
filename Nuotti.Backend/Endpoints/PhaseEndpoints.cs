@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using System.Linq;
+using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Exception;
 using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Metrics;
@@ -70,7 +71,7 @@ internal static class PhaseEndpoints
         activity?.SetTag("command.applied", true);
         
         // Log audit entry for command applied
-        auditService?.LogCommandApplied(cmd, $"Phase={newState.Phase}, SongIndex={newState.SongIndex}, TotalAnswers={newState.TotalAnswers}, Players={newState.Scores.Count}");
+        auditService?.LogCommandApplied(cmd, $"Phase={newState.Phase}, SongIndex={newState.SongIndex}, TotalAnswers={newState.Tallies.Sum()}, Players={newState.Scores.Count}");
         
         return Results.Accepted();
     }

@@ -1,3 +1,4 @@
+using System.Linq;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
@@ -86,7 +87,7 @@ public class AuditLogService
             return "Session not found";
         }
 
-        return $"Phase={snapshot.Phase}, SongIndex={snapshot.SongIndex}, TotalAnswers={snapshot.TotalAnswers}, Players={snapshot.Scores.Count}";
+        return $"Phase={snapshot.Phase}, SongIndex={snapshot.SongIndex}, TotalAnswers={snapshot.Tallies.Sum()}, Players={snapshot.Scores.Count}";
     }
 }
 
