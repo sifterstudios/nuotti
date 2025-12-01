@@ -8,7 +8,9 @@ using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
+using Microsoft.Extensions.Options;
 using Serilog;
+using Serilog.Sinks.File;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.AddServiceDefaults();
@@ -27,13 +29,8 @@ builder.Configuration
 builder.Services
     .AddOptions<NuottiOptions>()
     .Bind(builder.Configuration)
-    .Validate<NuottiOptions>((options, name) =>
-    {
-        var validator = new NuottiOptionsValidator();
-        var result = validator.Validate(name, options);
-        return result.Succeeded;
-    }, "Configuration validation failed")
     .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<NuottiOptions>, NuottiOptionsValidator>();
 
 builder.Services
     .AddSignalR(o =>
@@ -66,8 +63,7 @@ builder.Services.AddCors(options =>
         else
         {
             // Production: allowlist via config
-            var opts = builder.Configuration.Get<NuottiOptions>();
-            var origins = (opts?.AllowedOrigins ?? string.Empty)
+            var origins = builder.Configuration.GetValue<string>("Nuotti:AllowedOrigins", string.Empty)
                 .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             if (origins.Length > 0)
@@ -116,7 +112,7 @@ var auditLogger = new Serilog.LoggerConfiguration()
     .WriteTo.File(
         new Serilog.Formatting.Json.JsonFormatter(renderMessage: true),
         auditLogPath,
-        rollingInterval: Serilog.Sinks.RollingInterval.Day,
+        rollingInterval: Serilog.Sinks.File.RollingInterval.Day,
         retainedFileCountLimit: 30, // Keep 30 days of audit logs
         fileSizeLimitBytes: 100_000_000, // 100MB per file
         rollOnFileSizeLimit: true)

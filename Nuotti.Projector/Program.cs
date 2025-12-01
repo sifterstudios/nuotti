@@ -3,6 +3,7 @@ using System;
 using Serilog;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using HostingLoggingExtensions = Microsoft.Extensions.Hosting.LoggingExtensions;
 
 namespace Nuotti.Projector;
 
@@ -18,7 +19,7 @@ class Program
         var config = new ConfigurationBuilder()
             .AddEnvironmentVariables(prefix: "NUOTTI_")
             .Build();
-        LoggingExtensions.ConfigureStructuredLogging("Nuotti.Projector", config);
+        Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.Projector", config);
         
         var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Projector");
         Log.Information("Projector starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}", 
