@@ -37,6 +37,9 @@
                     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
                     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource TertiaryColor}" />
                     <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+                    <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource InfoColor}" />
+                    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+                    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
                     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
                     <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
                     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
@@ -65,6 +68,9 @@
                     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
                     <SolidColorBrush x:Key="TertiaryBrush" Color="{StaticResource TertiaryColor}" />
                     <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+                    <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource InfoColor}" />
+                    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+                    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
                     <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
                     <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
                     <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />

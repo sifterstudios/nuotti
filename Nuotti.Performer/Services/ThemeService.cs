@@ -53,7 +53,7 @@ public class ThemeService : IAsyncDisposable
         _objRef = DotNetObjectReference.Create(this);
         
         // Check for saved preference, otherwise use system preference
-        var savedPreference = await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", "theme-preference");
+        var savedPreference = await runtime.InvokeAsync<string?>("localStorage.getItem", "theme-preference");
         
         if (!string.IsNullOrEmpty(savedPreference))
         {
