@@ -19,6 +19,11 @@
   <RunConfiguration>
     <MaxCpuCount>0</MaxCpuCount>
     <ResultsDirectory>./TestResults</ResultsDirectory>
+    <EnvironmentVariables>
+      <!-- Stop Verify/DiffEngine launching the OS diff tool (a Rider window per failing
+           snapshot test, per run). Belt-and-braces with VerifierSettings.DisableDiff(). -->
+      <DiffEngine_Disabled>true</DiffEngine_Disabled>
+    </EnvironmentVariables>
     <TreatTestAdapterErrorsAsWarnings>false</TreatTestAdapterErrorsAsWarnings>
     <!-- Note: xUnit doesn't support retry in .runsettings. Use deterministic seeds and mark flaky tests with [Trait("Flaky", "true")] -->
   </RunConfiguration>
