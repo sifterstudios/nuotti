@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
@@ -24,19 +25,11 @@ public partial class LobbyView : PhaseViewBase
         _playerCountText = this.FindControl<TextBlock>("PlayerCountText")!;
     }
 
-    public override void UpdateState(GameStateSnapshot state)
+    public override void Apply(ViewSpec spec)
     {
-        _sessionCodeText.Text = state.SessionCode.ToUpperInvariant();
+        _sessionCodeText.Text = spec.SessionCodeDisplay;
+        _playerCountText.Text = spec.PlayerCountText;
 
-        var playerCount = state.Scores.Count;
-        _playerCountText.Text = playerCount switch
-        {
-            0 => "Waiting for players...",
-            1 => "1 player joined",
-            _ => $"{playerCount} players joined"
-        };
-
-        // Update responsive font sizes
         UpdateResponsiveFontSizes();
     }
 

@@ -29,6 +29,15 @@ public sealed record ChoiceSpec(string Text, string CountText, bool IsVisible, b
 public sealed record ScoreRowSpec(int Position, string Player, int Score);
 
 /// <summary>
+/// The icon-and-title screen used for phases without a bespoke view.
+/// </summary>
+/// <param name="Icon">Emoji shown above the title.</param>
+/// <param name="Title">Large phase title.</param>
+/// <param name="ShowSong">Whether the song panel is shown at all.</param>
+/// <param name="Detail">Optional line under the title; empty means hidden.</param>
+public sealed record SimpleSpec(string Icon, string Title, bool ShowSong, string Detail);
+
+/// <summary>
 /// Font sizes for one window size, resolved once so views do not each measure the visual tree.
 /// </summary>
 public sealed record TypographySpec(
@@ -64,4 +73,6 @@ public sealed record ViewSpec(
     IReadOnlyList<ScoreRowSpec> ScoreRows,
     string ScoreboardHeader,
     string ScoreboardFooter,
+    SimpleSpec Simple,
+    bool HasSong,
     TypographySpec Typography);

@@ -53,6 +53,8 @@ public sealed class PhasePresenter(
             ScoreboardFooter: state.SongIndex + 1 >= state.Catalog.Count
                 ? "Final Results!"
                 : "Get ready for the next song!",
+            Simple: SimpleFor(state),
+            HasSong: state.CurrentSong is not null,
             Typography: TypographyFor(windowSize));
     }
 
@@ -154,6 +156,21 @@ public sealed class PhasePresenter(
 
     static string FirstLetterOf(string value)
         => string.IsNullOrWhiteSpace(value) ? "?" : value.Trim()[..1].ToUpperInvariant();
+
+    /// <summary>
+    /// The icon-and-title screen, previously derived inside SimplePhaseView.GetPhaseInfo.
+    /// </summary>
+    static SimpleSpec SimpleFor(GameStateSnapshot state) => state.Phase switch
+    {
+        Phase.Start => new("\U0001F680", "Get Ready!", true, $"Song {state.SongIndex + 1}"),
+        Phase.Hint => new("\U0001F4A1", "Hint Time", true, $"Hint {state.CurrentHintNumber()}"),
+        Phase.Lock => new("\U0001F512", "Time's Up!", true, "No more answers!"),
+        Phase.Reveal => new("\U0001F389", "The Answer Is...", true, string.Empty),
+        Phase.Play => new("\U0001F3B5", "Now Playing", true, string.Empty),
+        Phase.Intermission => new("\U0001F4CA", "Scoreboard", false, "Check your score!"),
+        Phase.Finished => new("\U0001F3C6", "Game Over!", false, "Thanks for playing!"),
+        _ => new("\U0001F3B5", state.Phase.ToString(), false, string.Empty)
+    };
 
     IReadOnlyList<ScoreRowSpec> ScoreRowsFor(GameStateSnapshot state)
         => state.TopPlayers()

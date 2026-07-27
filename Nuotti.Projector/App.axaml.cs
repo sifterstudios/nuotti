@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Nuotti.Projector.Presentation;
+using Nuotti.Projector.Services;
 using System.Diagnostics;
 namespace Nuotti.Projector;
 
@@ -16,8 +18,18 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            Debug.WriteLine("[App] Composing services...");
+
+            // Composition root. Deliberately explicit rather than a DI container: one window needs
+            // no registration list, and the presenter is testable without one either way.
+            var contentSafety = new ContentSafetyService();
+            var localization = new LocalizationService();
+            var typography = new ResponsiveTypographyService();
+            var settings = new SettingsService();
+            var presenter = new PhasePresenter(contentSafety, localization, typography);
+
             Debug.WriteLine("[App] Creating MainWindow...");
-            desktop.MainWindow = new MainWindow();
+            desktop.MainWindow = new MainWindow(presenter, contentSafety, localization, settings);
             Debug.WriteLine($"[App] MainWindow created. WindowState={desktop.MainWindow.WindowState}, IsVisible={desktop.MainWindow.IsVisible}");
             
             desktop.MainWindow.Show();
@@ -29,12 +41,9 @@ public partial class App : Application
                 desktop.MainWindow.WindowState = WindowState.Normal;
                 Debug.WriteLine("[App] Window was minimized, set to Normal");
             }
-            
-            // Set explicit position and size
-            desktop.MainWindow.Position = new PixelPoint(100, 100);
-            desktop.MainWindow.Width = 1280;
-            desktop.MainWindow.Height = 720;
-            Debug.WriteLine($"[App] Window positioned at {desktop.MainWindow.Position}, size {desktop.MainWindow.Width}x{desktop.MainWindow.Height}");
+
+            // No hardcoded placement here: SettingsService restores the saved monitor, size and
+            // fullscreen state, and overriding it made those settings look broken.
             
             // Bring window to front
             desktop.MainWindow.Activate();

@@ -14,6 +14,7 @@ using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Controls;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation;
 using Nuotti.Projector.Services;
 using Nuotti.Projector.Views;
 using System;
@@ -70,13 +71,27 @@ public partial class MainWindow : Window
     private readonly HotplugService _hotplugService;
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
+    private readonly PhasePresenter _presenter;
 
     // F5 - Phase views
-    private readonly Dictionary<Phase, PhaseViewBase> _phaseViews = new();
+    private readonly Dictionary<PhaseView, PhaseViewBase> _phaseViews = new();
     private PhaseViewBase? _currentPhaseView;
 
-    public MainWindow()
+    /// <summary>
+    /// Composed by App rather than self-assembling: the presenter and the three services it shares
+    /// are supplied, so the presenter can be constructed and asserted on without a window.
+    /// </summary>
+    public MainWindow(
+        PhasePresenter presenter,
+        ContentSafetyService contentSafetyService,
+        LocalizationService localizationService,
+        SettingsService settingsService)
     {
+        _presenter = presenter;
+        _contentSafetyService = contentSafetyService;
+        _localizationService = localizationService;
+        _settingsService = settingsService;
+
         InitializeComponent();
 
         // DEBUG: Ensure window is configured for visibility
@@ -103,7 +118,6 @@ public partial class MainWindow : Window
         _logList.ItemsSource = _logs;
 
         // Initialize services
-        _settingsService = new SettingsService();
         _monitorService = new MonitorService();
         _safeAreaService = new SafeAreaService();
         _gameStateService = new GameStateService();
@@ -111,8 +125,6 @@ public partial class MainWindow : Window
         _performanceService = new PerformanceService();
         _fontService = new FontService();
         _errorHandlingService = new ErrorHandlingService();
-        _localizationService = new LocalizationService();
-        _contentSafetyService = new ContentSafetyService();
         _themingApiService = new ThemingApiService(_backend);
         _audioEnforcementService = new AudioEnforcementService();
         _hotplugService = new HotplugService(_monitorService);
@@ -461,12 +473,12 @@ public partial class MainWindow : Window
     /// increment its own counter per AnswerSubmitted, giving the Projector two independent tally
     /// stores for the same number; it now reads the one source of truth.
     /// </summary>
-    void RefreshTallyDisplay(IReadOnlyList<int> tallies)
+    void RefreshTallyDisplay(ViewSpec spec)
     {
-        for (int i = 0; i < _tally.Length; i++)
+        for (int i = 0; i < _tally.Length && i < spec.Choices.Count; i++)
         {
-            _tally[i] = i < tallies.Count ? tallies[i] : 0;
-            _choiceCounts[i].Text = _tally[i].ToString();
+            _choiceCounts[i].Text = spec.Choices[i].CountText;
+            _tally[i] = int.TryParse(spec.Choices[i].CountText, out var count) ? count : 0;
         }
         HighlightLeaders();
     }
@@ -824,39 +836,21 @@ public partial class MainWindow : Window
         AppendLocal($"[safe-area] Margin set to {margin:P1}");
     }
 
-    // F5 - GameStateSnapshot Renderer functionality
+    // F5 - Phase view rendering. PhasePresenter decides what to show; this only realises it.
     private void InitializePhaseViews()
     {
-        // Create phase-specific views
-        _phaseViews[Phase.Lobby] = new LobbyView();
-        _phaseViews[Phase.Guessing] = new GuessingView();
-        _phaseViews[Phase.Intermission] = new ScoreboardView();
-        _phaseViews[Phase.Hint] = new HintView();
-
-        // Use SimplePhaseView for other phases
-        var simplePhases = new[] { Phase.Start, Phase.Lock, Phase.Reveal, Phase.Play, Phase.Finished };
-        foreach (var phase in simplePhases)
-        {
-            _phaseViews[phase] = new SimplePhaseView();
-        }
+        _phaseViews[PhaseView.Lobby] = new LobbyView();
+        _phaseViews[PhaseView.Guessing] = new GuessingView();
+        _phaseViews[PhaseView.Scoreboard] = new ScoreboardView();
+        _phaseViews[PhaseView.Hint] = new HintView();
+        _phaseViews[PhaseView.Simple] = new SimplePhaseView();
     }
 
     private void OnGameStateChanged(GameStateSnapshot state)
     {
         try
         {
-            // Update session code display
-            _sessionCodeText.Text = state.SessionCode.ToUpperInvariant();
-
-            // Keep the legacy count labels in step with the snapshot's tallies.
-            RefreshTallyDisplay(state.Tallies);
-
-            // Switch to appropriate phase view
-            if (_gameStateService.ShouldShowPhase(state.Phase))
-            {
-                SwitchToPhaseView(state.Phase, state);
-            }
-
+            Render(_presenter.Present(state, _settings, Bounds.Size));
             AppendLocal($"[gamestate] Phase: {state.Phase}, Song: {state.SongTitle()}");
         }
         catch (Exception ex)
@@ -865,37 +859,41 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SwitchToPhaseView(Phase phase, GameStateSnapshot state)
+    /// <summary>
+    /// Realises a ViewSpec: this is the whole of MainWindow's rendering responsibility. Every
+    /// decision behind it - which view, what text, whether tallies show, what size the type is -
+    /// was made by PhasePresenter and is asserted on in PhasePresenterTests.
+    /// </summary>
+    private void Render(ViewSpec spec)
     {
-        if (!_phaseViews.TryGetValue(phase, out var phaseView))
+        _sessionCodeText.Text = spec.SessionCodeDisplay;
+
+        // Keep the legacy count labels in step.
+        RefreshTallyDisplay(spec);
+
+        if (!spec.Visible) return;
+
+        if (!_phaseViews.TryGetValue(spec.View, out var phaseView))
         {
-            AppendLocal($"[gamestate] No view for phase {phase}");
+            AppendLocal($"[gamestate] No view for {spec.View}");
             return;
         }
 
-        // Remove current view
-        if (_currentPhaseView != null)
+        if (!ReferenceEquals(_currentPhaseView, phaseView))
         {
-            _contentGrid.Children.Remove(_currentPhaseView);
+            if (_currentPhaseView != null)
+            {
+                _contentGrid.Children.Remove(_currentPhaseView);
+            }
+
+            _currentPhaseView = phaseView;
+            Grid.SetRow(_currentPhaseView, 1);
+            Grid.SetColumn(_currentPhaseView, 0);
+            _contentGrid.Children.Add(_currentPhaseView);
+            AppendLocal($"[gamestate] Switched to {spec.View} view");
         }
 
-        // Add new view
-        _currentPhaseView = phaseView;
-
-        // Update settings for views that support it
-        if (_currentPhaseView is GuessingView guessingView)
-        {
-            guessingView.UpdateSettings(_settings);
-        }
-
-        _currentPhaseView.UpdateState(state);
-
-        // Add to main content area (replace the current question/options area)
-        Grid.SetRow(_currentPhaseView, 1);
-        Grid.SetColumn(_currentPhaseView, 0);
-        _contentGrid.Children.Add(_currentPhaseView);
-
-        AppendLocal($"[gamestate] Switched to {phase} view");
+        _currentPhaseView.Apply(spec);
     }
 
     // F7 - Live Tallies & Animations functionality
@@ -907,12 +905,7 @@ public partial class MainWindow : Window
         // Update button appearance
         _tallyToggleButton.Content = _settings.HideTalliesUntilReveal ? "🙈" : "👁️";
 
-        // Refresh current view if it's a guessing view
-        if (_currentPhaseView is GuessingView guessingView)
-        {
-            guessingView.UpdateSettings(_settings);
-            guessingView.UpdateState(_gameStateService.CurrentState);
-        }
+        Render(_presenter.Present(_gameStateService.CurrentState, _settings, Bounds.Size));
 
         var status = _settings.HideTalliesUntilReveal ? "hidden" : "visible";
         AppendLocal($"[tallies] Tallies during guessing: {status}");

@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation;
+using System.Linq;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 using System;
@@ -33,27 +35,13 @@ public partial class ScoreboardView : PhaseViewBase
         _animationService = new AnimationService();
     }
     
-    public override void UpdateState(GameStateSnapshot state)
+    public override void Apply(ViewSpec spec)
     {
-        // Update header info
-        _songInfoText.Text = $"After Song {state.SongIndex + 1}";
-        
-        // Update footer
-        var totalSongs = state.Catalog.Count;
-        if (state.SongIndex + 1 >= totalSongs)
-        {
-            _footerText.Text = "Final Results!";
-        }
-        else
-        {
-            _footerText.Text = "Get ready for the next song!";
-        }
-        
-        // Update responsive font sizes
+        _songInfoText.Text = spec.ScoreboardHeader;
+        _footerText.Text = spec.ScoreboardFooter;
+
         UpdateResponsiveFontSizes();
-        
-        // Update scoreboard
-        UpdateScoreboard(state);
+        UpdateScoreboard(spec);
     }
     
     protected override void UpdateResponsiveFontSizes()
@@ -83,12 +71,12 @@ public partial class ScoreboardView : PhaseViewBase
             safeAreaMargin);
     }
     
-    private void UpdateScoreboard(GameStateSnapshot state)
+    private void UpdateScoreboard(ViewSpec spec)
     {
         // Clear existing entries
         _scoreboardPanel.Children.Clear();
-        
-        if (!state.HasScores())
+
+        if (spec.ScoreRows.Count == 0)
         {
             // Show "no players" message
             var windowSize = GetWindowSize();
@@ -111,15 +99,12 @@ public partial class ScoreboardView : PhaseViewBase
             return;
         }
         
-        // Get top players
-        var topPlayers = state.TopPlayers(MaxPlayersToShow);
-        
-        for (int i = 0; i < topPlayers.Count; i++)
+        var rows = spec.ScoreRows.Take(MaxPlayersToShow).ToList();
+
+        for (int i = 0; i < rows.Count; i++)
         {
-            var (player, score, change) = topPlayers[i];
-            var position = i + 1;
-            
-            var playerEntry = CreatePlayerEntry(position, player, score, change);
+            var row = rows[i];
+            var playerEntry = CreatePlayerEntry(row.Position, row.Player, row.Score, 0);
             _scoreboardPanel.Children.Add(playerEntry);
             
             // Animate entry appearance
@@ -127,7 +112,7 @@ public partial class ScoreboardView : PhaseViewBase
         }
         
         // Auto-scroll if there are many players
-        if (topPlayers.Count > 8)
+        if (rows.Count > 8)
         {
             _ = Task.Delay(2000).ContinueWith(_ =>
             {

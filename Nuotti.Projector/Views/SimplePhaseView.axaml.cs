@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
@@ -64,43 +65,26 @@ public partial class SimplePhaseView : PhaseViewBase
             safeAreaMargin);
     }
 
-    public override void UpdateState(GameStateSnapshot state)
+    public override void Apply(ViewSpec spec)
     {
-        UpdateForPhase(state.Phase, state);
+        UpdateForPhase(spec);
         UpdateResponsiveFontSizes();
     }
 
-    public void UpdateForPhase(Phase phase, GameStateSnapshot state)
+    void UpdateForPhase(ViewSpec spec)
     {
-        var (icon, title, showSong, additionalInfo) = GetPhaseInfo(phase, state);
+        _phaseIconText.Text = spec.Simple.Icon;
+        _phaseTitleText.Text = spec.Simple.Title;
 
-        _phaseIconText.Text = icon;
-        _phaseTitleText.Text = title;
-
-        _songInfoPanel.IsVisible = showSong && state.CurrentSong != null;
-        if (showSong && state.CurrentSong != null)
+        _songInfoPanel.IsVisible = spec.Simple.ShowSong && spec.HasSong;
+        if (_songInfoPanel.IsVisible)
         {
-            _songTitleText.Text = state.SongTitle();
-            _songArtistText.Text = state.SongArtist();
+            _songTitleText.Text = spec.SongTitle;
+            _songArtistText.Text = spec.SongArtist;
         }
 
-        _additionalInfoText.IsVisible = !string.IsNullOrEmpty(additionalInfo);
-        _additionalInfoText.Text = additionalInfo ?? "";
-    }
-
-    private (string Icon, string Title, bool ShowSong, string? AdditionalInfo) GetPhaseInfo(Phase phase, GameStateSnapshot state)
-    {
-        return phase switch
-        {
-            Phase.Start => ("🚀", "Get Ready!", true, $"Song {state.SongIndex + 1}"),
-            Phase.Hint => ("💡", "Hint Time", true, $"Hint {state.HintIndex + 1}"),
-            Phase.Lock => ("🔒", "Time's Up!", true, "No more answers!"),
-            Phase.Reveal => ("🎉", "The Answer Is...", true, null),
-            Phase.Play => ("🎵", "Now Playing", true, null),
-            Phase.Intermission => ("📊", "Scoreboard", false, "Check your score!"),
-            Phase.Finished => ("🏆", "Game Over!", false, "Thanks for playing!"),
-            _ => ("🎵", phase.ToString(), false, null)
-        };
+        _additionalInfoText.IsVisible = !string.IsNullOrEmpty(spec.Simple.Detail);
+        _additionalInfoText.Text = spec.Simple.Detail;
     }
 
     protected override void InitializeComponent()

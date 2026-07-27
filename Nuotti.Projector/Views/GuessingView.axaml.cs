@@ -7,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
@@ -21,8 +22,7 @@ public partial class GuessingView : PhaseViewBase
     private readonly TextBlock[] _optionCounts;
     private readonly Border[] _optionBorders;
     private readonly AnimationService _animationService;
-    private int[] _lastTallies = new int[4];
-    private bool _hideTalliesUntilReveal;
+    private string[] _lastCountTexts = [];
     private ProjectorSettings? _settings;
     
     public GuessingView()
@@ -60,69 +60,42 @@ public partial class GuessingView : PhaseViewBase
         };
     }
     
-    public override void UpdateState(GameStateSnapshot state)
+    public override void Apply(ViewSpec spec)
     {
-        // Update song info
-        _songTitleText.Text = state.SongTitle();
-        _songArtistText.Text = state.SongArtist();
-        
-        // Update question (could be dynamic based on game type)
-        _questionText.Text = "What song is this?";
-        
-        // Check if we should hide tallies
-        _hideTalliesUntilReveal = ShouldHideTallies(state.Phase);
-        
-        // Update options
-        for (int i = 0; i < _optionTexts.Length; i++)
+        _songTitleText.Text = spec.SongTitle;
+        _songArtistText.Text = spec.SongArtist;
+        _questionText.Text = spec.Question;
+
+        for (int i = 0; i < _optionTexts.Length && i < spec.Choices.Count; i++)
         {
-            if (i < state.Choices.Count)
+            var choice = spec.Choices[i];
+            _optionBorders[i].IsVisible = choice.IsVisible;
+            if (!choice.IsVisible) continue;
+
+            _optionTexts[i].Text = choice.Text;
+
+            // Animate only when the number actually moved, so a re-render does not replay it.
+            var previous = i < _lastCountTexts.Length ? _lastCountTexts[i] : string.Empty;
+            if (spec.ShowTallies
+                && previous != choice.CountText
+                && int.TryParse(previous, out var from)
+                && int.TryParse(choice.CountText, out var to))
             {
-                _optionTexts[i].Text = state.Choices[i];
-                _optionBorders[i].IsVisible = true;
-                
-                // Update tallies with animation
-                var newCount = i < state.Tallies.Count ? state.Tallies[i] : 0;
-                var oldCount = i < _lastTallies.Length ? _lastTallies[i] : 0;
-                
-                if (_hideTalliesUntilReveal)
-                {
-                    _optionCounts[i].Text = "?";
-                }
-                else
-                {
-                    if (newCount != oldCount)
-                    {
-                        _ = _animationService.AnimateCounterUpdate(_optionCounts[i], oldCount, newCount);
-                    }
-                    else
-                    {
-                        _optionCounts[i].Text = newCount.ToString();
-                    }
-                }
+                _ = _animationService.AnimateCounterUpdate(_optionCounts[i], from, to);
             }
             else
             {
-                _optionBorders[i].IsVisible = false;
+                _optionCounts[i].Text = choice.CountText;
             }
         }
-        
-        // Store current tallies for next update
-        _lastTallies = state.Tallies.ToArray();
-        
-        // Highlight leading options (only if not hiding tallies)
-        if (!_hideTalliesUntilReveal)
-        {
-            _ = HighlightLeadersAnimated(state.Tallies);
-        }
-        
-        // Update responsive font sizes
+
+        _lastCountTexts = spec.Choices.Select(c => c.CountText).ToArray();
+
+        HighlightLeaders(spec);
+
         UpdateResponsiveFontSizes();
     }
     
-    public void UpdateSettings(ProjectorSettings settings)
-    {
-        _settings = settings;
-    }
     
     protected override void UpdateResponsiveFontSizes()
     {
@@ -168,17 +141,11 @@ public partial class GuessingView : PhaseViewBase
         }
     }
     
-    private bool ShouldHideTallies(Phase phase)
-    {
-        // Hide tallies during guessing phase if setting is enabled
-        return _settings?.HideTalliesUntilReveal == true && phase == Phase.Guessing;
-    }
     
-    private async Task HighlightLeadersAnimated(IReadOnlyList<int> tallies)
+    
+    private void HighlightLeaders(ViewSpec spec)
     {
-        if (tallies.Count == 0) return;
-        
-        var max = tallies.Max();
+        if (spec.Choices.Count == 0) return;
         
         // Get theme brushes
         IBrush? successBrush = null;
@@ -192,45 +159,10 @@ public partial class GuessingView : PhaseViewBase
         successBrush ??= new SolidColorBrush(Color.Parse("#46B283"));
         defaultBrush ??= new SolidColorBrush(Color.Parse("#F5F5F5"));
         
-        // Animate background changes
-        var tasks = new List<Task>();
-        for (int i = 0; i < _optionBorders.Length && i < tallies.Count; i++)
+        // IsLeader is decided by PhasePresenter, which also accounts for hidden tallies and ties.
+        for (int i = 0; i < _optionBorders.Length && i < spec.Choices.Count; i++)
         {
-            var newBrush = tallies[i] == max && max > 0 ? successBrush : defaultBrush;
-            if (_optionBorders[i].Background != newBrush)
-            {
-                tasks.Add(_animationService.AnimateBackgroundChange(_optionBorders[i], newBrush));
-            }
-        }
-        
-        // Wait for all animations to complete
-        if (tasks.Count > 0)
-        {
-            await Task.WhenAll(tasks);
-        }
-    }
-    
-    private void HighlightLeaders(IReadOnlyList<int> tallies)
-    {
-        if (tallies.Count == 0) return;
-        
-        var max = tallies.Max();
-        
-        // Get theme brushes
-        IBrush? successBrush = null;
-        IBrush? defaultBrush = null;
-        
-        if (Application.Current?.Resources.TryGetResource("SuccessBrush", Application.Current?.ActualThemeVariant, out var successObj) == true && successObj is IBrush s)
-            successBrush = s;
-        if (Application.Current?.Resources.TryGetResource("OptionBackgroundBrush", Application.Current?.ActualThemeVariant, out var defaultObj) == true && defaultObj is IBrush d)
-            defaultBrush = d;
-        
-        successBrush ??= new SolidColorBrush(Color.Parse("#46B283"));
-        defaultBrush ??= new SolidColorBrush(Color.Parse("#F5F5F5"));
-        
-        for (int i = 0; i < _optionBorders.Length && i < tallies.Count; i++)
-        {
-            _optionBorders[i].Background = tallies[i] == max && max > 0 ? successBrush : defaultBrush;
+            _optionBorders[i].Background = spec.Choices[i].IsLeader ? successBrush : defaultBrush;
         }
     }
     

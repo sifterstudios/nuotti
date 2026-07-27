@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 using System;
@@ -36,27 +37,18 @@ public partial class HintView : PhaseViewBase
         _animationService = new AnimationService();
     }
     
-    public override void UpdateState(GameStateSnapshot state)
+    public override void Apply(ViewSpec spec)
     {
-        // Update song info
-        _songTitleText.Text = state.SongTitle();
-        _songArtistText.Text = state.SongArtist();
-        
-        // Update hints if hint index changed
-        if (state.HintIndex != _lastHintIndex)
+        _songTitleText.Text = spec.SongTitle;
+        _songArtistText.Text = spec.SongArtist;
+
+        if (spec.Hints.Count != _displayedHints.Count)
         {
-            UpdateHints(state);
-            _lastHintIndex = state.HintIndex;
+            UpdateHints(spec);
         }
-        
-        // Update hint counter
-        var totalHints = GetEstimatedTotalHints(state);
-        var currentHintNumber = Math.Max(1, state.HintIndex + 1);
-        _hintCountText.Text = totalHints > 0 
-            ? $"Hint {currentHintNumber} of {totalHints}"
-            : $"Hint {currentHintNumber}";
-        
-        // Update responsive font sizes
+
+        _hintCountText.Text = spec.HintCounterText;
+
         UpdateResponsiveFontSizes();
     }
     
@@ -99,42 +91,26 @@ public partial class HintView : PhaseViewBase
             safeAreaMargin);
     }
     
-    private void UpdateHints(GameStateSnapshot state)
+    private void UpdateHints(ViewSpec spec)
     {
-        // For now, we'll generate placeholder hints since we don't have access to the actual hint content
-        // In a real implementation, this would come from the setlist manifest or be passed through events
-        
-        var hintsToShow = Math.Max(1, state.HintIndex + 1);
-        
-        // Add new hints if needed
-        while (_displayedHints.Count < hintsToShow)
+        // Hint text is derived by PhasePresenter; this only renders what it was handed.
+        while (_displayedHints.Count > spec.Hints.Count)
         {
-            var hintIndex = _displayedHints.Count;
-            var hintText = GeneratePlaceholderHint(hintIndex, state);
-            _displayedHints.Add(hintText);
-            
-            var hintElement = CreateHintElement(hintIndex + 1, hintText);
+            _displayedHints.RemoveAt(_displayedHints.Count - 1);
+            _hintsPanel.Children.RemoveAt(_hintsPanel.Children.Count - 1);
+        }
+
+        while (_displayedHints.Count < spec.Hints.Count)
+        {
+            var index = _displayedHints.Count;
+            _displayedHints.Add(spec.Hints[index]);
+
+            var hintElement = CreateHintElement(index + 1, spec.Hints[index]);
             _hintsPanel.Children.Add(hintElement);
-            
-            // Animate the new hint appearance
             _ = _animationService.AnimateSlideIn(hintElement);
         }
     }
-    
-    private string GeneratePlaceholderHint(int index, GameStateSnapshot state)
-    {
-        // Generate contextual placeholder hints
-        // In a real implementation, these would come from the actual hint data
-        return index switch
-        {
-            0 => "🎵 Listen carefully to the melody...",
-            1 => "🎸 Pay attention to the instruments used",
-            2 => "🎤 Focus on the vocal style and lyrics",
-            3 => "📅 Think about when this song was released",
-            4 => "🎭 Consider the genre and mood",
-            _ => $"💭 Hint {index + 1}: Keep listening for more clues!"
-        };
-    }
+
     
     private Border CreateHintElement(int hintNumber, string hintText)
     {
