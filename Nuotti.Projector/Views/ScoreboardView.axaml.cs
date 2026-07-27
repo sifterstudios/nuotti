@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 using System;
 using System.Threading.Tasks;
@@ -32,7 +33,7 @@ public partial class ScoreboardView : PhaseViewBase
         _animationService = new AnimationService();
     }
     
-    public override void UpdateState(GameState state)
+    public override void UpdateState(GameStateSnapshot state)
     {
         // Update header info
         _songInfoText.Text = $"After Song {state.SongIndex + 1}";
@@ -82,12 +83,12 @@ public partial class ScoreboardView : PhaseViewBase
             safeAreaMargin);
     }
     
-    private void UpdateScoreboard(GameState state)
+    private void UpdateScoreboard(GameStateSnapshot state)
     {
         // Clear existing entries
         _scoreboardPanel.Children.Clear();
         
-        if (!state.HasScores)
+        if (!state.HasScores())
         {
             // Show "no players" message
             var windowSize = GetWindowSize();
@@ -111,7 +112,7 @@ public partial class ScoreboardView : PhaseViewBase
         }
         
         // Get top players
-        var topPlayers = state.GetTopPlayers(MaxPlayersToShow);
+        var topPlayers = state.TopPlayers(MaxPlayersToShow);
         
         for (int i = 0; i < topPlayers.Count; i++)
         {

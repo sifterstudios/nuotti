@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Views;
@@ -17,7 +18,7 @@ public abstract partial class PhaseViewBase : UserControl
         SizeChanged += OnSizeChanged;
     }
     
-    public abstract void UpdateState(GameState state);
+    public abstract void UpdateState(GameStateSnapshot state);
     
     protected virtual void InitializeComponent()
     {

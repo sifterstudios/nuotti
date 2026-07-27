@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Model;
 using System.Diagnostics;
 namespace Nuotti.Performer;
@@ -16,6 +17,7 @@ public sealed class PerformerClient : IAsyncDisposable
     public event Action<bool>? ConnectedChanged;
     public event Action<NuottiProblem>? ProblemReceived;
     public event Action<GameStateSnapshot>? GameStateChanged;
+    public event Action<AnswerSubmitted>? AnswerSubmitted;
 
     public PerformerClient(Uri backendBaseUri, string sessionCode)
     {
@@ -49,6 +51,12 @@ public sealed class PerformerClient : IAsyncDisposable
             _hub.On<GameStateSnapshot>("GameStateChanged", s =>
             {
                 GameStateChanged?.Invoke(s);
+            });
+            // The Backend broadcasts no snapshot per answer, so without this the Performer's tallies
+            // could not move during Guessing. Subscribers replay the event through GameReducer.
+            _hub.On<AnswerSubmitted>("AnswerSubmitted", a =>
+            {
+                AnswerSubmitted?.Invoke(a);
             });
         }
         if (_hub.State == HubConnectionState.Disconnected)

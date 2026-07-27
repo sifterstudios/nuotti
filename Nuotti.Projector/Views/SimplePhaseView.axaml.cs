@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Views;
@@ -63,13 +64,13 @@ public partial class SimplePhaseView : PhaseViewBase
             safeAreaMargin);
     }
 
-    public override void UpdateState(GameState state)
+    public override void UpdateState(GameStateSnapshot state)
     {
         UpdateForPhase(state.Phase, state);
         UpdateResponsiveFontSizes();
     }
 
-    public void UpdateForPhase(Phase phase, GameState state)
+    public void UpdateForPhase(Phase phase, GameStateSnapshot state)
     {
         var (icon, title, showSong, additionalInfo) = GetPhaseInfo(phase, state);
 
@@ -79,15 +80,15 @@ public partial class SimplePhaseView : PhaseViewBase
         _songInfoPanel.IsVisible = showSong && state.CurrentSong != null;
         if (showSong && state.CurrentSong != null)
         {
-            _songTitleText.Text = state.CurrentSongTitle;
-            _songArtistText.Text = state.CurrentSongArtist;
+            _songTitleText.Text = state.SongTitle();
+            _songArtistText.Text = state.SongArtist();
         }
 
         _additionalInfoText.IsVisible = !string.IsNullOrEmpty(additionalInfo);
         _additionalInfoText.Text = additionalInfo ?? "";
     }
 
-    private (string Icon, string Title, bool ShowSong, string? AdditionalInfo) GetPhaseInfo(Phase phase, GameState state)
+    private (string Icon, string Title, bool ShowSong, string? AdditionalInfo) GetPhaseInfo(Phase phase, GameStateSnapshot state)
     {
         return phase switch
         {

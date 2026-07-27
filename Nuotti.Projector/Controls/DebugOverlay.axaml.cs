@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 using System;
 using System.Text.Json;
@@ -26,7 +27,7 @@ public partial class DebugOverlay : UserControl
     private readonly TextBlock _sessionText;
 
     private PerformanceMetrics? _lastPerformanceMetrics;
-    private GameState? _lastGameState;
+    private GameStateSnapshot? _lastGameState;
     private string _connectionId = "Unknown";
 
     public bool IsDebugVisible
@@ -92,15 +93,15 @@ public partial class DebugOverlay : UserControl
         };
     }
 
-    public void UpdateGameState(GameState gameState)
+    public void UpdateGameState(GameStateSnapshot gameState)
     {
         _lastGameState = gameState;
 
         _phaseText.Text = $"Phase: {gameState.Phase}";
-        _songText.Text = $"Song: {gameState.CurrentSongTitle}";
+        _songText.Text = $"Song: {gameState.SongTitle()}";
         _sessionText.Text = $"Session: {gameState.SessionCode}";
 
-        var talliesStr = gameState.HasTallies
+        var talliesStr = gameState.HasTallies()
             ? $"[{string.Join(", ", gameState.Tallies)}]"
             : "None";
         _talliesText.Text = $"Tallies: {talliesStr}";
@@ -172,7 +173,7 @@ public partial class DebugOverlay : UserControl
                 artist = _lastGameState.CurrentSong?.Artist ?? "None",
                 hintIndex = _lastGameState.HintIndex,
                 tallies = _lastGameState.Tallies,
-                totalAnswers = _lastGameState.TotalAnswers,
+                totalAnswers = _lastGameState.TotalAnswers(),
                 playerCount = _lastGameState.Scores.Count
             } : null,
             connection = new

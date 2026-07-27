@@ -1,10 +1,18 @@
-﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Reducer;
 namespace Nuotti.Performer;
 
 public sealed class PerformerUiState
 {
     readonly IHttpClientFactory _httpFactory;
+
+    /// <summary>
+    /// The session state, held once. The game-state properties below read through to this rather
+    /// than keeping their own copies, so a Contracts change needs no hand-mapping here.
+    /// </summary>
+    GameStateSnapshot _snapshot = GameReducer.Initial(string.Empty);
 
     public PerformerUiState(IHttpClientFactory httpFactory)
     {
@@ -17,21 +25,22 @@ public sealed class PerformerUiState
     public string? SessionCode { get; private set; }
     public Uri? BackendBaseUri { get; private set; }
 
-    // Game state bits
-    public Phase Phase { get; private set; } = Phase.Idle;
-    public int SongIndex { get; private set; }
-    public int HintIndex { get; private set; }
-    public int NextHintIndex => HintIndex + 1;
-    public SongRef? CurrentSong { get; private set; }
-    public IReadOnlyList<string> Choices { get; private set; } = Array.Empty<string>();
+    /// <summary>The snapshot itself, for callers that want to pass it on whole.</summary>
+    public GameStateSnapshot Snapshot => _snapshot;
+
+    // Game state, read through to the snapshot
+    public Phase Phase => _snapshot.Phase;
+    public int SongIndex => _snapshot.SongIndex;
+    public int HintIndex => _snapshot.HintIndex;
+    public int NextHintIndex => _snapshot.CurrentHintNumber();
+    public SongRef? CurrentSong => _snapshot.CurrentSong;
+    public IReadOnlyList<string> Choices => _snapshot.Choices;
+    public IReadOnlyList<int> Tallies => _snapshot.Tallies;
+    public IReadOnlyDictionary<string, int> Scores => _snapshot.Scores;
+
+    // Performer-local state, not part of the session snapshot
     public int? SelectedCorrectIndex { get; private set; }
-
-    // Scores (latest and baseline at end of previous song)
-    public IReadOnlyDictionary<string, int> Scores { get; private set; } = new Dictionary<string, int>();
     public IReadOnlyDictionary<string, int> BaselineScores { get; private set; } = new Dictionary<string, int>();
-
-    // Tallies for current choices
-    public IReadOnlyList<int> Tallies { get; private set; } = Array.Empty<int>();
 
     // Role counts
     public int ProjectorCount { get; private set; }
@@ -53,22 +62,17 @@ public sealed class PerformerUiState
 
     public void UpdateGameState(GameStateSnapshot snapshot)
     {
-        var songChanged = snapshot.SongIndex != SongIndex || snapshot.CurrentSong?.Id != CurrentSong?.Id;
+        var songChanged = snapshot.SongIndex != _snapshot.SongIndex
+                          || snapshot.CurrentSong?.Id != _snapshot.CurrentSong?.Id;
 
-        // snapshot might include new cumulative scores; if the song changed, capture previous as baseline
+        // When the song changes, the previous cumulative scores become the baseline for deltas.
         if (songChanged)
         {
-            BaselineScores = Scores; // previous latest becomes baseline for delta
+            BaselineScores = _snapshot.Scores;
             SelectedCorrectIndex = null;
         }
 
-        Phase = snapshot.Phase;
-        SongIndex = snapshot.SongIndex;
-        HintIndex = snapshot.HintIndex;
-        CurrentSong = snapshot.CurrentSong;
-        Choices = snapshot.Choices;
-        Tallies = snapshot.Tallies;
-        Scores = snapshot.Scores;
+        _snapshot = snapshot;
 
         // keep the session if not set
         if (!string.IsNullOrWhiteSpace(snapshot.SessionCode))
@@ -76,9 +80,28 @@ public sealed class PerformerUiState
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Applies an event from the Backend with the same reducer the Backend used. The Backend does not
+    /// push a snapshot per answer, so this is how the Performer's tallies stay live during Guessing —
+    /// before this, PerformerClient never subscribed to AnswerSubmitted at all and the tallies could
+    /// not move until the next phase change.
+    /// </summary>
+    public void Apply(AnswerSubmitted answer)
+    {
+        var (next, error) = GameReducer.Reduce(_snapshot, answer);
+        if (error is not null || ReferenceEquals(next, _snapshot)) return;
+
+        _snapshot = next;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Optimistically advances the hint locally so the UI responds immediately; the Backend's
+    /// GameStateChanged broadcast is authoritative and will overwrite it.
+    /// </summary>
     public void IncrementHintIndex()
     {
-        HintIndex++;
+        _snapshot = _snapshot with { HintIndex = _snapshot.HintIndex + 1 };
         Changed?.Invoke();
     }
 

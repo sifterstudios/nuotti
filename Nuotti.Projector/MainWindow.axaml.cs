@@ -220,11 +220,9 @@ public partial class MainWindow : Window
         _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
         {
             AppendLocal($"AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
-            Dispatcher.UIThread.Post(() =>
-            {
-                Tally(a.ChoiceIndex);
-                _gameStateService.UpdateTally(a.ChoiceIndex);
-            });
+            // Replay the event through the same reducer the Backend used, rather than
+            // hand-incrementing a local counter.
+            Dispatcher.UIThread.Post(() => _gameStateService.Apply(a));
         });
         _connection.On<PlayTrack>("RequestPlay", p =>
         {
@@ -458,12 +456,16 @@ public partial class MainWindow : Window
         }
     }
 
-    void Tally(int choiceIndex)
+    /// <summary>
+    /// Mirrors the tallies held in GameStateService into the legacy count labels. This used to
+    /// increment its own counter per AnswerSubmitted, giving the Projector two independent tally
+    /// stores for the same number; it now reads the one source of truth.
+    /// </summary>
+    void RefreshTallyDisplay(IReadOnlyList<int> tallies)
     {
-        if (choiceIndex < 0 || choiceIndex >= _tally.Length) return;
-        _tally[choiceIndex]++;
         for (int i = 0; i < _tally.Length; i++)
         {
+            _tally[i] = i < tallies.Count ? tallies[i] : 0;
             _choiceCounts[i].Text = _tally[i].ToString();
         }
         HighlightLeaders();
@@ -822,7 +824,7 @@ public partial class MainWindow : Window
         AppendLocal($"[safe-area] Margin set to {margin:P1}");
     }
 
-    // F5 - GameState Renderer functionality
+    // F5 - GameStateSnapshot Renderer functionality
     private void InitializePhaseViews()
     {
         // Create phase-specific views
@@ -839,12 +841,15 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnGameStateChanged(GameState state)
+    private void OnGameStateChanged(GameStateSnapshot state)
     {
         try
         {
             // Update session code display
             _sessionCodeText.Text = state.SessionCode.ToUpperInvariant();
+
+            // Keep the legacy count labels in step with the snapshot's tallies.
+            RefreshTallyDisplay(state.Tallies);
 
             // Switch to appropriate phase view
             if (_gameStateService.ShouldShowPhase(state.Phase))
@@ -852,7 +857,7 @@ public partial class MainWindow : Window
                 SwitchToPhaseView(state.Phase, state);
             }
 
-            AppendLocal($"[gamestate] Phase: {state.Phase}, Song: {state.CurrentSongTitle}");
+            AppendLocal($"[gamestate] Phase: {state.Phase}, Song: {state.SongTitle()}");
         }
         catch (Exception ex)
         {
@@ -860,7 +865,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SwitchToPhaseView(Phase phase, GameState state)
+    private void SwitchToPhaseView(Phase phase, GameStateSnapshot state)
     {
         if (!_phaseViews.TryGetValue(phase, out var phaseView))
         {
@@ -924,8 +929,8 @@ public partial class MainWindow : Window
             {
                 // Get current song info from game state
                 var currentState = _gameStateService.CurrentState;
-                var songTitle = currentState.CurrentSongTitle;
-                var artist = currentState.CurrentSongArtist != "Unknown Artist" ? currentState.CurrentSongArtist : null;
+                var songTitle = currentState.SongTitle();
+                var artist = currentState.SongArtist() != "Unknown Artist" ? currentState.SongArtist() : null;
 
                 _nowPlayingBanner.UpdateSong(songTitle, artist);
                 _nowPlayingBanner.Show();

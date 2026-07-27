@@ -4,6 +4,7 @@ using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Reducer;
 using System.Diagnostics;
 namespace Nuotti.Audience.Services;
 
@@ -128,6 +129,19 @@ public class AudienceHubClient : IAsyncDisposable
             _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
             {
                 Log($"[Audience] AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
+
+                // The Backend broadcasts no snapshot per answer, so replay the event through the
+                // same reducer it used to keep live tallies in step.
+                if (CurrentGameState is not null)
+                {
+                    var (next, error) = GameReducer.Reduce(CurrentGameState, a);
+                    if (error is null && !ReferenceEquals(next, CurrentGameState))
+                    {
+                        CurrentGameState = next;
+                        GameStateChanged?.Invoke(next);
+                    }
+                }
+
                 AnswerSubmitted?.Invoke(a);
             });
 

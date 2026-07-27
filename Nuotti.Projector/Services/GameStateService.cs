@@ -1,73 +1,58 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Model;
-using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Reducer;
 
 namespace Nuotti.Projector.Services;
 
+/// <summary>
+/// Holds the Projector's view of the session. The snapshot from the Backend is the state — there is
+/// no local mirror of it, and no local copy of the reducer's rules.
+/// </summary>
 public class GameStateService
 {
-    private GameState _currentState = new();
-    private string _lastSnapshotHash = string.Empty;
-    private ContentSafetyService? _contentSafetyService;
-    
-    public event Action<GameState>? StateChanged;
-    
+    GameStateSnapshot _currentState = GameReducer.Initial(string.Empty);
+    string _lastSnapshotHash = string.Empty;
+    ContentSafetyService? _contentSafetyService;
+
+    public event Action<GameStateSnapshot>? StateChanged;
+
     public void SetContentSafetyService(ContentSafetyService contentSafetyService)
     {
         _contentSafetyService = contentSafetyService;
     }
-    
-    public GameState CurrentState => _currentState;
-    
+
+    public GameStateSnapshot CurrentState => _currentState;
+
     public void UpdateFromSnapshot(GameStateSnapshot snapshot)
     {
-        // Create a hash of the snapshot to detect duplicates
+        // Skip duplicate broadcasts of identical state.
         var snapshotHash = CreateSnapshotHash(snapshot);
-        
-        // Skip if this is a duplicate event
-        if (snapshotHash == _lastSnapshotHash)
-        {
-            return;
-        }
-        
-        var newState = new GameState
-        {
-            Phase = snapshot.Phase,
-            SessionCode = snapshot.SessionCode,
-            SongIndex = snapshot.SongIndex,
-            CurrentSong = snapshot.CurrentSong,
-            Choices = snapshot.Choices,
-            HintIndex = snapshot.HintIndex,
-            Tallies = snapshot.Tallies,
-            Scores = snapshot.Scores,
-            Catalog = snapshot.Catalog,
-            SongStartedAtUtc = snapshot.SongStartedAtUtc
-        };
-        
-        // F18 - Apply content safety checks before updating state
-        var safeState = ApplyContentSafety(newState);
-        
-        _currentState = safeState;
+        if (snapshotHash == _lastSnapshotHash) return;
+
+        _currentState = ApplyContentSafety(snapshot);
         _lastSnapshotHash = snapshotHash;
         StateChanged?.Invoke(_currentState);
     }
-    
-    public void UpdateTally(int choiceIndex)
+
+    /// <summary>
+    /// Applies an event from the Backend using the same reducer the Backend used. The Backend does
+    /// not push a snapshot per answer — that would be quadratic in audience size — so live tallies
+    /// come from replaying the event locally, not from a hand-written increment.
+    /// </summary>
+    public void Apply(AnswerSubmitted answer)
     {
-        if (choiceIndex < 0 || choiceIndex >= _currentState.Tallies.Count) return;
-        
-        var tallies = _currentState.Tallies.ToArray();
-        tallies[choiceIndex]++;
-        
-        var updatedState = _currentState.Copy();
-        updatedState.Tallies = tallies;
-        _currentState = updatedState;
+        var (next, error) = GameReducer.Reduce(_currentState, answer);
+        if (error is not null) return;
+        if (ReferenceEquals(next, _currentState)) return;
+
+        _currentState = next;
+        _lastSnapshotHash = CreateSnapshotHash(next);
         StateChanged?.Invoke(_currentState);
     }
-    
+
     public bool ShouldShowPhase(Phase phase)
     {
         return phase switch
@@ -76,7 +61,7 @@ public class GameStateService
             _ => true
         };
     }
-    
+
     public string GetPhaseDisplayName(Phase phase)
     {
         return phase switch
@@ -93,52 +78,45 @@ public class GameStateService
             _ => phase.ToString()
         };
     }
-    
-    private string CreateSnapshotHash(GameStateSnapshot snapshot)
+
+    static string CreateSnapshotHash(GameStateSnapshot snapshot)
     {
-        // Create a simple hash based on key state properties
         var hashInput = $"{snapshot.Phase}|{snapshot.SongIndex}|{snapshot.HintIndex}|{snapshot.Tallies.Count}|{string.Join(",", snapshot.Tallies)}|{snapshot.Choices.Count}";
         return hashInput.GetHashCode().ToString();
     }
-    
+
     // F18 - Content safety checks
-    private GameState ApplyContentSafety(GameState state)
+    GameStateSnapshot ApplyContentSafety(GameStateSnapshot state)
     {
         if (_contentSafetyService == null)
             return state;
-        
-        var safeState = state.Copy();
-        
-        // Sanitize session code (should be safe but check anyway)
+
         var sessionResult = _contentSafetyService.SanitizeText(state.SessionCode, ContentType.General);
         if (sessionResult.WasModified)
         {
             Console.WriteLine($"[content-safety] Session code sanitized: {sessionResult.Warnings}");
         }
-        safeState.SessionCode = sessionResult.SafeContent;
-        
-        // Sanitize current song information
+
+        var safeSong = state.CurrentSong;
         if (state.CurrentSong != null)
         {
             var titleResult = _contentSafetyService.SanitizeSongTitle(state.CurrentSong.Title);
             var artistResult = _contentSafetyService.SanitizeArtistName(state.CurrentSong.Artist);
-            
+
             if (titleResult.WasModified || artistResult.WasModified)
             {
                 Console.WriteLine($"[content-safety] Song info sanitized - Title: {titleResult.Warnings}, Artist: {artistResult.Warnings}");
             }
-            
-            // Create a safe copy of the current song with sanitized data
-            safeState.CurrentSong = state.CurrentSong with 
-            { 
+
+            safeSong = state.CurrentSong with
+            {
                 Title = titleResult.SafeContent,
-                Artist = artistResult.SafeContent 
+                Artist = artistResult.SafeContent
             };
         }
-        
-        // Sanitize choices
+
         var safeChoices = new List<string>();
-        for (int i = 0; i < state.Choices.Count; i++)
+        for (var i = 0; i < state.Choices.Count; i++)
         {
             var choiceResult = _contentSafetyService.SanitizeChoice(state.Choices[i], i);
             if (choiceResult.WasModified)
@@ -147,9 +125,7 @@ public class GameStateService
             }
             safeChoices.Add(choiceResult.SafeContent);
         }
-        safeState.Choices = safeChoices;
-        
-        // Sanitize player names in scores (keys are player names)
+
         var safeScores = new Dictionary<string, int>();
         foreach (var kvp in state.Scores)
         {
@@ -160,8 +136,13 @@ public class GameStateService
             }
             safeScores[playerResult.SafeContent] = kvp.Value;
         }
-        safeState.Scores = safeScores;
-        
-        return safeState;
+
+        return state with
+        {
+            SessionCode = sessionResult.SafeContent,
+            CurrentSong = safeSong,
+            Choices = safeChoices,
+            Scores = safeScores
+        };
     }
 }

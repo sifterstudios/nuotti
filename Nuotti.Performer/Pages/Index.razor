@@ -3,6 +3,7 @@
 @inject PerformerUiState LiveState
 @inject IConfiguration Configuration
 @using Nuotti.Contracts.V1.Enum
+@using Nuotti.Contracts.V1.Event
 @using Nuotti.Contracts.V1.Model
 @implements IAsyncDisposable
 
@@ -216,6 +217,7 @@ else
             client = new PerformerClient(backendUri, sessionCode!);
             client.ConnectedChanged += OnConnectedChanged;
             client.GameStateChanged += OnGameStateChanged;
+            client.AnswerSubmitted += OnAnswerSubmitted;
             LiveState.SetSession(sessionCode!, backendUri);
             await client.EnsureConnectedAsync();
             _ = LiveState.RefreshCountsAsync();
@@ -261,12 +263,19 @@ else
         InvokeAsync(StateHasChanged);
     }
 
+    void OnAnswerSubmitted(AnswerSubmitted answer)
+    {
+        LiveState.Apply(answer);
+        InvokeAsync(StateHasChanged);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (client is not null)
         {
             client.ConnectedChanged -= OnConnectedChanged;
             client.GameStateChanged -= OnGameStateChanged;
+            client.AnswerSubmitted -= OnAnswerSubmitted;
             await client.DisposeAsync();
         }
     }

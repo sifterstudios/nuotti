@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Views;
@@ -23,7 +24,7 @@ public partial class LobbyView : PhaseViewBase
         _playerCountText = this.FindControl<TextBlock>("PlayerCountText")!;
     }
 
-    public override void UpdateState(GameState state)
+    public override void UpdateState(GameStateSnapshot state)
     {
         _sessionCodeText.Text = state.SessionCode.ToUpperInvariant();
 

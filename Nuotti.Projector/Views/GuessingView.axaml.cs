@@ -7,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Views;
@@ -59,11 +60,11 @@ public partial class GuessingView : PhaseViewBase
         };
     }
     
-    public override void UpdateState(GameState state)
+    public override void UpdateState(GameStateSnapshot state)
     {
         // Update song info
-        _songTitleText.Text = state.CurrentSongTitle;
-        _songArtistText.Text = state.CurrentSongArtist;
+        _songTitleText.Text = state.SongTitle();
+        _songArtistText.Text = state.SongArtist();
         
         // Update question (could be dynamic based on game type)
         _questionText.Text = "What song is this?";

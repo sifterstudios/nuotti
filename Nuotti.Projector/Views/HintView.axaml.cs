@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Nuotti.Projector.Models;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Services;
 using System;
 using System.Collections.Generic;
@@ -35,11 +36,11 @@ public partial class HintView : PhaseViewBase
         _animationService = new AnimationService();
     }
     
-    public override void UpdateState(GameState state)
+    public override void UpdateState(GameStateSnapshot state)
     {
         // Update song info
-        _songTitleText.Text = state.CurrentSongTitle;
-        _songArtistText.Text = state.CurrentSongArtist;
+        _songTitleText.Text = state.SongTitle();
+        _songArtistText.Text = state.SongArtist();
         
         // Update hints if hint index changed
         if (state.HintIndex != _lastHintIndex)
@@ -98,7 +99,7 @@ public partial class HintView : PhaseViewBase
             safeAreaMargin);
     }
     
-    private void UpdateHints(GameState state)
+    private void UpdateHints(GameStateSnapshot state)
     {
         // For now, we'll generate placeholder hints since we don't have access to the actual hint content
         // In a real implementation, this would come from the setlist manifest or be passed through events
@@ -120,7 +121,7 @@ public partial class HintView : PhaseViewBase
         }
     }
     
-    private string GeneratePlaceholderHint(int index, GameState state)
+    private string GeneratePlaceholderHint(int index, GameStateSnapshot state)
     {
         // Generate contextual placeholder hints
         // In a real implementation, these would come from the actual hint data
@@ -210,7 +211,7 @@ public partial class HintView : PhaseViewBase
         return hintBorder;
     }
     
-    private int GetEstimatedTotalHints(GameState state)
+    private int GetEstimatedTotalHints(GameStateSnapshot state)
     {
         // In a real implementation, this would come from the song's hint count
         // For now, estimate based on common patterns
