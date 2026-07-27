@@ -1,0 +1,42 @@
+# ADR 0002 — Relay commands stay at-least-once
+
+Date: 2026-07-27
+Status: Accepted
+
+## Context
+
+`SessionCommandProcessor` applies every `CommandBase` command, and idempotency via
+`IIdempotencyStore` is one of the stages behind its interface. Applying that stage
+uniformly to all commands is free.
+
+The relay commands — `PlayTrack`, `StopTrack`, `QuestionPushed` — carry a `CommandId` but
+have never been checked against the idempotency store. They change no game state; they are
+forwarded to a SignalR group.
+
+## Decision
+
+Relay commands skip the idempotency stage. They remain at-least-once. State-changing
+commands remain at-most-once via `CommandId`.
+
+## Rationale
+
+A duplicate-suppressed relay command is silently swallowed. The realistic case is a client
+re-sending `PlayTrack` with the same `CommandId` after a dropped connection: with
+idempotency applied it returns `202 Accepted` and nothing plays, and the failure is
+invisible from the caller's side.
+
+Playback is the worst place in this system for a swallowed retry — a Performer pressing
+play and hearing silence has no recourse and no error to act on. Re-broadcasting a play
+command that already arrived is harmless by comparison: the Engine restarts the same track.
+
+For state-changing commands the trade-off inverts, which is why idempotency stays there:
+applying `NextRound` twice advances the game twice.
+
+## Consequences
+
+- The command switch inside the processor carries an explicit per-command flag for whether
+  the idempotency stage runs, rather than applying it unconditionally.
+- Duplicate relay commands reach clients more than once. Clients must tolerate that;
+  `PlayTrack` and `StopTrack` are already idempotent in effect at the Engine.
+- A future architecture review will likely suggest "apply idempotency uniformly". This ADR
+  is the answer.
