@@ -11,10 +11,10 @@ using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
 using Serilog;
+using ServiceDefaults;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
-builder.AddServiceDefaults();
-builder.ConfigureStructuredLogging();
+builder.AddNuottiWebHost(enableFileSink: false);
 
 // Add service-specific health checks
 builder.Services.AddHealthChecks()
@@ -149,20 +149,14 @@ app.MapAboutEndpoints();
 app.MapTimeEndpoints();
 app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
-app.MapDefaultEndpoints();
+app.MapNuottiEndpoints("Nuotti.Backend");
 
 // Force creation of subscribers so they can attach to the bus
 _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
 _ = app.Services.GetRequiredService<LogStreamSubscriber>();
 
-// Log startup with version info
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.Backend");
-var features = ServiceDefaults.FeatureFlags.GetAll(app.Configuration);
-var enabledFeatures = features.Where(f => f.Value).Select(f => f.Key).ToList();
-logger.LogInformation("Backend started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}, EnabledFeatures=[{EnabledFeatures}]",
-    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime, string.Join(", ", enabledFeatures));
 
 // Check time drift at startup
 try

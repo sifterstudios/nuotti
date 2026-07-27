@@ -15,6 +15,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 // Configure structured logging for Blazor WASM
 // Note: In WASM, console logging goes to browser console
+// This host deliberately does not use ServiceDefaults. WebAssemblyHostBuilder is not an
+// IHostApplicationBuilder, a browser cannot write log files, and a static client has no health
+// endpoint - and referencing ServiceDefaults would pull ASP.NET hosting and OpenTelemetry into the
+// WASM download to share the six lines below. Keep this in step with NuottiHost.ResolveLogLevel.
 var logLevel = builder.Configuration["Logging:LogLevel:Default"]
     ?? Environment.GetEnvironmentVariable("NUOTTI_LOG_LEVEL")
     ?? "Information";

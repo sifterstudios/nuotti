@@ -12,8 +12,7 @@ builder.Services.AddServerSideBlazor(options =>
     options.DetailedErrors = builder.Environment.IsDevelopment();
 });
 builder.Services.AddMudServices();
-builder.AddServiceDefaults();
-builder.ConfigureStructuredLogging(enableFileSink: true);
+builder.AddNuottiWebHost();
 
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<SessionSelectionService>();
@@ -42,13 +41,8 @@ app.UseRouting();
 
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
-app.MapDefaultEndpoints();
 app.MapAboutEndpoints();
-
-var logger = app.Services.GetRequiredService<ILogger<Program>>();
-var versionInfo = VersionInfo.GetVersionInfo("Nuotti.Performer");
-logger.LogInformation("Performer started. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}",
-    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime);
+app.MapNuottiEndpoints("Nuotti.Performer");
 
 try
 {

@@ -32,8 +32,7 @@ var configuration = new ConfigurationBuilder()
     .AddEnvironmentVariables(prefix: "NUOTTI_ENGINE__")
     .Build();
 
-// Configure structured logging for console app with file sink enabled
-Microsoft.Extensions.Hosting.LoggingExtensions.ConfigureStructuredLogging("Nuotti.AudioEngine", configuration, enableFileSink: true);
+ServiceDefaults.NuottiHost.ConfigureNuottiProcess("Nuotti.AudioEngine", configuration);
 
 var engineOptions = new EngineOptions();
 configuration.Bind(engineOptions);
@@ -58,9 +57,7 @@ _ = MetricsHost.RunIfEnabledAsync(engineOptions.Metrics, metrics, CancellationTo
 var backend = GetArg(args, "backend", envVar: "NUOTTI_BACKEND", fallback: "http://localhost:5240");
 var session = GetArg(args, "session", envVar: "NUOTTI_SESSION", fallback: "dev");
 
-var versionInfo = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.AudioEngine");
-Log.Information("AudioEngine starting. Service={Service}, Version={Version}, GitCommit={GitCommit}, BuildTime={BuildTime}, Runtime={Runtime}, Backend={Backend}, Session={Session}", 
-    versionInfo.Service, versionInfo.Version, versionInfo.GitCommit, versionInfo.BuildTime, versionInfo.Runtime, backend, session);
+Log.Information("AudioEngine target. Backend={Backend}, Session={Session}", backend, session);
 
 var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };

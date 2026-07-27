@@ -7,9 +7,34 @@ public class ThemeService : IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private DotNetObjectReference<ThemeService>? _objRef;
-    
-    public bool IsDarkMode { get; private set; }
-    public ThemeVariant CurrentVariant { get; private set; } = ThemeVariant.Light;
+    private bool _isDarkMode;
+    private ThemeVariant _currentVariant = ThemeVariant.Light;
+
+    // These raise OnThemeChanged from the setters, matching the Performer copy. Without it, this
+    // copy changed theme silently and no subscriber ever re-rendered. See docs/adr/0001 for why the
+    // two copies are aligned rather than shared.
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        private set
+        {
+            if (_isDarkMode == value) return;
+            _isDarkMode = value;
+            OnThemeChanged?.Invoke();
+        }
+    }
+
+    public ThemeVariant CurrentVariant
+    {
+        get => _currentVariant;
+        private set
+        {
+            if (_currentVariant == value) return;
+            _currentVariant = value;
+            OnThemeChanged?.Invoke();
+        }
+    }
+
     public event Action? OnThemeChanged;
 
     public ThemeService(IJSRuntime jsRuntime)
