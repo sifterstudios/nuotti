@@ -120,6 +120,16 @@ public static class GameReducer
                 var next = state with { Scores = scores };
                 return (next, null);
             }
+            case HintGiven hint:
+            {
+                // The command guard establishes that hints are only given while Guessing;
+                // the reducer trusts the event and records the index it carries.
+                return (state with { HintIndex = hint.HintIndex }, null);
+            }
+            case CatalogUpdated catalogUpdated:
+            {
+                return (state with { Catalog = catalogUpdated.Catalog }, null);
+            }
             default:
                 // Unknown events are no-ops in this reducer
                 return (state, null);

@@ -11,7 +11,7 @@ namespace Nuotti.Contracts.Tests.V1.Message.Phase;
 public class SubmitAnswerTest
 {
     static SubmitAnswer CreateSample()
-        => new SubmitAnswer(new SongId("song-123"))
+        => new SubmitAnswer(new SongId("song-123"), 2)
         {
             CommandId = Guid.Parse("cccccccc-cccc-4ccc-cccc-cccccccccccc"),
             SessionCode = "SESSION-101",
@@ -29,7 +29,8 @@ public class SubmitAnswerTest
         Assert.Equal("SESSION-101", sut.SessionCode);
         Assert.Equal(Role.Audience, sut.IssuedByRole);
         Assert.Equal("user-789", sut.IssuedById);
-        Assert.Equal("song-123", sut.SongId.Value);
+        Assert.Equal("song-123", sut.SongId!.Value.Value);
+        Assert.Equal(2, sut.ChoiceIndex);
     }
 
     [Fact]

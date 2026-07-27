@@ -129,9 +129,9 @@ public class CommandBuilder
         };
     }
 
-    public SubmitAnswer BuildSubmitAnswer(SongId songId)
+    public SubmitAnswer BuildSubmitAnswer(SongId songId, int choiceIndex = 0)
     {
-        return new SubmitAnswer(songId)
+        return new SubmitAnswer(songId, choiceIndex)
         {
             SessionCode = _sessionCode,
             IssuedByRole = _role,

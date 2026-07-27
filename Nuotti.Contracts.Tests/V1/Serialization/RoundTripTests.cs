@@ -25,7 +25,7 @@ public class RoundTripTests
         yield return new object[] { new RevealAnswer(songRef, 1) { SessionCode = sessionCode, IssuedByRole = Role.Performer, IssuedById = "perf-1", CommandId = commandId } };
         yield return new object[] { new PlaySong(songId) { SessionCode = sessionCode, IssuedByRole = Role.Performer, IssuedById = "perf-1", CommandId = commandId } };
         yield return new object[] { new EndSong(songId) { SessionCode = sessionCode, IssuedByRole = Role.Performer, IssuedById = "perf-1", CommandId = commandId } };
-        yield return new object[] { new SubmitAnswer(songId) { SessionCode = sessionCode, IssuedByRole = Role.Audience, IssuedById = "aud-1", CommandId = commandId } };
+        yield return new object[] { new SubmitAnswer(songId, 2) { SessionCode = sessionCode, IssuedByRole = Role.Audience, IssuedById = "aud-1", CommandId = commandId } };
         yield return new object[] { new QuestionPushed("What is the answer?", ["A", "B", "C"]) { SessionCode = sessionCode, IssuedByRole = Role.Performer, IssuedById = "perf-1", CommandId = commandId } };
     }
 

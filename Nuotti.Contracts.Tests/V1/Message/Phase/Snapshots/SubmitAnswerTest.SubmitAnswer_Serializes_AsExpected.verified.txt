@@ -2,6 +2,7 @@
   songId: {
     value: song-123
   },
+  choiceIndex: 2,
   allowedPhases: [
     Guessing
   ],

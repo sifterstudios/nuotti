@@ -22,6 +22,13 @@ public static class ProblemResults
     public static IResult Forbidden(string title, string detail, ReasonCode reason = ReasonCode.None, string? field = null, Guid? correlationId = null)
         => Json(new NuottiProblem(title, 403, detail, reason, field, correlationId), 403);
     
+    /// <summary>
+    /// Emits an already-built problem, using the status it carries. This is how a rejected
+    /// CommandResult becomes an HTTP response.
+    /// </summary>
+    public static IResult From(NuottiProblem problem)
+        => Json(problem, problem.Status);
+
     static IResult Json(object value, int statusCode)
         => Results.Json(value, ContractsJson.RestOptions, statusCode: statusCode);
     

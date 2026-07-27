@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Nuotti.Backend.Commands;
 using Nuotti.Backend.Exception;
+using Nuotti.Backend.Middleware;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
-using System.ComponentModel.DataAnnotations;
 namespace Nuotti.Backend.Endpoints;
 
 internal static class ApiEndpoints
@@ -37,104 +38,37 @@ internal static class ApiEndpoints
             });
         }).RequireCors("NuottiCors");
 
-        app.MapPost("/api/pushQuestion/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, QuestionPushed q) =>
-        {
-            if (q.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
-            
-            await hub.Clients.Group(session).SendAsync("QuestionPushed", q);
-            await log.BroadcastAsync(new LogEvent(
-                Timestamp: DateTimeOffset.UtcNow,
-                Level: "Info",
-                Source: "Program",
-                Message: $"QuestionPushed to session={session}: {q.Text}",
-                Session: session
-            ));
-            return Results.Accepted();
-        }).RequireCors("NuottiCors");
+        // Relay commands. The processor authorizes and publishes; LogStreamSubscriber writes the
+        // dev log line and HubBroadcastSubscriber puts it on the wire.
+        app.MapRelay<QuestionPushed>("/api/pushQuestion/{session}");
+        app.MapRelay<PlayTrack>("/api/play/{session}");
+        app.MapRelay<StopTrack>("/api/stop/{session}");
 
-        app.MapPost("/api/play/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, PlayTrack cmd) =>
-        {
-            if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
-            
-            await hub.Clients.Group(session).SendAsync("PlayTrack", cmd);
-            await log.BroadcastAsync(new LogEvent(
-                Timestamp: DateTimeOffset.UtcNow,
-                Level: "Info",
-                Source: "Program",
-                Message: $"Play requested for session={session}: url={cmd.FileUrl}",
-                Session: session
-            ));
-            return Results.Accepted();
-        }).RequireCors("NuottiCors");
-        
-        app.MapPost("/api/stop/{session}", async (IHubContext<QuizHub> hub, ILogStreamer log, string session, StopTrack cmd) =>
-        {
-            if (cmd.IssuedByRole != Role.Performer) { return ProblemResults.WrongRoleTriedExecutingResult(Role.Performer); }
-            
-            await hub.Clients.Group(session).SendAsync("Stop", cmd);
-            await log.BroadcastAsync(new LogEvent(
-                Timestamp: DateTimeOffset.UtcNow,
-                Level: "Info",
-                Source: "Program",
-                Message: $"Stop requested for session={session}",
-                Session: session
-            ));
-            return Results.Accepted();
-        }).RequireCors("NuottiCors");
-
-        // Upload setlist manifest and update server-side state with the song catalog
-        app.MapPost("/api/manifest/{session}", (IGameStateStore game, string session, SetlistManifest manifest) =>
-        {
-            // Basic validation
-            if (manifest?.Songs == null || manifest.Songs.Count == 0)
-            {
-                return ProblemResults.UnprocessableEntity("Invalid manifest", "At least one song is required.");
-            }
-
-            // Validate each song using DataAnnotations
-            for (var i = 0; i < manifest.Songs.Count; i++)
-            {
-                var song = manifest.Songs[i];
-                var ctx = new ValidationContext(song);
-                var results = new List<ValidationResult>();
-                if (!Validator.TryValidateObject(song, ctx, results, validateAllProperties: true))
+        // Upload a setlist manifest and replace the session's song catalog. Manifest validation and
+        // catalog construction live behind the processor with every other command effect.
+        app.MapPost("/api/manifest/{session}",
+                async (HttpContext http, ISessionCommandProcessor processor, string session, SetlistManifest manifest) =>
                 {
-                    var first = results.First();
-                    var field = first.MemberNames.FirstOrDefault();
-                    return ProblemResults.UnprocessableEntity("Invalid manifest", first.ErrorMessage ?? "Validation failed", ReasonCode.None, field);
-                }
-            }
+                    var cmd = new UpdateCatalog(manifest)
+                    {
+                        SessionCode = session,
+                        IssuedByRole = Role.Performer,
+                        IssuedById = "manifest-upload"
+                    };
 
-            // Build catalog from manifest
-            static string Slug(string s)
-                => new string((s ?? string.Empty).ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch) || ch == '-').ToArray());
+                    var result = await processor.ApplyAsync(
+                        session,
+                        Actor.Claimed(cmd),
+                        cmd,
+                        CorrelationIdMiddleware.GetCorrelationId(http),
+                        http.RequestAborted);
 
-            var catalog = manifest.Songs
-                .Select((s, i) => new SongRef(
-                    new SongId($"song-{i + 1}-{Slug(s.Title)}"),
-                    s.Title,
-                    s.Artist ?? string.Empty))
-                .ToArray();
+                    if (result.Outcome == Outcome.Rejected) return ProblemResults.From(result.Problem!);
 
-            // Update or create snapshot with catalog
-            var snapshot = game.GetOrCreate(session, sess => new GameStateSnapshot(
-                sessionCode: sess,
-                phase: Phase.Idle,
-                songIndex: 0,
-                currentSong: null,
-                catalog: catalog,
-                choices: Array.Empty<string>(),
-                hintIndex: 0,
-                tallies: Array.Empty<int>(),
-                scores: null,
-                songStartedAtUtc: null));
-
-            // If snapshot exists, replace with same values but updated catalog
-            snapshot = snapshot with { Catalog = catalog };
-            game.Set(session, snapshot);
-
-            return Results.Accepted($"/status/{session}", new { catalog });
-        }).RequireCors("NuottiCors");
+                    IReadOnlyList<SongRef> catalog = result.State?.Catalog ?? [];
+                    return Results.Accepted($"/status/{session}", new { catalog });
+                })
+            .RequireCors("NuottiCors");
 
         app.MapGet("/api/demo/problem/{kind}", (HttpContext ctx, string kind) =>
         {
@@ -152,5 +86,21 @@ internal static class ApiEndpoints
                 _ => Results.NotFound()
             };
         }).RequireCors("NuottiCors");
+    }
+
+    static void MapRelay<T>(this WebApplication app, string route) where T : CommandBase
+    {
+        app.MapPost(route, async (HttpContext http, ISessionCommandProcessor processor, string session, T cmd) =>
+            {
+                var result = await processor.ApplyAsync(
+                    session,
+                    Actor.Claimed(cmd),
+                    cmd,
+                    CorrelationIdMiddleware.GetCorrelationId(http),
+                    http.RequestAborted);
+
+                return result.ToHttpResult();
+            })
+            .RequireCors("NuottiCors");
     }
 }

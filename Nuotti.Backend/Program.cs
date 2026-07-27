@@ -1,4 +1,5 @@
 using Nuotti.Backend;
+using Nuotti.Backend.Commands;
 using Nuotti.Backend.Endpoints;
 using Nuotti.Backend.Eventing;
 using Nuotti.Backend.Eventing.Subscribers;
@@ -119,11 +120,14 @@ var auditLogger = new Serilog.LoggerConfiguration()
 builder.Services.AddSingleton<Serilog.ILogger>(provider => auditLogger);
 builder.Services.AddSingleton<Nuotti.Backend.Audit.AuditLogService>();
 
-// Event bus and subscribers
+// Command processing: the only path by which a session's state changes.
+builder.Services.AddSingleton<ISessionCommandProcessor, SessionCommandProcessor>();
+
+// Event bus and subscribers. The bus is the only fan-out; subscribers own the wire contract.
 builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
-builder.Services.AddSingleton<StateApplySubscriber>();
 builder.Services.AddSingleton<HubBroadcastSubscriber>();
 builder.Services.AddSingleton<MetricsSubscriber>();
+builder.Services.AddSingleton<LogStreamSubscriber>();
 
 var app = builder.Build();
 
@@ -148,9 +152,9 @@ app.MapDevEndpoints();
 app.MapDefaultEndpoints();
 
 // Force creation of subscribers so they can attach to the bus
-_ = app.Services.GetRequiredService<StateApplySubscriber>();
 _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
+_ = app.Services.GetRequiredService<LogStreamSubscriber>();
 
 // Log startup with version info
 var logger = app.Services.GetRequiredService<ILogger<Program>>();

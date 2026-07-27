@@ -1,14 +1,19 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Nuotti.Backend.Commands;
 using Nuotti.Backend.RateLimiting;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
-using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 namespace Nuotti.Backend;
 
-public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore sessions, IEventBus bus) : Hub
+public class QuizHub(
+    ILogger<QuizHub> logger,
+    ILogStreamer log,
+    ISessionStore sessions,
+    ISessionCommandProcessor processor) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -201,20 +206,22 @@ public class QuizHub(ILogger<QuizHub> logger, ILogStreamer log, ISessionStore se
         }
 
         var audienceId = Context.ConnectionId;
-        // For SignalR, use a new correlation ID for the command, and use it as both CorrelationId and CausedByCommandId
-        var correlationId = Guid.NewGuid();
-        var evt = new AnswerSubmitted(audienceId, choiceIndex)
+        var cmd = new SubmitAnswer(SongId: null, ChoiceIndex: choiceIndex)
         {
-            AudienceId = audienceId,
-            ChoiceIndex = choiceIndex,
-            CorrelationId = correlationId,
-            CausedByCommandId = correlationId,
-            SessionCode = session
+            SessionCode = session,
+            IssuedByRole = Role.Audience,
+            IssuedById = audienceId
         };
-        logger.LogInformation("SubmitAnswer: conn={ConnectionId} session={Session} choiceIndex={ChoiceIndex} CorrelationId={CorrelationId}", 
-            Context.ConnectionId, session, choiceIndex, correlationId);
-        
-        // Record answer submission in metrics (via MetricsSubscriber listening to the event)
-        await bus.PublishAsync(evt);
+
+        logger.LogInformation("SubmitAnswer: conn={ConnectionId} session={Session} choiceIndex={ChoiceIndex} CommandId={CommandId}",
+            Context.ConnectionId, session, choiceIndex, cmd.CommandId);
+
+        // The role came from Join, so the server established it — unlike an HTTP caller, who merely
+        // claims one in the request body.
+        var result = await processor.ApplyAsync(session, Actor.Verified(Role.Audience, audienceId), cmd);
+        if (result.Problem is not null)
+        {
+            await SendProblemAsync(result.Problem);
+        }
     }
 }

@@ -6,7 +6,8 @@ using Nuotti.Backend;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Event;
-using Nuotti.Contracts.V1.Eventing;
+using Nuotti.Backend.Commands;
+using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Xunit;
@@ -22,8 +23,13 @@ public class PerformerJoinInProcTests
     sealed class NoopGroupManager : IGroupManager { public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => Task.CompletedTask; }
     sealed class TestContext(string connectionId) : HubCallerContext { public override string ConnectionId { get; } = connectionId; public override string? UserIdentifier => null; public override ClaimsPrincipal? User => null; public override IDictionary<object, object?> Items { get; } = new Dictionary<object, object?>(); public override IFeatureCollection Features { get; } = new FeatureCollection(); public override CancellationToken ConnectionAborted { get; } = CancellationToken.None; public override void Abort() { } }
     sealed class FakeLogStreamer : ILogStreamer { public Task BroadcastAsync(LogEvent evt) => Task.CompletedTask; }
-    sealed class CapturingEventBus : IEventBus { public readonly ConcurrentBag<object> Published = new(); public Task PublishAsync<TEvent>(TEvent evt, CancellationToken ct = default) { Published.Add(evt!); return Task.CompletedTask; } public IDisposable Subscribe<TEvent>(Func<TEvent, CancellationToken, Task> handler) => new DummyDisposable(); sealed class DummyDisposable : IDisposable { public void Dispose() { } } }
-    sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, IEventBus bus) : QuizHub(new NullLogger<QuizHub>(), log, sessions, bus) { public void SetContext(HubCallerContext ctx) => Context = ctx; public void SetGroups(IGroupManager groups) => Groups = groups; public void SetClients(IHubCallerClients clients) => Clients = clients; }
+    sealed class NoopProcessor : ISessionCommandProcessor
+    {
+        // These tests exercise Join only, which never reaches the processor.
+        public Task<CommandResult> ApplyAsync(string session, Actor actor, CommandBase command, Guid? correlationId = null, CancellationToken ct = default)
+            => Task.FromResult(CommandResult.Applied());
+    }
+    sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, ISessionCommandProcessor processor) : QuizHub(new NullLogger<QuizHub>(), log, sessions, processor) { public void SetContext(HubCallerContext ctx) => Context = ctx; public void SetGroups(IGroupManager groups) => Groups = groups; public void SetClients(IHubCallerClients clients) => Clients = clients; }
 
     static InMemorySessionStore CreateSessionStore() => new InMemorySessionStore(Options.Create(new NuottiOptions()));
 
@@ -31,7 +37,7 @@ public class PerformerJoinInProcTests
     public async Task Join_Performer_registers_role_in_session_store()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new NoopProcessor());
         hub.SetContext(new TestContext("perf-conn-1"));
         hub.SetClients(new FakeClients());
         hub.SetGroups(new NoopGroupManager());

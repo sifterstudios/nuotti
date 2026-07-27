@@ -5,107 +5,24 @@ using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Reducer;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Security.Claims;
+using Nuotti.Backend.Tests.TestSupport;
 namespace Nuotti.Backend.Tests;
 
 public class QuizHubInProcTests
 {
-    sealed class FakeClientProxy : IClientProxy
-    {
-        public readonly ConcurrentBag<(string method, object?[] args)> Sent = new ConcurrentBag<(string method, object?[] args)>();
-        public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
-        {
-            Sent.Add((method, args));
-            return Task.CompletedTask;
-        }
-    }
-
-    sealed class FakeClients : IHubCallerClients
-    {
-        public readonly FakeClientProxy CallerProxy = new FakeClientProxy();
-        public readonly ConcurrentDictionary<string, FakeClientProxy> GroupProxies = new();
-        public IClientProxy Caller => CallerProxy;
-        public IClientProxy All => throw new NotImplementedException();
-        public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException();
-        public IClientProxy Client(string connectionId) => new FakeClientProxy();
-        public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new FakeClientProxy();
-        public IClientProxy Group(string groupName) => GroupProxies.GetOrAdd(groupName, _ => new FakeClientProxy());
-        public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => Group(groupName);
-        public IClientProxy Groups(IReadOnlyList<string> groupNames) => new FakeClientProxy();
-        public IClientProxy Others => new FakeClientProxy();
-        public IClientProxy OthersInGroup(string groupName) => new FakeClientProxy();
-        public IClientProxy User(string userId) => new FakeClientProxy();
-        public IClientProxy Users(IReadOnlyList<string> userIds) => new FakeClientProxy();
-    }
-
-    sealed class CapturingGroupManager : IGroupManager
-    {
-        public readonly ConcurrentDictionary<string, ConcurrentBag<string>> Groups = new ConcurrentDictionary<string, ConcurrentBag<string>>();
-        public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default)
-        {
-            var bag = Groups.GetOrAdd(groupName, _ => new ConcurrentBag<string>());
-            bag.Add(connectionId);
-            return Task.CompletedTask;
-        }
-        public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default)
-        {
-            // no-op for tests
-            return Task.CompletedTask;
-        }
-    }
-
-    sealed class TestContext(string connectionId) : HubCallerContext
-    {
-        public override string ConnectionId
-        {
-            get;
-        } = connectionId;
-        public override string? UserIdentifier => null;
-        public override ClaimsPrincipal? User => null;
-        public override IDictionary<object, object?> Items
-        {
-            get;
-        } = new Dictionary<object, object?>();
-        public override IFeatureCollection Features { get; } = new FeatureCollection();
-        public override CancellationToken ConnectionAborted { get; } = CancellationToken.None;
-        public override void Abort() { }
-    }
-
-    sealed class FakeLogStreamer : ILogStreamer
-    {
-        public Task BroadcastAsync(LogEvent evt) => Task.CompletedTask;
-    }
-
-    sealed class CapturingEventBus : IEventBus
-    {
-        public readonly ConcurrentBag<object> Published = new ConcurrentBag<object>();
-        public Task PublishAsync<TEvent>(TEvent evt, CancellationToken ct = default)
-        {
-            Published.Add(evt!);
-            return Task.CompletedTask;
-        }
-        public IDisposable Subscribe<TEvent>(Func<TEvent, CancellationToken, Task> handler) => new DummyDisposable();
-        sealed class DummyDisposable : IDisposable { public void Dispose() { } }
-    }
-
-    sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, IEventBus bus) : QuizHub(new NullLogger<QuizHub>(), log, sessions, bus)
-    {
-        public void SetContext(HubCallerContext ctx) => Context = ctx;
-        public void SetGroups(IGroupManager groups) => Groups = groups;
-        public void SetClients(IHubCallerClients clients) => Clients = clients;
-    }
-
-    static InMemorySessionStore CreateSessionStore() => new InMemorySessionStore(Options.Create(new NuottiOptions()));
+    static InMemorySessionStore CreateSessionStore() => Harness.SessionStore();
 
     [Fact]
     public async Task Join_Adds_To_Session_And_Role_Groups()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var ctx = new TestContext("conn-1");
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
@@ -128,11 +45,21 @@ public class QuizHubInProcTests
     {
         var store = CreateSessionStore();
         var bus = new CapturingEventBus();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, bus);
+        var hub = Harness.Hub(store, bus, out var gameState);
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetClients(clients);
         hub.SetGroups(groups);
+
+        // SubmitAnswer declares AllowedPhases = [Guessing], and the processor now enforces that.
+        // Before it did, the hub published AnswerSubmitted in any phase and the reducer silently
+        // discarded it.
+        gameState.Set("sessB", GameReducer.Initial("sessB") with
+        {
+            Phase = Phase.Guessing,
+            Choices = ["A", "B", "C"],
+            Tallies = [0, 0, 0]
+        });
 
         // Performer joins
         var performerCtx = new TestContext("perf-1");
@@ -155,7 +82,7 @@ public class QuizHubInProcTests
     public async Task Broadcasts_scoped_to_session_only()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var groups = new CapturingGroupManager();
         hub.SetGroups(groups);
 
@@ -193,7 +120,7 @@ public class QuizHubInProcTests
     {
         var store = CreateSessionStore();
         var bus = new CapturingEventBus();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, bus);
+        var hub = Harness.Hub(store, bus);
         var groups = new CapturingGroupManager();
         hub.SetGroups(groups);
 
@@ -234,7 +161,7 @@ public class QuizHubInProcTests
     public async Task Join_assigns_connection_to_session_group_by_role()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetClients(clients);
@@ -322,7 +249,7 @@ public class QuizHubInProcTests
     public async Task Join_with_name_broadcasts_JoinedAudience_to_session_group()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("conn-1"));
@@ -343,7 +270,7 @@ public class QuizHubInProcTests
     public async Task Join_without_name_does_not_broadcast_JoinedAudience()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("conn-1"));
@@ -363,7 +290,7 @@ public class QuizHubInProcTests
     public async Task Join_with_empty_session_returns_problem()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         hub.SetContext(new TestContext("conn-1"));
         hub.SetClients(clients);
@@ -377,7 +304,7 @@ public class QuizHubInProcTests
     public async Task Join_with_empty_role_returns_problem()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         hub.SetContext(new TestContext("conn-1"));
         hub.SetClients(clients);
@@ -391,7 +318,7 @@ public class QuizHubInProcTests
     public async Task CreateOrJoinWithName_calls_Join_with_audience_role()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("conn-1"));
@@ -413,7 +340,7 @@ public class QuizHubInProcTests
     public async Task OnDisconnectedAsync_removes_from_groups_and_session_store()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var groups = new CapturingGroupManager();
         hub.SetGroups(groups);
         hub.SetContext(new TestContext("conn-1"));
@@ -436,7 +363,7 @@ public class QuizHubInProcTests
     public async Task EngineStatusChanged_broadcasts_to_session_group()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         hub.SetClients(clients);
 
@@ -451,7 +378,7 @@ public class QuizHubInProcTests
     public async Task Ping_broadcasts_to_engine_group()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         hub.SetClients(clients);
 
@@ -465,7 +392,7 @@ public class QuizHubInProcTests
     public async Task Echo_broadcasts_to_performer_group()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         hub.SetClients(clients);
 
@@ -482,7 +409,7 @@ public class QuizHubInProcTests
     public async Task RequestPlay_blocks_non_audience()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("perf-1"));
@@ -509,7 +436,7 @@ public class QuizHubInProcTests
     public async Task RequestPlay_allows_audience_and_broadcasts_to_session()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("aud-1"));
@@ -537,7 +464,7 @@ public class QuizHubInProcTests
     public async Task Broadcasts_are_scoped_to_correct_session_group()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new CapturingEventBus());
+        var hub = Harness.Hub(store, new CapturingEventBus());
         var session1Messages = new ConcurrentBag<(string method, object?[] args)>();
         var session2Messages = new ConcurrentBag<(string method, object?[] args)>();
 

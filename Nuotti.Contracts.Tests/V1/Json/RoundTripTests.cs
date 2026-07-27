@@ -71,7 +71,7 @@ public class RoundTripTests
             IssuedAtUtc = fixedNow
         });
 
-        yield return Case(new SubmitAnswer(SongId("song-42"))
+        yield return Case(new SubmitAnswer(SongId("song-42"), 2)
         {
             CommandId = guid,
             SessionCode = "SESS-42",
