@@ -306,9 +306,34 @@ leaves the tree green.
    `ITimeProvider` with a seeded per-lane `Random`. Closes all three gaps above and ends
    with a performer script driving a session in-process. No trace yet.
    Planned in `docs/superpowers/plans/2026-07-28-harness-unblock.md`.
-2. **In-proc world** — `InProcHubClientFactory`, `SimWorld`, `SimWorldOptions`, lanes, added
-   to the project stage 1 created. Proven by a test that drives a single song end to end
-   across all participants, with no trace.
+2. **In-proc world.** Split in two once scoping revealed that no participant except the
+   projector could actually react — see *Participant gaps* below.
+   - **2a — hub seam and participants.** `IHubClient.On<T>` keyed on payload type,
+     `HubWireNames` mirroring `HubBroadcastSubscriber`, `InProcHubClient` over `IEventBus`,
+     and the audience and engine actors wired to react. Proven by a single song in which
+     every participant genuinely participates, with no trace.
+     Planned in `docs/superpowers/plans/2026-07-28-stage2a-hub-seam.md`.
+   - **2b — the world.** `SimWorld`, `SimWorldOptions`, the lane roster, per-lane snapshots
+     via `GameReducer` applied to `AnswerSubmitted`, and a send member on `IHubClient` so the
+     engine can publish `EngineStatusChanged` back.
+
+   ### Participant gaps found while scoping stage 2
+
+   Verified against the tree at `263f1c1`. None were visible when this spec was written:
+
+   - **`IHubClient` surfaced one of five broadcasts.** `HubBroadcastSubscriber` fans out
+     `GameStateChanged` (as the bare snapshot), `AnswerSubmitted`, and the `QuestionPushed`,
+     `PlayTrack` and `StopTrack` relay commands. Only the first was subscribable, so the
+     engine could never see a play request and the audience could never see a pushed
+     question. Two entries in that mapping are not derivable from the type name: `StopTrack`
+     is sent under the method name `"Stop"`, and `GameStateChanged` sends the snapshot rather
+     than the event envelope.
+   - **`AudienceActor.OnStateAsync` was never subscribed.** `ProjectorActor` wires itself up
+     in `OnStartedAsync`; `AudienceActor` did not, so a simulated audience never answered.
+   - **`EngineActor` was inert** — `OnTrackPlayRequested`/`OnTrackStopped` existed but nothing
+     called them, and `Emit` carried a comment claiming it would publish to the hub.
+   - **`AudienceActor` still drew from `Random.Shared`** when unseeded, the last such fallback
+     after stage 1 removed the others.
 3. **Trace** — `NuottiTrace`, `TraceRecorder` with alias mapping, `TraceRecord`,
    `JsonlTraceSink`, snapshot diff/hash. Must also design **id and timestamp
    normalization**: `CommandId`/`IssuedAtUtc`/`EventId`/`EmittedAtUtc` are fresh every run
