@@ -113,10 +113,21 @@ public class HttpCommandEmitterTests
         thrown.Which.Problem!.Reason.Should().Be(ReasonCode.UnauthorizedRole);
     }
 
-    [Fact]
-    public async Task A_rejection_body_that_is_not_a_problem_document_leaves_Problem_null()
+    [Theory]
+    [InlineData("<html>502 Bad Gateway</html>")]
+    // JsonSerializer.Deserialize<NuottiProblem> only throws for non-JSON input. Any JSON
+    // *object* - including these two - binds through NuottiProblem's positional constructor
+    // with missing fields silently defaulted, so without the Status-based guard these would
+    // produce a non-null Problem with a fabricated Reason of None and Status of 0. The first
+    // is this file's own earlier test body (Throws_with_the_response_body_when_the_command_is_
+    // rejected uses the same shape, but only ever asserted on RawPayload, not Problem - which
+    // is exactly how this bug went unnoticed).
+    [InlineData("{\"reasonCode\":\"UnauthorizedRole\"}")]
+    [InlineData("{}")]
+    [InlineData("{\"error\":\"upstream timeout\"}")]
+    public async Task A_rejection_body_that_is_not_a_genuine_NuottiProblem_leaves_Problem_null(string body)
     {
-        var handler = new StubHandler(HttpStatusCode.BadGateway, "<html>502 Bad Gateway</html>");
+        var handler = new StubHandler(HttpStatusCode.BadGateway, body);
         var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5240") };
         var emitter = new HttpCommandEmitter(http);
 
@@ -124,7 +135,7 @@ public class HttpCommandEmitterTests
 
         var thrown = await act.Should().ThrowAsync<CommandRejectedException>();
         thrown.Which.Problem.Should().BeNull();
-        thrown.Which.RawPayload.Should().Contain("502 Bad Gateway");
+        thrown.Which.RawPayload.Should().Be(body);
     }
 
     [Fact]

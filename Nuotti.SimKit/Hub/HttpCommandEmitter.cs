@@ -76,6 +76,15 @@ public sealed class HttpCommandEmitter(HttpClient http) : ICommandEmitter
             // Not a NuottiProblem document; RawPayload still carries the raw body.
         }
 
+        // Deserialize only throws for non-JSON. Any JSON *object* - {}, {"error":"..."}, ASP.NET's
+        // default RFC7807 body for a model-binding 400 - binds through NuottiProblem's positional
+        // constructor with missing fields silently defaulted, which would otherwise make Problem
+        // non-null with a fabricated Reason of None and Status of 0. Status is always a real HTTP
+        // status code (400/403/409/422/...) on every NuottiProblem this codebase actually
+        // produces (see NuottiProblem's factories and SessionCommandProcessor.Reject), so a zero
+        // Status is the tell that this was never a genuine NuottiProblem in the first place.
+        if (problem is { Status: 0 }) problem = null;
+
         throw new CommandRejectedException(command, body) { Problem = problem };
     }
 }
