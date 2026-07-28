@@ -1,7 +1,10 @@
 using System.Net;
+using System.Text.Json;
 using FluentAssertions;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Hub;
 using Xunit;
 
@@ -80,7 +83,48 @@ public class HttpCommandEmitterTests
         var act = async () => await emitter.EmitAsync(AStartGame());
 
         var thrown = await act.Should().ThrowAsync<CommandRejectedException>();
-        thrown.Which.ResponseBody.Should().Contain("UnauthorizedRole");
+        thrown.Which.RawPayload.Should().Contain("UnauthorizedRole");
+    }
+
+    [Fact]
+    public async Task Rejection_carries_the_structured_reason_from_a_real_problem_document()
+    {
+        // Unlike the test above (an arbitrary body a caller might string-match), this stubs the
+        // shape the Backend actually sends: a NuottiProblem serialized with the same camelCase
+        // REST options PhaseEndpoints/ProblemResults use. Deserializing it into Problem is what
+        // lets a caller ask "was this rejected for UnauthorizedRole?" the same way it would for
+        // InProcCommandEmitter (see InProcCommandEmitterTests in Nuotti.SimKit.InProc.Tests),
+        // instead of only being able to string-match RawPayload.
+        var problem = new NuottiProblem(
+            Title: "Unauthorized Role",
+            Status: 403,
+            Detail: "Only Performer may execute this command.",
+            Reason: ReasonCode.UnauthorizedRole,
+            Field: "issuedByRole");
+        var body = JsonSerializer.Serialize(problem, ContractsJson.RestOptions);
+        var handler = new StubHandler(HttpStatusCode.Forbidden, body);
+        var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5240") };
+        var emitter = new HttpCommandEmitter(http);
+
+        var act = async () => await emitter.EmitAsync(AStartGame());
+
+        var thrown = await act.Should().ThrowAsync<CommandRejectedException>();
+        thrown.Which.Problem.Should().NotBeNull();
+        thrown.Which.Problem!.Reason.Should().Be(ReasonCode.UnauthorizedRole);
+    }
+
+    [Fact]
+    public async Task A_rejection_body_that_is_not_a_problem_document_leaves_Problem_null()
+    {
+        var handler = new StubHandler(HttpStatusCode.BadGateway, "<html>502 Bad Gateway</html>");
+        var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5240") };
+        var emitter = new HttpCommandEmitter(http);
+
+        var act = async () => await emitter.EmitAsync(AStartGame());
+
+        var thrown = await act.Should().ThrowAsync<CommandRejectedException>();
+        thrown.Which.Problem.Should().BeNull();
+        thrown.Which.RawPayload.Should().Contain("502 Bad Gateway");
     }
 
     [Fact]
