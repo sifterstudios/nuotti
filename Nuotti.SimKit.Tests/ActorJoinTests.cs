@@ -1,6 +1,7 @@
 ﻿using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Time;
 using Xunit;
 namespace Nuotti.SimKit.Tests;
 
@@ -52,7 +53,7 @@ public class ActorJoinTests
     public async Task Audience_joins_session_and_role_with_name()
     {
         var factory = new FakeHubClientFactory();
-        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "XYZ", "Alice");
+        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "XYZ", "Alice", LaneRandom.ForLane(seed: 0, laneIndex: 0));
 
         await actor.StartAsync();
 

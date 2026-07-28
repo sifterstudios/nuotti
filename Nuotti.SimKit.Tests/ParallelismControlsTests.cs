@@ -55,7 +55,7 @@ public class ParallelismControlsTests
         for (int i = 0; i < audienceCount; i++)
         {
             var opts = new AudienceOptions { MinDelay = TimeSpan.Zero, MaxDelay = TimeSpan.Zero, DropRate = 0 };
-            var actor = new AudienceActor(hubFactory, baseUri, session, $"A-{i}", opts, new ImmediateTimeProvider());
+            var actor = new AudienceActor(hubFactory, baseUri, session, $"A-{i}", LaneRandom.ForLane(seed: 0, laneIndex: i), opts, new ImmediateTimeProvider());
             await actor.StartAsync();
             audiences.Add(actor);
         }

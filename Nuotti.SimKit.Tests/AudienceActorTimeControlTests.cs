@@ -19,7 +19,7 @@ public class AudienceActorTimeControlTests
             DropRate = 0.0,
             RandomSeed = 321
         };
-        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Alice", options, new ImmediateTimeProvider());
+        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Alice", LaneRandom.ForLane(options.RandomSeed ?? 0, 0), options, new ImmediateTimeProvider());
         await actor.StartAsync();
 
         var snapshot = new GameStateSnapshot(
@@ -58,7 +58,7 @@ public class AudienceActorTimeControlTests
             RandomSeed = 42
         };
         var time = new RealTimeProvider(speed: 10.0); // 10x faster => ~10ms expected
-        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Eve", options, time);
+        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Eve", LaneRandom.ForLane(options.RandomSeed ?? 0, 0), options, time);
         await actor.StartAsync();
 
         var snapshot = new GameStateSnapshot(

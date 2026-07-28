@@ -2,6 +2,7 @@
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Time;
 using Xunit;
 namespace Nuotti.SimKit.Tests;
 
@@ -18,7 +19,7 @@ public class AudienceActorAnsweringTests
             DropRate = 0.0,
             RandomSeed = 123
         };
-        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Bob", options);
+        var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Bob", LaneRandom.ForLane(options.RandomSeed ?? 0, 0), options);
         await actor.StartAsync();
 
         var snapshot = new GameStateSnapshot(

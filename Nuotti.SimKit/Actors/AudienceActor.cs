@@ -13,13 +13,14 @@ public sealed class AudienceActor : BaseActor
     int _lastAnsweredSongIndex = -1;
     int? _scheduledForSongIndex;
     readonly object _gate = new();
+    IDisposable? _subscription;
 
-    public AudienceActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, string name, AudienceOptions? options = null, ITimeProvider? timeProvider = null)
+    public AudienceActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, string name, Random random, AudienceOptions? options = null, ITimeProvider? timeProvider = null)
         : base(hubClientFactory, baseUri, session)
     {
         _name = name;
         _options = options ?? new AudienceOptions();
-        _random = _options.RandomSeed.HasValue ? new Random(_options.RandomSeed.Value) : Random.Shared;
+        _random = random;
         _time = timeProvider ?? new RealTimeProvider(1.0);
     }
 
@@ -92,5 +93,19 @@ public sealed class AudienceActor : BaseActor
             _lastAnsweredSongIndex = songIndex;
             _scheduledForSongIndex = null;
         }
+    }
+
+    protected override Task OnStartedAsync(CancellationToken cancellationToken = default)
+    {
+        if (Client is not null)
+            _subscription = Client.On<GameStateSnapshot>(s => OnStateAsync(s, cancellationToken));
+        return Task.CompletedTask;
+    }
+
+    protected override Task OnStoppingAsync(CancellationToken cancellationToken = default)
+    {
+        _subscription?.Dispose();
+        _subscription = null;
+        return Task.CompletedTask;
     }
 }
