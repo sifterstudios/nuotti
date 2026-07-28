@@ -1,6 +1,9 @@
+using Nuotti.Backend.Commands;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Hub;
 
@@ -23,14 +26,17 @@ namespace Nuotti.SimKit.InProc;
 public sealed class InProcHubClient : IHubClient
 {
     readonly IEventBus _bus;
+    readonly ISessionCommandProcessor _processor;
     readonly string _session;
-    readonly List<IDisposable> _busSubs = [];
     readonly object _gate = new();
     bool _started;
+    string? _role;
+    string? _participantId;
 
-    public InProcHubClient(IEventBus bus, string session)
+    public InProcHubClient(IEventBus bus, ISessionCommandProcessor processor, string session)
     {
         _bus = bus;
+        _processor = processor;
         _session = session;
     }
 
@@ -46,22 +52,53 @@ public sealed class InProcHubClient : IHubClient
         return Task.CompletedTask;
     }
 
-    // Joining is a no-op in-process: there is no group to add a connection to, and the
-    // session scope is fixed at construction.
     public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    {
+        if (!string.Equals(session, _session, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"This client is bound to session '{_session}' and cannot join '{session}'. " +
+                "The real hub would add the connection to a different group; failing loudly " +
+                "here keeps the two fidelities honest.");
 
-    public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(
-            "InProcHubClient cannot submit answers directly — a SubmitAnswer command goes " +
-            "through InProcCommandEmitter, the same path the HTTP fidelity uses.");
+        _role = role;
+        // Deterministic stand-in for SignalR's ConnectionId: the display name when there is
+        // one, the role otherwise. No GUIDs — a run must be reproducible.
+        _participantId = name ?? role;
+        return Task.CompletedTask;
+    }
+
+    public async Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
+    {
+        // Mirrors QuizHub.SubmitAnswer: only an audience may answer, and the actor is
+        // Verified rather than Claimed because the role was established at Join.
+        if (!string.Equals(_role, "audience", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Only an audience may submit an answer; this client joined as '{_role ?? "(not joined)"}'.");
+
+        var command = new SubmitAnswer(SongId: null, ChoiceIndex: choiceIndex)
+        {
+            SessionCode = session,
+            IssuedByRole = Role.Audience,
+            IssuedById = _participantId!
+        };
+
+        var result = await _processor
+            .ApplyAsync(session, Actor.Verified(Role.Audience, _participantId!), command, correlationId: null, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.Outcome == Outcome.Rejected)
+            throw new CommandRejectedException(command, result.Problem?.Detail ?? "rejected")
+            {
+                Problem = result.Problem
+            };
+    }
 
     public IDisposable On<T>(Func<T, Task> handler)
     {
         // Fail fast on a payload type the Backend never broadcasts, matching HubWireNames.For<T>().
         _ = HubWireNames.For<T>();
 
-        IDisposable sub = typeof(T) switch
+        return typeof(T) switch
         {
             var t when t == typeof(GameStateSnapshot) =>
                 _bus.Subscribe<GameStateChanged>((evt, ct) =>
@@ -76,9 +113,6 @@ public sealed class InProcHubClient : IHubClient
                 _bus.Subscribe<StopTrack>((cmd, ct) => Deliver(cmd.SessionCode, (T)(object)cmd, handler)),
             _ => throw new NotSupportedException($"No in-proc subscription for {typeof(T).Name}."),
         };
-
-        lock (_gate) _busSubs.Add(sub);
-        return sub;
     }
 
     Task Deliver<T>(string session, T payload, Func<T, Task> handler)

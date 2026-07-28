@@ -8,5 +8,5 @@ namespace Nuotti.SimKit.InProc;
 /// </summary>
 public sealed class InProcHubClientFactory(InProcBackend backend, string session) : IHubClientFactory
 {
-    public IHubClient Create(Uri baseAddress) => new InProcHubClient(backend.Bus, session);
+    public IHubClient Create(Uri baseAddress) => new InProcHubClient(backend.Bus, backend.Processor, session);
 }

@@ -114,4 +114,82 @@ public class InProcHubClientTests
 
         plays.Should().HaveCount(1);
     }
+
+    [Fact]
+    public async Task Delivers_nothing_before_the_client_has_started()
+    {
+        using var backend = await ASessionAsync();
+        var client = new InProcHubClientFactory(backend, "dev").Create(Unused);
+        // deliberately no StartAsync
+
+        var received = new List<GameStateSnapshot>();
+        using var sub = client.On<GameStateSnapshot>(s => { received.Add(s); return Task.CompletedTask; });
+
+        await new InProcCommandEmitter(backend.Processor).EmitAsync(new StartGame
+        {
+            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        });
+
+        received.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Stops_delivering_after_the_client_stops()
+    {
+        using var backend = await ASessionAsync();
+        var client = new InProcHubClientFactory(backend, "dev").Create(Unused);
+        await client.StartAsync();
+        await client.JoinAsync("dev", "projector");
+
+        var received = new List<GameStateSnapshot>();
+        using var sub = client.On<GameStateSnapshot>(s => { received.Add(s); return Task.CompletedTask; });
+
+        await client.StopAsync();
+
+        await new InProcCommandEmitter(backend.Processor).EmitAsync(new StartGame
+        {
+            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        });
+
+        // Subscribed while started, stopped afterwards: proves the gate is read at delivery
+        // time, not captured when the subscription was created.
+        received.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task An_audience_can_submit_an_answer_through_the_processor()
+    {
+        using var backend = await ASessionAsync();
+        var client = new InProcHubClientFactory(backend, "dev").Create(Unused);
+        await client.StartAsync();
+        await client.JoinAsync("dev", "audience", "aud-1");
+
+        // Drive the session to Guessing phase: Lobby -> Start -> Guessing
+        var emitter = new InProcCommandEmitter(backend.Processor);
+        await emitter.EmitAsync(new StartGame
+        {
+            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        });
+        await emitter.EmitAsync(new OpenAnswers
+        {
+            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        });
+
+        var act = async () => await client.SubmitAnswerAsync("dev", 0);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task A_non_audience_cannot_submit_an_answer()
+    {
+        using var backend = await ASessionAsync();
+        var client = new InProcHubClientFactory(backend, "dev").Create(Unused);
+        await client.StartAsync();
+        await client.JoinAsync("dev", "projector");
+
+        var act = async () => await client.SubmitAnswerAsync("dev", 0);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
 }
