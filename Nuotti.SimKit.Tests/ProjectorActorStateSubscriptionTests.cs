@@ -16,7 +16,7 @@ public class ProjectorActorStateSubscriptionTests
 
         var client = factory.Client!;
         // Simulate server broadcasting snapshots
-        client.Fire(new GameStateSnapshot(
+        await client.FireAsync(new GameStateSnapshot(
             sessionCode: "SESS",
             phase: Phase.Lobby,
             songIndex: 0,
@@ -27,7 +27,7 @@ public class ProjectorActorStateSubscriptionTests
             scores: null,
             songStartedAtUtc: null
         ));
-        client.Fire(new GameStateSnapshot(
+        await client.FireAsync(new GameStateSnapshot(
             sessionCode: "SESS",
             phase: Phase.Start,
             songIndex: 0,
@@ -38,7 +38,7 @@ public class ProjectorActorStateSubscriptionTests
             scores: null,
             songStartedAtUtc: null
         ));
-        client.Fire(new GameStateSnapshot(
+        await client.FireAsync(new GameStateSnapshot(
             sessionCode: "SESS",
             phase: Phase.Play,
             songIndex: 0,
@@ -81,9 +81,11 @@ file sealed class TriggeringHubClient : IHubClient
         return new Unsubscriber(() => _handler = null);
     }
 
-    // OnStateAsync (the only handler this double serves) completes synchronously today,
-    // so invoking without awaiting preserves the prior Action<T> semantics exactly.
-    public void Fire(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot);
+    // Awaitable, unlike the fire-and-forget void this replaces: OnStateAsync (the only handler
+    // this double serves) happens to complete synchronously today, but discarding the Task would
+    // stop being safe the moment that changes, turning any handler exception into an unobserved
+    // faulted task instead of a failing test.
+    public Task FireAsync(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot) ?? Task.CompletedTask;
 
     sealed class Unsubscriber(Action dispose) : IDisposable
     {

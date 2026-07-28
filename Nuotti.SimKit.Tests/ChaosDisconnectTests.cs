@@ -36,7 +36,7 @@ public class ChaosDisconnectTests
         for (int i = 0; i < total; i++)
         {
             var phase = (Phase)(i % 5); // cycle through phases
-            client.Fire(new GameStateSnapshot(
+            await client.FireAsync(new GameStateSnapshot(
                 sessionCode: "SESS",
                 phase: phase,
                 songIndex: 0,
@@ -88,9 +88,12 @@ file sealed class TriggeringHubClient : IHubClient
         return new Unsubscriber(() => _handler = null);
     }
 
-    // Fire-and-forget, same as the Action<T> version this replaces: the caller does not wait
-    // for the handler to finish, so we deliberately do not await here either.
-    public void Fire(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot);
+    // Awaitable, unlike the fire-and-forget void this replaces: discarding the handler's Task
+    // only happened to be safe while the whole decorator chain (chaos delay included) resolved
+    // synchronously under ImmediateTimeProvider. The moment anything on that path yields, an
+    // unawaited Task means the caller and the handler mutate shared state concurrently, and any
+    // handler exception becomes an unobserved faulted task instead of failing the test.
+    public Task FireAsync(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot) ?? Task.CompletedTask;
 
     sealed class Unsubscriber(Action dispose) : IDisposable
     {

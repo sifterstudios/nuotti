@@ -80,7 +80,7 @@ public class LatencyInjectionTests
         });
 
         for (int i = 0; i < 41; i++)
-            inner.Fire(new GameStateSnapshot("SESS", Phase.Lobby, i, null, null, 0, null, null));
+            await inner.FireAsync(new GameStateSnapshot("SESS", Phase.Lobby, i, null, null, 0, null, null));
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -122,8 +122,12 @@ file sealed class ImmediateHubClient : IHubClient
         return new D(() => _handler = null);
     }
 
-    // Fire-and-forget, same as the Action<T> version this replaces.
-    public void Fire(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot);
+    // Awaitable, unlike the fire-and-forget void this replaces: discarding the handler's Task
+    // only happened to be safe while every decorator in the chain resolved synchronously under
+    // ImmediateTimeProvider. The moment anything on that path yields, an unawaited Task means the
+    // mutable collections the handler writes to are touched concurrently with the caller, and any
+    // handler exception becomes an unobserved faulted task instead of failing the test.
+    public Task FireAsync(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot) ?? Task.CompletedTask;
 
     sealed class D(Action dispose) : IDisposable { public void Dispose() => dispose(); }
 }
