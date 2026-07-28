@@ -100,9 +100,12 @@ public sealed class AudienceActor : BaseActor
     {
         if (Client is not null)
         {
-            // The subscription outlives the start call, so it must not capture the start
-            // call's token: a start-scoped timeout would silently stop the audience
-            // answering for the rest of the run. Use an independent lifetime.
+            // Deliberately independent of the start call's token, not linked to it.
+            // StartAsync's token governs starting — connecting and joining — and must not
+            // govern how long the subscription lives: a connect timeout would otherwise make
+            // this audience go permanently silent for the rest of the run. ProjectorActor,
+            // the pattern this follows, captures no token at all. Cancelling the subscription
+            // is StopAsync's job, and nothing else's.
             _subscriptionLifetime = new CancellationTokenSource();
             var token = _subscriptionLifetime.Token;
             _subscription = Client.On<GameStateSnapshot>(s => OnStateAsync(s, token));
