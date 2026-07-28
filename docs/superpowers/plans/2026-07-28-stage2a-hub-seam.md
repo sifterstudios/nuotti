@@ -396,9 +396,9 @@ public class InProcHubClientTests
         var plays = new List<PlayTrack>();
         using var sub = client.On<PlayTrack>(p => { plays.Add(p); return Task.CompletedTask; });
 
-        await backend.Bus.PublishAsync(new PlayTrack(/* fill from the real ctor */)
+        await backend.Bus.PublishAsync(new PlayTrack("file:///song.mp3")
         {
-            SessionCode = "dev"
+            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
         }, CancellationToken.None);
 
         plays.Should().HaveCount(1);
@@ -406,14 +406,16 @@ public class InProcHubClientTests
 }
 ```
 
-`CreateSession`, `PlayTrack` and `IEventBus`'s publish member may not match these shapes exactly. Confirm before writing the implementation and adapt:
+These shapes are verified against the tree at `31b3972` — use them as written:
 
-```bash
-rtk proxy grep -rn 'record CreateSession\|record PlayTrack' -A 6 Nuotti.Contracts/V1/Message/
-rtk proxy grep -n 'Task Publish\|Subscribe<' Nuotti.Contracts/V1/Eventing/IEventBus.cs
-```
+- `IEventBus`: `IDisposable Subscribe<TEvent>(Func<TEvent, CancellationToken, Task>)` and `Task PublishAsync<TEvent>(TEvent evt, CancellationToken cancellationToken = default)`
+- `CreateSession(string SessionId) : CommandBase`
+- `PlayTrack(string FileUrl) : CommandBase`
+- `StopTrack() : CommandBase`
+- `QuestionPushed(string Text, string[] Options) : CommandBase`
+- `AnswerSubmitted(string AudienceId, int ChoiceIndex) : EventBase`
 
-The last test's point is that a relay command reaches a payload subscriber; if publishing one directly onto the bus is awkward, drive it through a `PlaySong` command via the emitter instead and say so in your report.
+`CommandBase` supplies `SessionCode`, `IssuedByRole` and `IssuedById` as init-only members, which is why they appear in the object initializer rather than the constructor.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -574,13 +576,14 @@ HTTP fidelity uses."
 
 - [ ] **Step 1: Write the failing test**
 
-Create `Nuotti.SimKit.Tests/AudienceActorSubscriptionTests.cs`. It needs a hub client double that can push a snapshot and observe a submitted answer; `AudienceActorAnsweringTests.cs` already has a `CapturingHubClient` — read it and follow its shape rather than inventing a new one.
+Create `Nuotti.SimKit.Tests/AudienceActorSubscriptionTests.cs`. The existing `CapturingHubClient` in `AudienceActorAnsweringTests.cs` records answers but cannot push a snapshot (its subscription returns a no-op), so this file declares its own `file`-scoped double in the same style:
 
 ```csharp
 using FluentAssertions;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
+using Nuotti.SimKit.Hub;
 using Nuotti.SimKit.Time;
 using Xunit;
 
@@ -588,42 +591,89 @@ namespace Nuotti.SimKit.Tests;
 
 public class AudienceActorSubscriptionTests
 {
+    static AudienceActor AnAudience(PushingHubClientFactory factory) =>
+        new(factory, new Uri("http://in-proc"), "dev", "aud-1",
+            random: LaneRandom.ForLane(seed: 1, laneIndex: 0),
+            options: new AudienceOptions { MinDelay = TimeSpan.Zero, MaxDelay = TimeSpan.Zero },
+            timeProvider: new ImmediateTimeProvider());
+
+    static GameStateSnapshot AGuessingSnapshot() => new()
+    {
+        SessionCode = "dev",
+        Phase = Phase.Guessing,
+        SongIndex = 0,
+        Choices = ["a", "b", "c", "d"],
+    };
+
     [Fact]
     public async Task Answers_a_guessing_snapshot_without_being_called_directly()
     {
         // The actor must wire itself up on start. Before this, OnStateAsync existed but
         // nothing ever invoked it, so a simulated audience never answered.
-        var capturing = /* the double from AudienceActorAnsweringTests, capturing SubmitAnswer */;
-        var actor = new AudienceActor(
-            /* factory returning `capturing` */, new Uri("http://in-proc"), "dev", "aud-1",
-            random: LaneRandom.ForLane(seed: 1, laneIndex: 0),
-            options: new AudienceOptions { MinDelay = TimeSpan.Zero, MaxDelay = TimeSpan.Zero },
-            timeProvider: new ImmediateTimeProvider());
+        var factory = new PushingHubClientFactory();
+        var actor = AnAudience(factory);
 
         await actor.StartAsync();
-        await capturing.PushAsync(AGuessingSnapshot());
+        await factory.Client!.PushAsync(AGuessingSnapshot());
 
-        capturing.SubmittedAnswers.Should().HaveCount(1);
+        factory.Client.Answers.Should().HaveCount(1);
     }
 
     [Fact]
     public async Task Stops_answering_once_the_actor_stops()
     {
-        var capturing = /* same double */;
-        var actor = new AudienceActor(/* … as above … */);
+        var factory = new PushingHubClientFactory();
+        var actor = AnAudience(factory);
 
         await actor.StartAsync();
         await actor.StopAsync();
-        await capturing.PushAsync(AGuessingSnapshot());
+        await factory.Client!.PushAsync(AGuessingSnapshot());
 
-        capturing.SubmittedAnswers.Should().BeEmpty();
+        factory.Client.Answers.Should().BeEmpty();
+    }
+}
+
+file sealed class PushingHubClientFactory : IHubClientFactory
+{
+    public PushingHubClient? Client { get; private set; }
+    public IHubClient Create(Uri baseAddress) => Client = new PushingHubClient();
+}
+
+file sealed class PushingHubClient : IHubClient
+{
+    Func<GameStateSnapshot, Task>? _onSnapshot;
+
+    public List<(string Session, int ChoiceIndex)> Answers { get; } = new();
+
+    public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
+    {
+        Answers.Add((session, choiceIndex));
+        return Task.CompletedTask;
     }
 
-    static GameStateSnapshot AGuessingSnapshot() => /* Phase.Guessing, 4 choices, SongIndex 0 */;
+    public IDisposable On<T>(Func<T, Task> handler)
+    {
+        if (typeof(T) == typeof(GameStateSnapshot))
+            _onSnapshot = s => handler((T)(object)s);
+        return new Sub(this);
+    }
+
+    // Awaited, not discarded: a discarded Task would reintroduce the async-void hazard
+    // stage 1 removed, and would make these assertions race.
+    public Task PushAsync(GameStateSnapshot snapshot) => _onSnapshot?.Invoke(snapshot) ?? Task.CompletedTask;
+
+    sealed class Sub(PushingHubClient owner) : IDisposable
+    {
+        public void Dispose() => owner._onSnapshot = null;
+    }
 }
 ```
 
-Fill the elided pieces from the existing double and from `GameStateSnapshot`'s real shape. The assertions above are the requirement; the scaffolding is yours to match to what is already there.
+`GameStateSnapshot` is an init-only record — `SessionCode`, `Phase`, `SongIndex` and `Choices` are the members this test needs. If `Choices` has a different element type than `string`, adapt the collection expression; the rest holds.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -702,15 +752,45 @@ nondeterministic draw in SimKit production code."
 
 - [ ] **Step 1: Write the failing test**
 
-Create `Nuotti.SimKit.Tests/EngineActorReactionTests.cs`, following the double pattern in `EngineActorLifecycleTests.cs`. Required assertions:
+Create `Nuotti.SimKit.Tests/EngineActorReactionTests.cs`:
 
 ```csharp
+using FluentAssertions;
+using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Model;
+using Nuotti.SimKit.Actors;
+using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Time;
+using Xunit;
+
+namespace Nuotti.SimKit.Tests;
+
+public class EngineActorReactionTests
+{
+    static EngineActor AnEngine(RelayHubClientFactory factory, double failureRate) =>
+        new(factory, new Uri("http://in-proc"), "dev",
+            failureRate: failureRate,
+            random: LaneRandom.ForLane(seed: 3, laneIndex: 0));
+
+    static PlayTrack APlayTrack() => new("file:///song.mp3")
+    {
+        SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+    };
+
+    static StopTrack AStopTrack() => new()
+    {
+        SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+    };
+
     [Fact]
     public async Task Reports_playing_when_a_play_track_arrives()
     {
-        // engine with failureRate 0
+        var factory = new RelayHubClientFactory();
+        var actor = AnEngine(factory, failureRate: 0);
+
         await actor.StartAsync();
-        await hub.PushAsync(APlayTrack());
+        await factory.Client!.PushAsync(APlayTrack());
 
         actor.Emitted.Should().ContainSingle()
             .Which.Status.Should().Be(EngineStatus.Playing);
@@ -719,8 +799,11 @@ Create `Nuotti.SimKit.Tests/EngineActorReactionTests.cs`, following the double p
     [Fact]
     public async Task Reports_ready_when_a_stop_arrives()
     {
+        var factory = new RelayHubClientFactory();
+        var actor = AnEngine(factory, failureRate: 0);
+
         await actor.StartAsync();
-        await hub.PushAsync(AStopTrack());
+        await factory.Client!.PushAsync(AStopTrack());
 
         actor.Emitted.Should().ContainSingle()
             .Which.Status.Should().Be(EngineStatus.Ready);
@@ -729,9 +812,11 @@ Create `Nuotti.SimKit.Tests/EngineActorReactionTests.cs`, following the double p
     [Fact]
     public async Task Reports_error_when_the_failure_rate_is_certain()
     {
-        // engine with failureRate 1.0
+        var factory = new RelayHubClientFactory();
+        var actor = AnEngine(factory, failureRate: 1.0);
+
         await actor.StartAsync();
-        await hub.PushAsync(APlayTrack());
+        await factory.Client!.PushAsync(APlayTrack());
 
         actor.Emitted.Should().ContainSingle()
             .Which.Status.Should().Be(EngineStatus.Error);
@@ -740,15 +825,49 @@ Create `Nuotti.SimKit.Tests/EngineActorReactionTests.cs`, following the double p
     [Fact]
     public async Task Stops_reacting_once_the_actor_stops()
     {
+        var factory = new RelayHubClientFactory();
+        var actor = AnEngine(factory, failureRate: 0);
+
         await actor.StartAsync();
         await actor.StopAsync();
-        await hub.PushAsync(APlayTrack());
+        await factory.Client!.PushAsync(APlayTrack());
 
         actor.Emitted.Should().BeEmpty();
     }
+}
+
+file sealed class RelayHubClientFactory : IHubClientFactory
+{
+    public RelayHubClient? Client { get; private set; }
+    public IHubClient Create(Uri baseAddress) => Client = new RelayHubClient();
+}
+
+file sealed class RelayHubClient : IHubClient
+{
+    readonly Dictionary<Type, Func<object, Task>> _handlers = new();
+
+    public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public IDisposable On<T>(Func<T, Task> handler)
+    {
+        _handlers[typeof(T)] = payload => handler((T)payload);
+        return new Sub(this, typeof(T));
+    }
+
+    public Task PushAsync<T>(T payload) where T : notnull =>
+        _handlers.TryGetValue(typeof(T), out var h) ? h(payload) : Task.CompletedTask;
+
+    sealed class Sub(RelayHubClient owner, Type key) : IDisposable
+    {
+        public void Dispose() => owner._handlers.Remove(key);
+    }
+}
 ```
 
-Confirm `EngineStatusChanged`'s member name for the status before writing (`rtk proxy grep -rn 'record EngineStatusChanged' -A 4 Nuotti.Contracts/`).
+`EngineStatusChanged` is `record EngineStatusChanged(EngineStatus Status, double LatencyMs)`, so `.Status` is correct. `StopTrack` is `record StopTrack() : CommandBase` — no constructor arguments, session details via the initializer.
 
 - [ ] **Step 2: Run test to verify it fails**
 
