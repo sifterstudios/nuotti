@@ -469,7 +469,201 @@ Command types with no phase route throw rather than guessing a URL."
 
 ---
 
-### Task 3: Make latency and chaos deterministic
+### Task 3: Make the hub subscription async
+
+`IHubClient.OnGameStateChanged` takes `Action<GameStateSnapshot>`, so every handler that needs to await something is an async lambda bound to a void-returning delegate — an async void. Receive order is not guaranteed and exceptions are swallowed, which no amount of seeding can make reproducible. Change the delegate to `Func<GameStateSnapshot, Task>`.
+
+This task is a pure signature change. **No behaviour changes here** — determinism is Task 4. Keeping them apart means the 17-implementor churn can be reviewed as the mechanical change it is.
+
+**Files:**
+- Modify: `Nuotti.SimKit/Hub/IHubClient.cs`
+- Modify production implementors: `Nuotti.SimKit/Hub/HubConnectionFactory.cs` (`RealHubClient`), `Nuotti.SimKit/Hub/ConcurrencyThrottle.cs` (`ThrottlingHubClient`), `Nuotti.SimKit/Hub/LatencyInjection.cs` (`LatencyInjectingHubClient`), `Nuotti.SimKit/Hub/ChaosInjection.cs` (`ChaosInjectingHubClient`)
+- Modify: `Nuotti.SimKit/Actors/ProjectorActor.cs:47`
+- Modify these 13 test doubles: `ParallelismControlsTests.cs` (two — `CountingBlockingHubClient`, `NoopHubClient`), `ScriptMappingTests.cs`, `ChaosDisconnectTests.cs`, `BaselineScenarioTests.cs`, `ActorJoinTests.cs`, `ProjectorActorStateSubscriptionTests.cs`, `MultiSongScenarioTests.cs`, `AudienceActorAnsweringTests.cs`, `AudienceActorTimeControlTests.cs`, `LatencyInjectionTests.cs`, `EngineActorLifecycleTests.cs`
+- Test: `Nuotti.SimKit.Tests/HubSubscriptionAsyncTests.cs`
+
+**Interfaces:**
+- Consumes: nothing from earlier tasks.
+- Produces: `IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)` on `IHubClient`. Task 4 and every later stage depend on this shape.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `Nuotti.SimKit.Tests/HubSubscriptionAsyncTests.cs`:
+
+```csharp
+using FluentAssertions;
+using Nuotti.Contracts.V1.Model;
+using Nuotti.SimKit.Hub;
+using Xunit;
+
+namespace Nuotti.SimKit.Tests;
+
+public class HubSubscriptionAsyncTests
+{
+    /// <summary>
+    /// A publisher that awaits each handler, the way a deterministic in-process bus will.
+    /// </summary>
+    sealed class AwaitingHubClient : IHubClient
+    {
+        Func<GameStateSnapshot, Task>? _handler;
+
+        public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
+        {
+            _handler = handler;
+            return new Sub(this);
+        }
+
+        public Task PublishAsync(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot) ?? Task.CompletedTask;
+
+        sealed class Sub(AwaitingHubClient owner) : IDisposable
+        {
+            public void Dispose() => owner._handler = null;
+        }
+    }
+
+    static GameStateSnapshot ASnapshot() => new() { SessionCode = "dev" };
+
+    [Fact]
+    public async Task Publisher_can_await_an_async_handler_to_completion()
+    {
+        var client = new AwaitingHubClient();
+        var finished = false;
+
+        using var sub = client.OnGameStateChanged(async _ =>
+        {
+            await Task.Yield();
+            finished = true;
+        });
+
+        await client.PublishAsync(ASnapshot());
+
+        // With Action<T> this assertion raced: the publisher could not await the handler.
+        finished.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handler_exceptions_reach_the_publisher_instead_of_vanishing()
+    {
+        var client = new AwaitingHubClient();
+        using var sub = client.OnGameStateChanged(_ => throw new InvalidOperationException("boom"));
+
+        var act = async () => await client.PublishAsync(ASnapshot());
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("boom");
+    }
+}
+```
+
+`GameStateSnapshot`'s required members may differ. Construct a minimal valid one — check with:
+
+```bash
+rtk proxy grep -n 'record GameStateSnapshot' -A 20 Nuotti.Contracts/V1/Model/GameStateSnapshot.cs
+```
+
+If the SimKit test project already has a snapshot builder, use it instead of hand-constructing.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `~/.dotnet/dotnet test Nuotti.SimKit.Tests/Nuotti.SimKit.Tests.csproj --filter FullyQualifiedName~HubSubscriptionAsyncTests`
+
+Expected: FAIL to compile — `AwaitingHubClient` does not satisfy `IHubClient`, whose member still takes `Action<GameStateSnapshot>`.
+
+- [ ] **Step 3: Change the interface**
+
+In `Nuotti.SimKit/Hub/IHubClient.cs`:
+
+```csharp
+    /// <summary>
+    /// Subscribe to GameStateChanged broadcast from the hub.
+    /// Returns IDisposable to allow unsubscription.
+    /// </summary>
+    /// <remarks>
+    /// The handler returns a Task so the publisher can await it. With Action&lt;T&gt;, any handler
+    /// that awaited was an async void: receive order was unguaranteed and exceptions were
+    /// unobservable, which makes a recorded run irreproducible.
+    /// </remarks>
+    IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler);
+```
+
+- [ ] **Step 4: Update the four production implementors**
+
+For each, change the parameter type to `Func<GameStateSnapshot, Task>`:
+
+- `ConcurrencyThrottle.cs` — pure pass-through, only the signature changes.
+- `HubConnectionFactory.cs` (`RealHubClient`) — it adapts a SignalR `On<T>` callback. SignalR's `On<T>` has an overload taking `Func<T, Task>`; switch to it and pass the handler straight through rather than calling it from a void callback. Inspect first: `rtk proxy sed -n '50,70p' Nuotti.SimKit/Hub/HubConnectionFactory.cs`
+- `LatencyInjection.cs` — the existing `async snapshot =>` lambda becomes a legitimate `async` handler now that the delegate returns `Task`. Keep the body; it is no longer async void. **Leave `Task.Delay` and `SampleDelay()` exactly as they are — Task 4 changes those.**
+- `ChaosInjection.cs` — same: the existing `async snapshot =>` wrapper is now well-typed. **Leave `Random.Shared` and `Task.Delay` alone; Task 4 owns them.**
+
+- [ ] **Step 5: Update `ProjectorActor`**
+
+`Nuotti.SimKit/Actors/ProjectorActor.cs:47` currently reads:
+
+```csharp
+            _subscription = Client.OnGameStateChanged(s => OnStateAsync(s).GetAwaiter().GetResult());
+```
+
+`OnStateAsync` already returns `Task`, so it now matches the delegate directly:
+
+```csharp
+            _subscription = Client.OnGameStateChanged(OnStateAsync);
+```
+
+This removes a second sync-over-async block.
+
+- [ ] **Step 6: Update the 13 test doubles**
+
+Find every remaining compile error:
+
+```bash
+~/.dotnet/dotnet build Nuotti.SimKit.Tests/Nuotti.SimKit.Tests.csproj 2>&1 | grep -E 'error CS'
+```
+
+For each double, apply the mechanical transformation:
+
+- `public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)` becomes `public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)`
+- A stored field of type `Action<GameStateSnapshot>?` becomes `Func<GameStateSnapshot, Task>?`
+- A double that *invokes* the handler (`handler(snapshot)`) becomes `await handler(snapshot)` if the calling method is async, or `handler(snapshot).GetAwaiter().GetResult()` if the trigger method is synchronous and only used by tests. Prefer making the trigger method async and awaiting.
+- A subscribing test lambda `snapshot => { ...; }` becomes `snapshot => { ...; return Task.CompletedTask; }`
+
+Do not change what any double asserts or records. This step is signature plumbing only.
+
+- [ ] **Step 7: Run the SimKit suite**
+
+Run: `~/.dotnet/dotnet test Nuotti.SimKit.Tests/Nuotti.SimKit.Tests.csproj`
+
+Expected: PASS. The baseline for this project is 44 tests; you should now have 46 (the two new ones), all passing, with no pre-existing test changed in what it asserts.
+
+- [ ] **Step 8: Build the solution**
+
+Run: `~/.dotnet/dotnet build Nuotti.sln -c Debug`
+
+Expected: PASS, 0 errors.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add Nuotti.SimKit/Hub Nuotti.SimKit/Actors/ProjectorActor.cs Nuotti.SimKit.Tests
+git commit -m "refactor(simkit): make the hub subscription handler async
+
+OnGameStateChanged took Action<GameStateSnapshot>, so every handler that needed
+to await was an async lambda bound to a void-returning delegate. Receive order
+was unguaranteed and handler exceptions were swallowed — neither survives being
+recorded into a reproducible trace.
+
+The handler now returns Task, so a publisher can await it. ProjectorActor loses
+its GetAwaiter().GetResult() as a direct consequence.
+
+Signature change only; latency and chaos behaviour is untouched."
+```
+
+---
+
+### Task 4: Make latency and chaos deterministic
 
 `LatencyInjectingHubClient` and `ChaosInjectingHubClient` call `Task.Delay` and `Random.Shared` directly. Both must route through `ITimeProvider` and a caller-supplied `Random`, or no scenario is reproducible and `--instant` still sleeps.
 
@@ -481,7 +675,7 @@ Command types with no phase route throw rather than guessing a URL."
 - Test: `Nuotti.SimKit.Tests/InjectionDeterminismTests.cs`
 
 **Interfaces:**
-- Consumes: `ITimeProvider`, `ImmediateTimeProvider` (exist, `Nuotti.SimKit.Time`).
+- Consumes: `ITimeProvider`, `ImmediateTimeProvider` (exist, `Nuotti.SimKit.Time`); `IHubClient.OnGameStateChanged(Func<GameStateSnapshot, Task>)` as Task 3 left it.
 - Produces:
   - `public static class DeterministicRandom` with `public static Random ForLane(int seed, int laneIndex)`.
   - `LatencyInjectingHubClientFactory(IHubClientFactory inner, ILatencyPolicyResolver resolver, ITimeProvider time, Func<Random> randomForClient)`.
@@ -516,7 +710,7 @@ public class InjectionDeterminismTests
         { Calls.Add($"join:{role}"); return Task.CompletedTask; }
         public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
         { Calls.Add($"answer:{choiceIndex}"); return Task.CompletedTask; }
-        public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler) => new Noop();
+        public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler) => new Noop();
         sealed class Noop : IDisposable { public void Dispose() { } }
     }
 
@@ -709,20 +903,15 @@ internal sealed class LatencyInjectingHubClient : IHubClient
         await _inner.SubmitAnswerAsync(session, choiceIndex, cancellationToken).ConfigureAwait(false);
     }
 
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
-        return _inner.OnGameStateChanged(snapshot =>
+        return _inner.OnGameStateChanged(async snapshot =>
         {
-            // Synchronous on purpose. The previous async lambda bound to Action<T> was an
-            // async void: exceptions were unobservable and receive order was not guaranteed,
-            // which would make any recorded trace non-reproducible. Under
-            // ImmediateTimeProvider this blocks for zero time. Under RealTimeProvider it
-            // occupies the callback thread for the delay — acceptable while receive-side
-            // latency is a deliberate opt-in, and revisited when the in-process dispatcher
-            // lands in stage 2.
+            // Task 3 made the delegate return Task, so this awaits properly instead of
+            // being an async void. Under ImmediateTimeProvider the delay is a no-op.
             if (_activePolicy is { ApplyToReceives: true } p)
-                _time.Delay(p.SampleDelay(_random)).GetAwaiter().GetResult();
-            handler(snapshot);
+                await _time.Delay(p.SampleDelay(_random)).ConfigureAwait(false);
+            await handler(snapshot).ConfigureAwait(false);
         });
     }
 }
@@ -735,17 +924,17 @@ In `Nuotti.SimKit/Hub/ChaosInjection.cs`, add `using Nuotti.SimKit.Time;` and ma
 - Give the factory the same two extra constructor parameters (`ITimeProvider time`, `Func<Random> randomForClient`) and pass `_time` and `_randomForClient()` into the client.
 - Give the client `private readonly ITimeProvider _time;` and `private readonly Random _random;` set from the constructor.
 - In `SubmitAnswerAsync`, replace `Random.Shared.NextDouble()` with `_random.NextDouble()`.
-- In `OnGameStateChanged`, replace the `async snapshot =>` lambda with a synchronous one, for the async-void reason given above:
+- In `OnGameStateChanged`, keep the lambda async (Task 3 made that well-typed) and swap the random source:
 
 ```csharp
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
-        return _inner.OnGameStateChanged(snapshot =>
+        return _inner.OnGameStateChanged(async snapshot =>
         {
             var p = _activePolicy;
             if (p is { ApplyToReceives: true } pp && _random.NextDouble() < pp.Probability)
-                DisconnectCycleAsync(pp).GetAwaiter().GetResult();
-            handler(snapshot);
+                await DisconnectCycleAsync(pp).ConfigureAwait(false);
+            await handler(snapshot).ConfigureAwait(false);
         });
     }
 ```
@@ -795,7 +984,7 @@ are synchronous now; under ImmediateTimeProvider that blocks for zero time."
 
 ---
 
-### Task 4: `Nuotti.SimKit.InProc` and the in-process emitter
+### Task 5: `Nuotti.SimKit.InProc` and the in-process emitter
 
 The payoff task: SimKit drives a real session through a real `SessionCommandProcessor` with no sockets, no host and no ports. This is the substrate every later stage builds on.
 
@@ -812,7 +1001,7 @@ The payoff task: SimKit drives a real session through a real `SessionCommandProc
   - `public sealed class InProcBackend : IDisposable` with `public ISessionCommandProcessor Processor { get; }`, `public IEventBus Bus { get; }`, `public IGameStateStore States { get; }`.
   - `public sealed class InProcCommandEmitter(ISessionCommandProcessor processor, Actor actor) : ICommandEmitter`.
 
-  Stage 2 adds `InProcHubClientFactory` to this same project and builds `SimWorld` on `InProcBackend`.
+  Stage 2 adds `InProcHubClientFactory` to this same project and builds `SimWorld` on `InProcBackend`. Its hub client will implement `OnGameStateChanged(Func<GameStateSnapshot, Task>)` as Task 3 defined it, and can therefore await each subscriber in registration order — the property the deterministic trace depends on.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1110,9 +1299,10 @@ the Backend dependency out of the SimKit CLI."
 
 ## Stage exit criteria
 
-- `~/.dotnet/dotnet test Nuotti.sln` passes.
+- `~/.dotnet/dotnet test Nuotti.sln` passes. Baseline before this plan was 467 tests, 0 failures, across 8 assemblies — the count may only go up.
 - `Nuotti.Projector.Presentation` has no Avalonia reference, enforced by a test.
 - `ICommandEmitter` has two implementations, both tested.
+- `IHubClient.OnGameStateChanged` takes `Func<GameStateSnapshot, Task>`, and no sync-over-async remains on the receive path (`ProjectorActor` included).
 - A scenario run with `ImmediateTimeProvider` consumes no wall-clock time in latency or chaos, enforced by a test.
 - `Nuotti.SimKit.csproj` still references only `Nuotti.Contracts`.
 
