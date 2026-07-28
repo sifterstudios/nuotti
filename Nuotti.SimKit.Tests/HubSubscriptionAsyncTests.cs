@@ -23,8 +23,11 @@ public class HubSubscriptionAsyncTests
         public IDisposable On<T>(Func<T, Task> handler)
         {
             if (typeof(T) == typeof(GameStateSnapshot))
+            {
                 _handler = snapshot => handler((T)(object)snapshot);
-            return new Sub(this);
+                return new Sub(this);
+            }
+            return new NoopDisposable();
         }
 
         public Task PublishAsync(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot) ?? Task.CompletedTask;
@@ -33,6 +36,8 @@ public class HubSubscriptionAsyncTests
         {
             public void Dispose() => owner._handler = null;
         }
+
+        sealed class NoopDisposable : IDisposable { public void Dispose() { } }
     }
 
     static GameStateSnapshot ASnapshot() => new(sessionCode: "dev", phase: Phase.Lobby, songIndex: 0);

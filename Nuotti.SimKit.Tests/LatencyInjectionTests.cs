@@ -119,8 +119,11 @@ file sealed class ImmediateHubClient : IHubClient
     public IDisposable On<T>(Func<T, Task> handler)
     {
         if (typeof(T) == typeof(GameStateSnapshot))
+        {
             _handler = snapshot => handler((T)(object)snapshot);
-        return new D(() => _handler = null);
+            return new D(() => _handler = null);
+        }
+        return new NoopDisposable();
     }
 
     // Awaitable, unlike the fire-and-forget void this replaces: discarding the handler's Task
@@ -131,4 +134,5 @@ file sealed class ImmediateHubClient : IHubClient
     public Task FireAsync(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot) ?? Task.CompletedTask;
 
     sealed class D(Action dispose) : IDisposable { public void Dispose() => dispose(); }
+    sealed class NoopDisposable : IDisposable { public void Dispose() { } }
 }

@@ -85,8 +85,11 @@ file sealed class TriggeringHubClient : IHubClient
     public IDisposable On<T>(Func<T, Task> handler)
     {
         if (typeof(T) == typeof(GameStateSnapshot))
+        {
             _handler = snapshot => handler((T)(object)snapshot);
-        return new Unsubscriber(() => _handler = null);
+            return new Unsubscriber(() => _handler = null);
+        }
+        return new NoopDisposable();
     }
 
     // Awaitable, unlike the fire-and-forget void this replaces: discarding the handler's Task
@@ -100,4 +103,6 @@ file sealed class TriggeringHubClient : IHubClient
     {
         public void Dispose() => dispose();
     }
+
+    sealed class NoopDisposable : IDisposable { public void Dispose() { } }
 }
