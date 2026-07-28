@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nuotti.SimKit\Nuotti.SimKit.csproj" />
+    <ProjectReference Include="..\Nuotti.Backend\Nuotti.Backend.csproj" />
+  </ItemGroup>
+
+</Project>
