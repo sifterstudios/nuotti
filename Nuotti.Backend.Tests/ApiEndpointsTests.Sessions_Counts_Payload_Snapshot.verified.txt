@@ -1,0 +1,6 @@
+﻿{
+  performer: 1,
+  projector: 1,
+  engine: 0,
+  audiences: 5
+}

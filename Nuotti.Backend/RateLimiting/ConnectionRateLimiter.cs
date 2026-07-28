@@ -21,23 +21,36 @@ public static class ConnectionRateLimiter
         var key = MakeKey(connectionId, actionKey);
         var now = DateTimeOffset.UtcNow.Ticks;
 
-        // If no previous record, store and allow
-        var prev = _lastTicks.GetOrAdd(key, now);
-        if (prev == now)
+        // TryAdd, not GetOrAdd-and-compare. Comparing the stored tick to `now` to detect a first
+        // call is wrong: two calls close enough together read the same tick value, so the second
+        // one looked like a first call and was let through the limit. TryAdd answers "was there a
+        // previous record" directly, independent of clock granularity.
+        if (_lastTicks.TryAdd(key, now))
         {
             return true;
         }
 
-        // If enough time has passed, update and allow
-        var prevTime = new DateTimeOffset(prev, TimeSpan.Zero);
-        if (now - prev >= window.Ticks)
+        while (true)
         {
-            _lastTicks[key] = now;
-            return true;
-        }
+            if (!_lastTicks.TryGetValue(key, out var prev))
+            {
+                // Evicted between the TryAdd and here; treat this as a first call.
+                return _lastTicks.TryAdd(key, now);
+            }
 
-        // Too soon
-        return false;
+            if (now - prev < window.Ticks)
+            {
+                // Too soon
+                return false;
+            }
+
+            // Only the caller that wins the update is allowed through, so concurrent callers on the
+            // same connection cannot both pass one window.
+            if (_lastTicks.TryUpdate(key, now, prev))
+            {
+                return true;
+            }
+        }
     }
 
     private static string MakeKey(string connectionId, string actionKey) => connectionId + "::" + actionKey;

@@ -283,8 +283,10 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         {
             Songs = new List<SetlistManifest.SongEntry>
             {
-                new SetlistManifest.SongEntry { Title = "Song 1", Artist = "Artist 1", File = "file://test1.mp3" },
-                new SetlistManifest.SongEntry { Title = "Song 2", Artist = "Artist 2", File = "file://test2.mp3" }
+                // SongEntry.Validate accepts an existing local path or an http/https URL.
+                // "file://..." is neither, so the old payload was rejected with 422.
+                new SetlistManifest.SongEntry { Title = "Song 1", Artist = "Artist 1", File = "https://example.test/test1.mp3" },
+                new SetlistManifest.SongEntry { Title = "Song 2", Artist = "Artist 2", File = "https://example.test/test2.mp3" }
             }
         };
 

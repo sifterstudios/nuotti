@@ -223,6 +223,7 @@ public class GameReducerTests
         // Start -> Play with song and choices
         state = state with
         {
+            Phase = Phase.Play,
             SongIndex = 1,
             CurrentSong = songRef,
             Choices = ["Option A", "Option B", "Option C"]

@@ -120,9 +120,17 @@ public class QuizHubInProcTests
     {
         var store = CreateSessionStore();
         var bus = new CapturingEventBus();
-        var hub = Harness.Hub(store, bus);
+        var hub = Harness.Hub(store, bus, out var gameState);
         var groups = new CapturingGroupManager();
         hub.SetGroups(groups);
+
+        // An answer is only accepted during Guessing, which the processor enforces.
+        gameState.Set("session1", GameReducer.Initial("session1") with
+        {
+            Phase = Phase.Guessing,
+            Choices = ["A", "B"],
+            Tallies = [0, 0]
+        });
 
         // Create capturing clients for each session
         var session1Clients = new ConcurrentBag<(string method, object?[] args)>();
@@ -194,7 +202,7 @@ public class QuizHubInProcTests
     {
         public FakeClientProxy Session1Group = new();
         public FakeClientProxy Session2Group = new();
-        public IClientProxy Caller => throw new NotImplementedException();
+        public IClientProxy Caller { get; } = new FakeClientProxy();
         public IClientProxy All => throw new NotImplementedException();
         public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException();
         public IClientProxy Client(string connectionId) => new FakeClientProxy();
@@ -217,7 +225,7 @@ public class QuizHubInProcTests
     {
         public ConcurrentBag<(string method, object?[] args)> Session1Clients = new();
         public ConcurrentBag<(string method, object?[] args)> Session2Clients = new();
-        public IClientProxy Caller => throw new NotImplementedException();
+        public IClientProxy Caller { get; } = new FakeClientProxy();
         public IClientProxy All => throw new NotImplementedException();
         public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException();
         public IClientProxy Client(string connectionId) => new FakeClientProxy();

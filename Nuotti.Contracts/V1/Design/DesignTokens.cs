@@ -25,11 +25,14 @@ public static class DesignTokens
     /// </summary>
     public static ColorPalette LightPalette => new()
     {
-        Primary = "#FF6B35",
+        // Deepened from #FF6B35 so white button text meets WCAG AA: 2.84:1 -> 4.53:1.
+        // MudBlazor renders white text on Color.Primary, so the old orange failed in practice.
+        Primary = "#DB3B00",
         Secondary = "#004E89",
         Tertiary = "#1B9AAA",
         Info = "#06BEE1",
-        Success = "#46B283",
+        // Deepened from #46B283 to clear WCAG AA large-text on the light background: 2.53:1 -> 3.02:1.
+        Success = "#40A277",
         Warning = "#F77F00",
         Error = "#EF476F",
         Background = "#FAFAFA",
@@ -46,7 +49,10 @@ public static class DesignTokens
     /// </summary>
     public static ColorPalette DarkPalette => new()
     {
-        Primary = "#FF8C61",
+        // Deepened from #FF8C61 so white button text meets WCAG AA: 2.29:1 -> 4.51:1. Note this
+        // trades accent legibility on the dark background down to 4.22:1 - acceptable for large
+        // text and UI shapes, below AA for small text.
+        Primary = "#DB3C00",
         Secondary = "#2E7DAF",
         Tertiary = "#48C9B0",
         Info = "#3DD9FF",
@@ -68,7 +74,7 @@ public static class DesignTokens
     /// </summary>
     public static ColorPalette HighContrastPalette => new()
     {
-        Primary = "#FF6B35",      // High contrast orange on white
+        Primary = "#A62C00",      // Deepened from #FF6B35: white text 2.84:1 -> 7.04:1 (AAA)
         Secondary = "#0066CC",     // Deep blue with high contrast
         Tertiary = "#0088CC",      // High contrast teal
         Info = "#0066CC",          // High contrast cyan-blue

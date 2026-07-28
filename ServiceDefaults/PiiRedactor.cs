@@ -47,8 +47,10 @@ public static class PiiRedactor
 
         try
         {
-            // Extract basename
-            var fileName = Path.GetFileName(filePath);
+            // Split on both separators explicitly. Path.GetFileName is platform-dependent: on
+            // Unix it does not treat '\' as a separator, so a Windows path arriving from a client
+            // would be logged in full rather than reduced to its basename.
+            var fileName = filePath.AsSpan()[(filePath.LastIndexOfAny('/', '\\') + 1)..].ToString();
             if (!string.IsNullOrWhiteSpace(fileName))
             {
                 // If filename is too long, use a hash instead

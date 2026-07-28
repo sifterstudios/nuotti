@@ -53,7 +53,10 @@ public class ThemeService : IAsyncDisposable
         _objRef = DotNetObjectReference.Create(this);
         
         // Check for saved preference, otherwise use system preference
-        var savedPreference = await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", "theme-preference");
+        // Use the resolved runtime, not the injected field. The field is null whenever the caller
+        // supplies the runtime instead (as MainLayout does from OnAfterRenderAsync), so reading it
+        // here threw right past the null guard two lines above.
+        var savedPreference = await runtime.InvokeAsync<string?>("localStorage.getItem", "theme-preference");
         
         if (!string.IsNullOrEmpty(savedPreference))
         {

@@ -72,7 +72,9 @@ public class StatusEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub>
         Assert.NotNull(snapshot1);
         Assert.Equal(Phase.Start, snapshot1!.Phase);
 
-        // Play song
+        // A second command that the phase machine refuses: PlaySong declares
+        // AllowedSourcePhases = [Reveal], and the session is in Start. Status must keep reporting
+        // the last state that was actually applied rather than the attempted one.
         var play = new PlaySong(new SongId("song-1"))
         {
             SessionCode = session,
@@ -80,13 +82,13 @@ public class StatusEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub>
             IssuedById = "test-performer",
             CommandId = Guid.NewGuid()
         };
-        await client.PostAsJsonAsync($"/v1/message/phase/play-song/{session}", play);
+        var rejected = await client.PostAsJsonAsync($"/v1/message/phase/play-song/{session}", play);
+        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
         await Task.Delay(200);
 
-        // Get status again - should be Play
         var status2 = await client.GetAsync($"/status/{session}");
         var snapshot2 = await status2.Content.ReadFromJsonAsync<GameStateSnapshot>(ContractsJson.RestOptions);
         Assert.NotNull(snapshot2);
-        Assert.Equal(Phase.Play, snapshot2!.Phase);
+        Assert.Equal(Phase.Start, snapshot2!.Phase);
     }
 }

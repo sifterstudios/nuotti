@@ -121,7 +121,9 @@ script:
 
         var actualJson = SnapshotTestHelpers.SerializeSnapshots(snapshots);
 
-        var baselineFile = FindBaselineFile("Baselines\\baseline-single-song.snapshots.json");
+        // Path.Combine on the segments rather than a literal "Baselines\\..." string: a backslash is
+        // not a separator on Unix, so the file was never found outside Windows.
+        var baselineFile = FindBaselineFile(Path.Combine("Baselines", "baseline-single-song.snapshots.json"));
         var expectedJson = File.ReadAllText(baselineFile);
 
         SnapshotTestHelpers.AssertJsonSequenceFuzzyEqual(expectedJson, actualJson);

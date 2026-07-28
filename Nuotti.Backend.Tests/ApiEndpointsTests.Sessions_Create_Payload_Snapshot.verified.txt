@@ -1,0 +1,4 @@
+﻿{
+  sessionCode: test-session,
+  hostId: host-123
+}

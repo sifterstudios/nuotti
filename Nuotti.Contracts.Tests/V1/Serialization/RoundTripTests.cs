@@ -97,17 +97,21 @@ public class RoundTripTests
 
     private static void RoundTripTest<T>(T original, JsonSerializerOptions options)
     {
-        // Serialize
-        var json1 = JsonSerializer.Serialize(original, options);
+        // Serialize against the runtime type throughout. T here is the Theory parameter's declared
+        // type - the abstract CommandBase/EventBase - and using it would serialize only the base
+        // properties (losing SongId, Text, ChoiceIndex...) and then fail to deserialize at all,
+        // because System.Text.Json cannot instantiate an abstract type.
+        var runtimeType = original!.GetType();
+
+        var json1 = JsonSerializer.Serialize(original, runtimeType, options);
         Assert.NotNull(json1);
         Assert.NotEmpty(json1);
 
-        // Deserialize
-        var deserialized = JsonSerializer.Deserialize<T>(json1, options);
+        var deserialized = JsonSerializer.Deserialize(json1, runtimeType, options);
         Assert.NotNull(deserialized);
 
         // Serialize again
-        var json2 = JsonSerializer.Serialize(deserialized, options);
+        var json2 = JsonSerializer.Serialize(deserialized, runtimeType, options);
         Assert.NotNull(json2);
 
         // Both JSON strings should be equal (round-trip equality)
