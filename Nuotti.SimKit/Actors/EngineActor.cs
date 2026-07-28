@@ -8,13 +8,15 @@ public sealed class EngineActor : BaseActor
     readonly double _failureRate;
     readonly Random _random;
     readonly List<EngineStatusChanged> _emitted = new();
+    readonly List<IDisposable> _subscriptions = [];
 
     public EngineActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, double failureRate = 0, Random? random = null)
         : base(hubClientFactory, baseUri, session)
     {
+        ArgumentNullException.ThrowIfNull(random);
         if (failureRate is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(failureRate), "Failure rate must be between 0 and 1.");
         _failureRate = failureRate;
-        _random = random ?? new Random();
+        _random = random;
     }
 
     protected override string Role => "engine";
@@ -23,6 +25,23 @@ public sealed class EngineActor : BaseActor
     /// Emitted engine status changes (for testing/inspection).
     /// </summary>
     public IReadOnlyList<EngineStatusChanged> Emitted => _emitted;
+
+    protected override Task OnStartedAsync(CancellationToken cancellationToken = default)
+    {
+        if (Client is not null)
+        {
+            _subscriptions.Add(Client.On<PlayTrack>(_ => { OnTrackPlayRequested(); return Task.CompletedTask; }));
+            _subscriptions.Add(Client.On<StopTrack>(_ => { OnTrackStopped(); return Task.CompletedTask; }));
+        }
+        return Task.CompletedTask;
+    }
+
+    protected override Task OnStoppingAsync(CancellationToken cancellationToken = default)
+    {
+        foreach (var sub in _subscriptions) sub.Dispose();
+        _subscriptions.Clear();
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Simulate receiving a request to play a track.
@@ -46,6 +65,6 @@ public sealed class EngineActor : BaseActor
     void Emit(EngineStatusChanged evt)
     {
         _emitted.Add(evt);
-        // In a real implementation, this would publish to the hub.
+        // Publishing EngineStatusChanged back to the hub would require a send member on IHubClient, which does not yet exist.
     }
 }

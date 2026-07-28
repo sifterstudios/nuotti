@@ -39,7 +39,7 @@ public class ActorJoinTests
     public async Task Engine_joins_session_and_role()
     {
         var factory = new FakeHubClientFactory();
-        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01");
+        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01", random: new Random());
 
         await actor.StartAsync();
 

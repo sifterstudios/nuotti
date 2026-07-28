@@ -2,6 +2,7 @@
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Time;
 using Xunit;
 namespace Nuotti.SimKit.Tests;
 
@@ -11,7 +12,7 @@ public class EngineActorLifecycleTests
     public async Task Emits_Playing_then_Ready_on_happy_path()
     {
         var factory = new FakeHubClientFactory();
-        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01");
+        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01", random: new Random());
         await actor.StartAsync();
 
         actor.OnTrackPlayRequested();
