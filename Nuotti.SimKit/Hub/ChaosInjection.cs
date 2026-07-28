@@ -8,9 +8,8 @@ namespace Nuotti.SimKit.Hub;
 /// </summary>
 public readonly record struct ChaosPolicy(double Probability, TimeSpan MinDowntime, TimeSpan MaxDowntime, bool ApplyToSends = false, bool ApplyToReceives = true)
 {
-    public TimeSpan SampleDowntime(Random? random = null)
+    public TimeSpan SampleDowntime(Random random)
     {
-        random ??= Random.Shared;
         if (MaxDowntime <= TimeSpan.Zero) return TimeSpan.Zero;
         var min = MinDowntime < TimeSpan.Zero ? TimeSpan.Zero : MinDowntime;
         var max = MaxDowntime < min ? min : MaxDowntime;

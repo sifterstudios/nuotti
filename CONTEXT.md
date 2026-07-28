@@ -74,3 +74,9 @@ content safety, localization, tally visibility and typography scaling.
 **ViewSpec** — a fully-derived description of one screen: which view, resolved text,
 choices, visibility flags, font sizes. Contains no Avalonia types, so it can be asserted
 on without a window. `MainWindow` is the adapter that realises a ViewSpec.
+
+The `Nuotti.Projector.Models` and `Nuotti.Projector.Services` namespaces each span two
+assemblies: the Avalonia-free types (`ProjectorSettings`, `ContentSafetyService`,
+`LocalizationService`, `ResponsiveTypographyService`) live in `Nuotti.Projector.Presentation`;
+everything else with the same namespace prefix stays in `Nuotti.Projector`. The namespace
+alone does not say which assembly a type lives in — check the project file.

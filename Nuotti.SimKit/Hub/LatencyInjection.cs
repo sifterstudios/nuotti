@@ -8,9 +8,8 @@ namespace Nuotti.SimKit.Hub;
 /// </summary>
 public readonly record struct LatencyPolicy(TimeSpan Mean, TimeSpan Jitter, bool ApplyToSends = true, bool ApplyToReceives = true)
 {
-    public TimeSpan SampleDelay(Random? random = null)
+    public TimeSpan SampleDelay(Random random)
     {
-        random ??= Random.Shared;
         if (Jitter <= TimeSpan.Zero)
             return Mean < TimeSpan.Zero ? TimeSpan.Zero : Mean;
         var min = Mean - Jitter;
