@@ -494,3 +494,6 @@ $RECYCLE.BIN/
 # Verify
 *.received.*
 *.received/
+
+# graphify knowledge-graph output (generated; regenerate with /graphify)
+graphify-out/
