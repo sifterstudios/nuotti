@@ -197,7 +197,16 @@ Determinism rests on four things: synchronous ordered dispatch (already true of
 than time as the ordering key, and delays applied via `ITimeProvider` so
 `ImmediateTimeProvider` collapses them to zero wall-clock while `t` still advances.
 
-Given a fixed seed, two runs of a scenario produce a byte-identical `trace.jsonl`.
+**What is and is not reproducible.** Given a fixed seed, two runs of a scenario draw the
+same latency, chaos and answer-choice sequences and emit records in the same `seq` order
+and content. They do **not** produce a byte-identical `trace.jsonl`: `CommandBase.CommandId`
+/ `IssuedAtUtc` and `EventBase.EventId` / `EmittedAtUtc` are `Guid.NewGuid()` and
+`DateTime.UtcNow` in `Nuotti.Contracts`, generated fresh every run, and
+`InProcCommandEmitter` leaves `correlationId` null so correlation defaults to that fresh
+command id. Threading deterministic ids/timestamps through `Nuotti.Contracts` is out of
+scope here — it is shared by every service, far beyond this trace format. Instead, the
+trace recorder is responsible for normalizing (or omitting) ids and timestamps before a
+byte-for-byte comparison is meaningful; see the stage 3 note in Implementation order.
 
 ## Mode 2 — realistic-speed live run
 
@@ -282,7 +291,7 @@ is reviewed as a diff alongside existing snapshots.
 
 | Suite | Contents |
 |---|---|
-| `Nuotti.SimKit.Tests` | Harness unit tests: recorder ordering, snapshot diff/replay round-trip, viewer writer output stability, seeded determinism (same seed → identical `trace.jsonl`) |
+| `Nuotti.SimKit.Tests` | Harness unit tests: recorder ordering, snapshot diff/replay round-trip, viewer writer output stability, seeded determinism (same seed → identical `trace.jsonl` after id/timestamp normalization) |
 | `tests/Nuotti.IntegrationTests` | Scenario tests spanning Backend + Contracts + Presentation: single song happy path, multi-song scoring, chaos-with-recovery, reconnect resync |
 | CI | Uploads `runs/` as an artifact so a red build yields an openable `trace.html` |
 
@@ -301,7 +310,13 @@ leaves the tree green.
    to the project stage 1 created. Proven by a test that drives a single song end to end
    across all participants, with no trace.
 3. **Trace** — `NuottiTrace`, `TraceRecorder` with alias mapping, `TraceRecord`,
-   `JsonlTraceSink`, snapshot diff/hash. Proven by the seeded-determinism test.
+   `JsonlTraceSink`, snapshot diff/hash. Must also design **id and timestamp
+   normalization**: `CommandId`/`IssuedAtUtc`/`EventId`/`EmittedAtUtc` are fresh every run
+   (see "What is and is not reproducible" under Mode 1) and cannot appear raw in a trace
+   two runs are meant to compare byte-for-byte — the recorder needs a deliberate strategy
+   (e.g. renumbering ids in first-seen order, dropping wall-clock timestamps in favor of
+   `seq`/`t`) rather than discovering the problem while chasing a diff that will not
+   stabilize. Proven by the seeded-determinism test.
 4. **Viewer** — `TraceViewerWriter` and the `viewer.html` template.
 5. **Assertions** — `TraceRun` query surface, `TraceAssert`, `ToTimeline()` for Verify, and
    the first integration scenarios.

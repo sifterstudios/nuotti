@@ -23,7 +23,14 @@ public sealed class InProcBackend : IDisposable
     public InProcBackend()
     {
         States = new InMemoryGameStateStore();
-        Idempotency = new InMemoryIdempotencyStore(Options.Create(new NuottiOptions()));
+        // InMemoryIdempotencyStore defaults to TimeProvider.System when none is supplied, which
+        // is a wall-clock dependency inside an otherwise-deterministic in-proc backend (it drives
+        // the idempotency TTL). Pin it to a fixed instant instead: nothing here needs the TTL to
+        // actually elapse, and a wall-clock read would make two "identical" runs able to observe
+        // different idempotency-window behavior depending on how long each one took to execute.
+        Idempotency = new InMemoryIdempotencyStore(
+            Options.Create(new NuottiOptions()),
+            new FixedTimeProvider());
         Bus = new InMemoryEventBus();
         Processor = new SessionCommandProcessor(
             States,
@@ -39,7 +46,20 @@ public sealed class InProcBackend : IDisposable
 
     public void Dispose()
     {
-        (Bus as IDisposable)?.Dispose();
-        (Idempotency as IDisposable)?.Dispose();
+        // None of the four owned types implements IDisposable today (IGameStateStore,
+        // IIdempotencyStore, IEventBus are interfaces with no disposal contract, and their
+        // in-memory implementations hold no unmanaged or disposable resources). IDisposable
+        // stays on InProcBackend itself because tests already `using` it and future
+        // implementations of these stores may own something that needs releasing.
+    }
+
+    /// <summary>
+    /// A TimeProvider that never advances. Keeps InProcBackend's idempotency TTL bookkeeping
+    /// off the wall clock so simulated runs do not depend on how long they took to execute.
+    /// </summary>
+    sealed class FixedTimeProvider : TimeProvider
+    {
+        static readonly DateTimeOffset Epoch = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Epoch;
     }
 }
