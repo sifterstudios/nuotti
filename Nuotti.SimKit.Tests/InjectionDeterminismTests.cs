@@ -153,17 +153,26 @@ public class InjectionDeterminismTests
         // At chaos Probability 0.05 that turns "which lanes disconnect" into an evenly-spaced
         // stripe instead of a random-looking subset. A real hash scrambles the seed enough that
         // successive first-draws have no constant difference - so if this ever regresses to a
-        // linear derivation, the successive differences below collapse to one repeated value.
+        // linear derivation, the successive differences below collapse to few repeated values.
+        //
+        // The raw (unreduced) difference is not enough: NextDouble() is in [0, 1), so a ramp with
+        // step s that overflows 1 wraps around, e.g. a "+0.448/lane mod 1" ramp produces raw
+        // differences that alternate between exactly two values (a small negative wrap and its
+        // positive complement, one apart) - two distinct values, which would incorrectly satisfy
+        // a bare ">1 distinct raw difference" check. Reducing each difference mod 1 first removes
+        // that wraparound artifact: an arithmetic ramp reduces to exactly one distinct value mod
+        // 1, no matter how many times it wraps, while independent draws still spread across many.
         var firstDraws = Enumerable.Range(0, 12)
             .Select(lane => LaneRandom.ForLane(seed: 7, laneIndex: lane).NextDouble())
             .ToList();
 
-        var successiveDiffs = firstDraws
+        var successiveDiffsMod1 = firstDraws
             .Zip(firstDraws.Skip(1), (a, b) => b - a)
-            .Select(d => Math.Round(d, 6))
+            .Select(d => Math.Round(d - Math.Floor(d), 6))
             .ToList();
 
-        successiveDiffs.Distinct().Should().HaveCountGreaterThan(1,
-            "an arithmetic ramp has one constant successive difference; independent draws do not");
+        successiveDiffsMod1.Distinct().Should().HaveCountGreaterThan(2,
+            "an arithmetic ramp reduces to exactly one distinct successive difference mod 1, " +
+            "however many times it wraps around [0, 1); independent draws do not");
     }
 }
