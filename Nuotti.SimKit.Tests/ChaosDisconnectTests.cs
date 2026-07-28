@@ -2,6 +2,7 @@
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Time;
 using System.Diagnostics;
 using Xunit;
 namespace Nuotti.SimKit.Tests;
@@ -19,7 +20,11 @@ public class ChaosDisconnectTests
         {
             ["Projector"] = new ChaosPolicy(Probability: 0.2, MinDowntime: TimeSpan.FromMilliseconds(5), MaxDowntime: TimeSpan.FromMilliseconds(20), ApplyToReceives: true)
         });
-        var chaoticFactory = new ChaosInjectingHubClientFactory(baseFactory, chaosResolver);
+        var chaoticFactory = new ChaosInjectingHubClientFactory(
+            baseFactory,
+            chaosResolver,
+            new ImmediateTimeProvider(),
+            () => DeterministicRandom.ForLane(seed: 1, laneIndex: 0));
 
         var actor = new ProjectorActor(chaoticFactory, new Uri("http://localhost:5000"), "SESS");
         await actor.StartAsync();

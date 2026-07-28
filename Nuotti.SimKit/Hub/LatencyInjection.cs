@@ -1,4 +1,5 @@
 ﻿using Nuotti.Contracts.V1.Model;
+using Nuotti.SimKit.Time;
 namespace Nuotti.SimKit.Hub;
 
 /// <summary>
@@ -69,27 +70,40 @@ public sealed class LatencyInjectingHubClientFactory : IHubClientFactory
 {
     private readonly IHubClientFactory _inner;
     private readonly ILatencyPolicyResolver _resolver;
+    private readonly ITimeProvider _time;
+    private readonly Func<Random> _randomForClient;
 
-    public LatencyInjectingHubClientFactory(IHubClientFactory inner, ILatencyPolicyResolver resolver)
+    public LatencyInjectingHubClientFactory(
+        IHubClientFactory inner,
+        ILatencyPolicyResolver resolver,
+        ITimeProvider time,
+        Func<Random> randomForClient)
     {
         _inner = inner;
         _resolver = resolver;
+        _time = time;
+        _randomForClient = randomForClient;
     }
 
     public IHubClient Create(Uri baseAddress)
-        => new LatencyInjectingHubClient(_inner.Create(baseAddress), _resolver);
+        => new LatencyInjectingHubClient(_inner.Create(baseAddress), _resolver, _time, _randomForClient());
 }
 
 internal sealed class LatencyInjectingHubClient : IHubClient
 {
     private readonly IHubClient _inner;
     private readonly ILatencyPolicyResolver _resolver;
+    private readonly ITimeProvider _time;
+    private readonly Random _random;
     private LatencyPolicy? _activePolicy;
 
-    public LatencyInjectingHubClient(IHubClient inner, ILatencyPolicyResolver resolver)
+    public LatencyInjectingHubClient(
+        IHubClient inner, ILatencyPolicyResolver resolver, ITimeProvider time, Random random)
     {
         _inner = inner;
         _resolver = resolver;
+        _time = time;
+        _random = random;
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -102,39 +116,27 @@ internal sealed class LatencyInjectingHubClient : IHubClient
     {
         if (_resolver.TryGetPolicy(role, out var policy))
             _activePolicy = policy;
-        // Join is a send; apply if configured
-        if (_activePolicy is { } p && p.ApplyToSends)
-            await Task.Delay(p.SampleDelay(), cancellationToken).ConfigureAwait(false);
+        if (_activePolicy is { ApplyToSends: true } p)
+            await _time.Delay(p.SampleDelay(_random), cancellationToken).ConfigureAwait(false);
         await _inner.JoinAsync(session, role, name, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
     {
-        if (_activePolicy is { } p && p.ApplyToSends)
-            await Task.Delay(p.SampleDelay(), cancellationToken).ConfigureAwait(false);
+        if (_activePolicy is { ApplyToSends: true } p)
+            await _time.Delay(p.SampleDelay(_random), cancellationToken).ConfigureAwait(false);
         await _inner.SubmitAnswerAsync(session, choiceIndex, cancellationToken).ConfigureAwait(false);
     }
 
     public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
-        // If receive delays are enabled, wrap the handler.
-        if (_activePolicy is { } pWhenSub && pWhenSub.ApplyToReceives)
+        return _inner.OnGameStateChanged(async snapshot =>
         {
-            return _inner.OnGameStateChanged(async snapshot =>
-            {
-                var p = _activePolicy; // capture latest after Join
-                if (p is { } pp && pp.ApplyToReceives)
-                {
-                    // Run delay then invoke handler on thread pool to avoid deadlocks with SignalR context.
-                    var delay = pp.SampleDelay();
-                    await Task.Delay(delay).ConfigureAwait(false);
-                }
-                await handler(snapshot).ConfigureAwait(false);
-            });
-        }
-        else
-        {
-            return _inner.OnGameStateChanged(handler);
-        }
+            // Task 3 made the delegate return Task, so this awaits properly instead of
+            // being an async void. Under ImmediateTimeProvider the delay is a no-op.
+            if (_activePolicy is { ApplyToReceives: true } p)
+                await _time.Delay(p.SampleDelay(_random)).ConfigureAwait(false);
+            await handler(snapshot).ConfigureAwait(false);
+        });
     }
 }

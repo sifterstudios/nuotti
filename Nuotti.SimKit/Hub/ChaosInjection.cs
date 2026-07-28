@@ -1,4 +1,5 @@
 ﻿using Nuotti.Contracts.V1.Model;
+using Nuotti.SimKit.Time;
 namespace Nuotti.SimKit.Hub;
 
 /// <summary>
@@ -58,30 +59,43 @@ public sealed class ChaosInjectingHubClientFactory : IHubClientFactory
 {
     private readonly IHubClientFactory _inner;
     private readonly IChaosPolicyResolver _resolver;
+    private readonly ITimeProvider _time;
+    private readonly Func<Random> _randomForClient;
 
-    public ChaosInjectingHubClientFactory(IHubClientFactory inner, IChaosPolicyResolver resolver)
+    public ChaosInjectingHubClientFactory(
+        IHubClientFactory inner,
+        IChaosPolicyResolver resolver,
+        ITimeProvider time,
+        Func<Random> randomForClient)
     {
         _inner = inner;
         _resolver = resolver;
+        _time = time;
+        _randomForClient = randomForClient;
     }
 
     public IHubClient Create(Uri baseAddress)
-        => new ChaosInjectingHubClient(_inner.Create(baseAddress), _resolver);
+        => new ChaosInjectingHubClient(_inner.Create(baseAddress), _resolver, _time, _randomForClient());
 }
 
 internal sealed class ChaosInjectingHubClient : IHubClient
 {
     private readonly IHubClient _inner;
     private readonly IChaosPolicyResolver _resolver;
+    private readonly ITimeProvider _time;
+    private readonly Random _random;
     private ChaosPolicy? _activePolicy;
     private readonly object _gate = new();
     private string? _session; private string? _role; private string? _name;
     private bool _started;
 
-    public ChaosInjectingHubClient(IHubClient inner, IChaosPolicyResolver resolver)
+    public ChaosInjectingHubClient(
+        IHubClient inner, IChaosPolicyResolver resolver, ITimeProvider time, Random random)
     {
         _inner = inner;
         _resolver = resolver;
+        _time = time;
+        _random = random;
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -104,23 +118,20 @@ internal sealed class ChaosInjectingHubClient : IHubClient
     public async Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
     {
         // Maybe chaos on send
-        if (_activePolicy is { } p && p.ApplyToSends && Random.Shared.NextDouble() < p.Probability)
+        if (_activePolicy is { } p && p.ApplyToSends && _random.NextDouble() < p.Probability)
             await DisconnectCycleAsync(p, cancellationToken).ConfigureAwait(false);
         await _inner.SubmitAnswerAsync(session, choiceIndex, cancellationToken).ConfigureAwait(false);
     }
 
     public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
-        Func<GameStateSnapshot, Task> wrapped = async snapshot =>
+        return _inner.OnGameStateChanged(async snapshot =>
         {
             var p = _activePolicy;
-            if (p is { } pp && pp.ApplyToReceives && Random.Shared.NextDouble() < pp.Probability)
-            {
+            if (p is { ApplyToReceives: true } pp && _random.NextDouble() < pp.Probability)
                 await DisconnectCycleAsync(pp).ConfigureAwait(false);
-            }
             await handler(snapshot).ConfigureAwait(false);
-        };
-        return _inner.OnGameStateChanged(wrapped);
+        });
     }
 
     private async Task DisconnectCycleAsync(ChaosPolicy policy, CancellationToken cancellationToken = default)
@@ -141,9 +152,9 @@ internal sealed class ChaosInjectingHubClient : IHubClient
         }
         catch { /* ignore */ }
 
-        var down = policy.SampleDowntime();
+        var down = policy.SampleDowntime(_random);
         if (down > TimeSpan.Zero)
-            await Task.Delay(down, cancellationToken).ConfigureAwait(false);
+            await _time.Delay(down, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -155,7 +166,7 @@ internal sealed class ChaosInjectingHubClient : IHubClient
         catch
         {
             // If restart failed, try one more time shortly to avoid being stuck
-            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
+            await _time.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
             await _inner.StartAsync(cancellationToken).ConfigureAwait(false);
             var session = _session!; var role = _role!; var name = _name;
             await _inner.JoinAsync(session, role, name, cancellationToken).ConfigureAwait(false);
