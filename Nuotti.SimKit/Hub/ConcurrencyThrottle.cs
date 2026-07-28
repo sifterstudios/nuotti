@@ -60,6 +60,6 @@ internal sealed class ThrottlingHubClient : IHubClient
         }
     }
 
-    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
-        => _inner.OnGameStateChanged(handler);
+    public IDisposable On<T>(Func<T, Task> handler)
+        => _inner.On(handler);
 }

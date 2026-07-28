@@ -114,7 +114,7 @@ public class ParallelismControlsTests
             await _signal.WaitAsync(cancellationToken);
             Interlocked.Decrement(ref _current);
         }
-        public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler) => new D();
+        public IDisposable On<T>(Func<T, Task> handler) => new D();
         private sealed class D : IDisposable { public void Dispose() { } }
     }
 
@@ -153,7 +153,7 @@ public class ParallelismControlsTests
                 Interlocked.Increment(ref _owner._totalSubmits);
                 return Task.CompletedTask;
             }
-            public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler) => new D();
+            public IDisposable On<T>(Func<T, Task> handler) => new D();
             private sealed class D : IDisposable { public void Dispose() { } }
         }
     }

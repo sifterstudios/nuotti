@@ -127,15 +127,13 @@ internal sealed class LatencyInjectingHubClient : IHubClient
         await _inner.SubmitAnswerAsync(session, choiceIndex, cancellationToken).ConfigureAwait(false);
     }
 
-    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
+    public IDisposable On<T>(Func<T, Task> handler)
     {
-        return _inner.OnGameStateChanged(async snapshot =>
+        return _inner.On<T>(async payload =>
         {
-            // Task 3 made the delegate return Task, so this awaits properly instead of
-            // being an async void. Under ImmediateTimeProvider the delay is a no-op.
             if (_activePolicy is { ApplyToReceives: true } p)
                 await _time.Delay(p.SampleDelay(_random)).ConfigureAwait(false);
-            await handler(snapshot).ConfigureAwait(false);
+            await handler(payload).ConfigureAwait(false);
         });
     }
 }

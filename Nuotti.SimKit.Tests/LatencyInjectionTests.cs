@@ -71,7 +71,7 @@ public class LatencyInjectionTests
         var received = new List<int>();
         var tcs = new TaskCompletionSource();
         int remaining = 41;
-        using var sub = client.OnGameStateChanged(snapshot =>
+        using var sub = client.On<GameStateSnapshot>(snapshot =>
         {
             received.Add(snapshot.SongIndex);
             if (Interlocked.Decrement(ref remaining) == 0)
@@ -116,9 +116,10 @@ file sealed class ImmediateHubClient : IHubClient
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
     { Calls.Add($"answer:{choiceIndex}"); return Task.CompletedTask; }
 
-    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
+    public IDisposable On<T>(Func<T, Task> handler)
     {
-        _handler = handler;
+        if (typeof(T) == typeof(GameStateSnapshot))
+            _handler = snapshot => handler((T)(object)snapshot);
         return new D(() => _handler = null);
     }
 

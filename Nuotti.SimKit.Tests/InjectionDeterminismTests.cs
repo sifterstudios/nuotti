@@ -20,7 +20,7 @@ public class InjectionDeterminismTests
         { Calls.Add($"join:{role}"); return Task.CompletedTask; }
         public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
         { Calls.Add($"answer:{choiceIndex}"); return Task.CompletedTask; }
-        public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler) => new Noop();
+        public IDisposable On<T>(Func<T, Task> handler) => new Noop();
         sealed class Noop : IDisposable { public void Dispose() { } }
     }
 

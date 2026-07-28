@@ -44,7 +44,7 @@ public sealed class ProjectorActor : BaseActor
     {
         if (Client is not null)
         {
-            _subscription = Client.OnGameStateChanged(OnStateAsync);
+            _subscription = Client.On<GameStateSnapshot>(OnStateAsync);
         }
         return Task.CompletedTask;
     }

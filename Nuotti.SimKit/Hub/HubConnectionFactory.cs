@@ -53,6 +53,6 @@ internal sealed class RealHubClient : IHubClient
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
         => _connection.InvokeAsync("SubmitAnswer", session, choiceIndex, cancellationToken);
 
-    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
-        => _connection.On("GameStateChanged", handler);
+    public IDisposable On<T>(Func<T, Task> handler)
+        => _connection.On(HubWireNames.For<T>(), handler);
 }

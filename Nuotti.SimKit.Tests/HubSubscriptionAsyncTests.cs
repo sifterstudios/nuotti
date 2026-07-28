@@ -20,9 +20,10 @@ public class HubSubscriptionAsyncTests
         public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
+        public IDisposable On<T>(Func<T, Task> handler)
         {
-            _handler = handler;
+            if (typeof(T) == typeof(GameStateSnapshot))
+                _handler = snapshot => handler((T)(object)snapshot);
             return new Sub(this);
         }
 
@@ -42,7 +43,7 @@ public class HubSubscriptionAsyncTests
         var client = new AwaitingHubClient();
         var finished = false;
 
-        using var sub = client.OnGameStateChanged(async _ =>
+        using var sub = client.On<GameStateSnapshot>(async _ =>
         {
             await Task.Yield();
             finished = true;
@@ -58,7 +59,7 @@ public class HubSubscriptionAsyncTests
     public async Task Handler_exceptions_reach_the_publisher_instead_of_vanishing()
     {
         var client = new AwaitingHubClient();
-        using var sub = client.OnGameStateChanged(async _ =>
+        using var sub = client.On<GameStateSnapshot>(async _ =>
         {
             await Task.Yield();
             throw new InvalidOperationException("boom");

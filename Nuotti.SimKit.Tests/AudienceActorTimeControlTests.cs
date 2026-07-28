@@ -113,7 +113,7 @@ file sealed class CapturingHubClient : IHubClient
         return Task.CompletedTask;
     }
 
-    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
+    public IDisposable On<T>(Func<T, Task> handler)
         => new NoopDisposable();
 
     sealed class NoopDisposable : IDisposable { public void Dispose() { } }

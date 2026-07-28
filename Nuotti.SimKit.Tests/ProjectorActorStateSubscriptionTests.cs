@@ -75,9 +75,10 @@ file sealed class TriggeringHubClient : IHubClient
     public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
+    public IDisposable On<T>(Func<T, Task> handler)
     {
-        _handler = handler;
+        if (typeof(T) == typeof(GameStateSnapshot))
+            _handler = snapshot => handler((T)(object)snapshot);
         return new Unsubscriber(() => _handler = null);
     }
 
