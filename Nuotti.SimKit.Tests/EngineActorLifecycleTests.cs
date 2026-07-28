@@ -12,7 +12,7 @@ public class EngineActorLifecycleTests
     public async Task Emits_Playing_then_Ready_on_happy_path()
     {
         var factory = new FakeHubClientFactory();
-        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01", random: new Random());
+        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01", LaneRandom.ForLane(seed: 3, laneIndex: 0));
         await actor.StartAsync();
 
         actor.OnTrackPlayRequested();
@@ -29,7 +29,7 @@ public class EngineActorLifecycleTests
     {
         var factory = new FakeHubClientFactory();
         // Inject deterministic random, but with failureRate = 1 it should always fail regardless of RNG
-        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01", failureRate: 1.0, random: new Random(123));
+        var actor = new EngineActor(factory, new Uri("http://localhost:5000"), "GAME01", LaneRandom.ForLane(seed: 3, laneIndex: 0), failureRate: 1.0);
         await actor.StartAsync();
 
         actor.OnTrackPlayRequested();

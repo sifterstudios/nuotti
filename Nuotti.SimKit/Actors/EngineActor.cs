@@ -10,10 +10,9 @@ public sealed class EngineActor : BaseActor
     readonly List<EngineStatusChanged> _emitted = new();
     readonly List<IDisposable> _subscriptions = [];
 
-    public EngineActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, double failureRate = 0, Random? random = null)
+    public EngineActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, Random random, double failureRate = 0)
         : base(hubClientFactory, baseUri, session)
     {
-        ArgumentNullException.ThrowIfNull(random);
         if (failureRate is < 0 or > 1) throw new ArgumentOutOfRangeException(nameof(failureRate), "Failure rate must be between 0 and 1.");
         _failureRate = failureRate;
         _random = random;

@@ -11,11 +11,6 @@ namespace Nuotti.SimKit.Tests;
 
 public class EngineActorReactionTests
 {
-    static EngineActor AnEngine(RelayHubClientFactory factory, double failureRate) =>
-        new(factory, new Uri("http://in-proc"), "dev",
-            failureRate: failureRate,
-            random: LaneRandom.ForLane(seed: 3, laneIndex: 0));
-
     static PlayTrack APlayTrack() => new("file:///song.mp3")
     {
         SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
@@ -30,7 +25,8 @@ public class EngineActorReactionTests
     public async Task Reports_playing_when_a_play_track_arrives()
     {
         var factory = new RelayHubClientFactory();
-        var actor = AnEngine(factory, failureRate: 0);
+        var actor = new EngineActor(factory, new Uri("http://in-proc"), "dev",
+            LaneRandom.ForLane(seed: 3, laneIndex: 0), failureRate: 0);
 
         await actor.StartAsync();
         await factory.Client!.PushAsync(APlayTrack());
@@ -43,7 +39,8 @@ public class EngineActorReactionTests
     public async Task Reports_ready_when_a_stop_arrives()
     {
         var factory = new RelayHubClientFactory();
-        var actor = AnEngine(factory, failureRate: 0);
+        var actor = new EngineActor(factory, new Uri("http://in-proc"), "dev",
+            LaneRandom.ForLane(seed: 3, laneIndex: 0), failureRate: 0);
 
         await actor.StartAsync();
         await factory.Client!.PushAsync(AStopTrack());
@@ -56,7 +53,8 @@ public class EngineActorReactionTests
     public async Task Reports_error_when_the_failure_rate_is_certain()
     {
         var factory = new RelayHubClientFactory();
-        var actor = AnEngine(factory, failureRate: 1.0);
+        var actor = new EngineActor(factory, new Uri("http://in-proc"), "dev",
+            LaneRandom.ForLane(seed: 3, laneIndex: 0), failureRate: 1.0);
 
         await actor.StartAsync();
         await factory.Client!.PushAsync(APlayTrack());
@@ -69,7 +67,8 @@ public class EngineActorReactionTests
     public async Task Stops_reacting_once_the_actor_stops()
     {
         var factory = new RelayHubClientFactory();
-        var actor = AnEngine(factory, failureRate: 0);
+        var actor = new EngineActor(factory, new Uri("http://in-proc"), "dev",
+            LaneRandom.ForLane(seed: 3, laneIndex: 0), failureRate: 0);
 
         await actor.StartAsync();
         await actor.StopAsync();
@@ -79,13 +78,13 @@ public class EngineActorReactionTests
     }
 }
 
-sealed class RelayHubClientFactory : IHubClientFactory
+file sealed class RelayHubClientFactory : IHubClientFactory
 {
     public RelayHubClient? Client { get; private set; }
     public IHubClient Create(Uri baseAddress) => Client = new RelayHubClient();
 }
 
-sealed class RelayHubClient : IHubClient
+file sealed class RelayHubClient : IHubClient
 {
     readonly Dictionary<Type, Func<object, Task>> _handlers = new();
 
