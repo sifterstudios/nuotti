@@ -101,7 +101,7 @@ public class MultiSongScenarioTests
             public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
             public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
             public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
-            public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler) => new D();
+            public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler) => new D();
             sealed class D : IDisposable
             {
                 public void Dispose() { }

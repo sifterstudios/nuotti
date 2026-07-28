@@ -109,16 +109,16 @@ internal sealed class ChaosInjectingHubClient : IHubClient
         await _inner.SubmitAnswerAsync(session, choiceIndex, cancellationToken).ConfigureAwait(false);
     }
 
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
-        Action<GameStateSnapshot> wrapped = async snapshot =>
+        Func<GameStateSnapshot, Task> wrapped = async snapshot =>
         {
             var p = _activePolicy;
             if (p is { } pp && pp.ApplyToReceives && Random.Shared.NextDouble() < pp.Probability)
             {
                 await DisconnectCycleAsync(pp).ConfigureAwait(false);
             }
-            handler(snapshot);
+            await handler(snapshot).ConfigureAwait(false);
         };
         return _inner.OnGameStateChanged(wrapped);
     }

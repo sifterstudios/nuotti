@@ -173,7 +173,7 @@ file sealed class FakeHubClient : IHubClient
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
         => new NoopDisposable();
 
     sealed class NoopDisposable : IDisposable { public void Dispose() { } }

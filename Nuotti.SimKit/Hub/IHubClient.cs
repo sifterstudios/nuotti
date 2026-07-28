@@ -11,7 +11,12 @@ public interface IHubClient
     /// Subscribe to GameStateChanged broadcast from the hub.
     /// Returns IDisposable to allow unsubscription.
     /// </summary>
-    IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler);
+    /// <remarks>
+    /// The handler returns a Task so the publisher can await it. With Action&lt;T&gt;, any handler
+    /// that awaited was an async void: receive order was unguaranteed and exceptions were
+    /// unobservable, which makes a recorded run irreproducible.
+    /// </remarks>
+    IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler);
 }
 
 public interface IHubClientFactory

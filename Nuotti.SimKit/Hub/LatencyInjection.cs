@@ -115,7 +115,7 @@ internal sealed class LatencyInjectingHubClient : IHubClient
         await _inner.SubmitAnswerAsync(session, choiceIndex, cancellationToken).ConfigureAwait(false);
     }
 
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
         // If receive delays are enabled, wrap the handler.
         if (_activePolicy is { } pWhenSub && pWhenSub.ApplyToReceives)
@@ -129,7 +129,7 @@ internal sealed class LatencyInjectingHubClient : IHubClient
                     var delay = pp.SampleDelay();
                     await Task.Delay(delay).ConfigureAwait(false);
                 }
-                handler(snapshot);
+                await handler(snapshot).ConfigureAwait(false);
             });
         }
         else

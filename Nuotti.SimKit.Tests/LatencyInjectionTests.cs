@@ -61,12 +61,13 @@ public class LatencyInjectionTests
         using var sub = client.OnGameStateChanged(snapshot =>
         {
             if (!starts.TryDequeue(out var s))
-                return; // shouldn't happen
+                return Task.CompletedTask; // shouldn't happen
             var elapsed = (DateTime.UtcNow - s).TotalMilliseconds;
             samples.Add(elapsed);
             var left = Interlocked.Decrement(ref remaining);
             if (left == 0)
                 tcs.TrySetResult();
+            return Task.CompletedTask;
         });
 
         for (int i = 0; i < 41; i++)
@@ -108,19 +109,20 @@ file sealed class ImmediateHubClientFactory : IHubClientFactory
 
 file sealed class ImmediateHubClient : IHubClient
 {
-    private Action<GameStateSnapshot>? _handler;
+    private Func<GameStateSnapshot, Task>? _handler;
 
     public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
         _handler = handler;
         return new D(() => _handler = null);
     }
 
+    // Fire-and-forget, same as the Action<T> version this replaces.
     public void Fire(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot);
 
     sealed class D(Action dispose) : IDisposable { public void Dispose() => dispose(); }

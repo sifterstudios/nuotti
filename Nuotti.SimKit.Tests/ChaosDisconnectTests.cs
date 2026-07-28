@@ -70,19 +70,21 @@ file sealed class TriggeringHubClientFactory : IHubClientFactory
 
 file sealed class TriggeringHubClient : IHubClient
 {
-    Action<GameStateSnapshot>? _handler;
+    Func<GameStateSnapshot, Task>? _handler;
 
     public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task StopAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public IDisposable OnGameStateChanged(Action<GameStateSnapshot> handler)
+    public IDisposable OnGameStateChanged(Func<GameStateSnapshot, Task> handler)
     {
         _handler = handler;
         return new Unsubscriber(() => _handler = null);
     }
 
+    // Fire-and-forget, same as the Action<T> version this replaces: the caller does not wait
+    // for the handler to finish, so we deliberately do not await here either.
     public void Fire(GameStateSnapshot snapshot) => _handler?.Invoke(snapshot);
 
     sealed class Unsubscriber(Action dispose) : IDisposable
