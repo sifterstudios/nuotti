@@ -92,7 +92,8 @@ public class InjectionDeterminismTests
         var inner = new RecordingHubClient();
         var chaos = new DictionaryChaosPolicyResolver(new Dictionary<string, ChaosPolicy>
         {
-            // Probability 1.0 so a disconnect cycle fires on every receive-eligible operation.
+            // Probability 1.0 so a disconnect cycle fires on every send this test performs
+            // (ApplyToSends: true; the test only exercises SubmitAnswerAsync, the send path).
             ["audience"] = new ChaosPolicy(1.0, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), ApplyToSends: true)
         });
 
@@ -112,5 +113,25 @@ public class InjectionDeterminismTests
 
         sw.ElapsedMilliseconds.Should().BeLessThan(1000);
         inner.Calls.Should().Contain("stop");
+    }
+
+    [Fact]
+    public void ForLane_seed_derivation_is_stable_across_process_runs()
+    {
+        // A prior implementation derived the per-lane seed with HashCode.Combine(seed, laneIndex).
+        // .NET seeds HashCode.Combine with a random value generated once per process specifically
+        // so its output is NOT reproducible across runs (the same anti-hash-flooding design as
+        // randomized string.GetHashCode()) - so the same (seed, laneIndex) pair produced a
+        // different Random seed every time the process started, defeating this type's entire
+        // purpose. Same_seed_gives_the_same_delay_sequence above could not catch that: it only
+        // compares two Random instances built in the SAME process, where the per-process entropy
+        // is identical for both, so the comparison is structurally blind to this defect class.
+        // Only a hardcoded expected sequence - captured once and pinned here as a literal - can
+        // catch "the derived seed changes when the process restarts," because it is checked
+        // against a fixed expectation that does not travel with the process.
+        var random = DeterministicRandom.ForLane(seed: 42, laneIndex: 0);
+        var draws = Enumerable.Range(0, 5).Select(_ => random.Next()).ToList();
+
+        draws.Should().Equal(1387128535, 599910415, 1489872427, 1085737180, 599701995);
     }
 }
