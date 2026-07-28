@@ -32,20 +32,20 @@ public abstract partial class PhaseViewBase : UserControl
     /// <summary>
     /// Gets the window size by traversing up the visual tree.
     /// </summary>
-    protected Size GetWindowSize()
+    protected WindowSize GetWindowSize()
     {
         var current = (Control?)this;
         while (current != null)
         {
             if (current is Window window)
             {
-                return window.Bounds.Size;
+                return new WindowSize(window.Bounds.Width, window.Bounds.Height);
             }
             current = current.Parent as Control;
         }
-        
+
         // Fallback to control's bounds if window not found
-        return Bounds.Size;
+        return new WindowSize(Bounds.Width, Bounds.Height);
     }
     
     /// <summary>

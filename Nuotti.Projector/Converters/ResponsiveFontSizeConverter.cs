@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia;
 using Avalonia.Controls;
+using Nuotti.Projector.Presentation;
 using Nuotti.Projector.Services;
 
 namespace Nuotti.Projector.Converters;
@@ -39,18 +40,18 @@ public class ResponsiveFontSizeConverter : IValueConverter
             return 16.0; // Default fallback
         
         // Get window size
-        Size windowSize;
+        WindowSize windowSize;
         if (value is Window window)
         {
-            windowSize = window.Bounds.Size;
+            windowSize = new WindowSize(window.Bounds.Width, window.Bounds.Height);
         }
         else if (value is Size size)
         {
-            windowSize = size;
+            windowSize = new WindowSize(size.Width, size.Height);
         }
         else if (value is double width && parameter is double height)
         {
-            windowSize = new Size(width, height);
+            windowSize = new WindowSize(width, height);
         }
         else
         {

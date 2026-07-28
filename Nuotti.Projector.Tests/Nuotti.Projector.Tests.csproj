@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Nuotti.Projector\Nuotti.Projector.csproj" />
+    <ProjectReference Include="..\Nuotti.Projector.Presentation\Nuotti.Projector.Presentation.csproj" />
   </ItemGroup>
 
 </Project>

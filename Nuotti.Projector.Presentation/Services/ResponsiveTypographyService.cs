@@ -1,5 +1,5 @@
 using System;
-using Avalonia;
+using Nuotti.Projector.Presentation;
 
 namespace Nuotti.Projector.Services;
 
@@ -54,7 +54,7 @@ public class ResponsiveTypographyService
     /// <param name="windowSize">Current window size</param>
     /// <param name="safeAreaMargin">Safe area margin (0.0 to 1.0)</param>
     /// <returns>Calculated font size</returns>
-    public double CalculateFontSizeFromWindow(double minSize, double maxSize, Size windowSize, double safeAreaMargin = 0.05)
+    public double CalculateFontSizeFromWindow(double minSize, double maxSize, WindowSize windowSize, double safeAreaMargin = 0.05)
     {
         // Use the smaller dimension to ensure text fits on both axes
         var dimension = Math.Min(windowSize.Width, windowSize.Height);

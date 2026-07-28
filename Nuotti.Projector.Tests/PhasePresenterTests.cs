@@ -1,4 +1,3 @@
-using Avalonia;
 using FluentAssertions;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
@@ -19,8 +18,8 @@ namespace Nuotti.Projector.Tests;
 /// </summary>
 public class PhasePresenterTests
 {
-    static readonly Size Hd = new(1920, 1080);
-    static readonly Size Uhd = new(3840, 2160);
+    static readonly WindowSize Hd = new(1920, 1080);
+    static readonly WindowSize Uhd = new(3840, 2160);
 
     static PhasePresenter Presenter() => new(
         new ContentSafetyService(),
@@ -281,8 +280,8 @@ public class PhasePresenterTests
     [Fact]
     public void Font_sizes_stay_within_their_declared_bounds()
     {
-        var tiny = Presenter().Present(State(PhaseEnum.Guessing), Settings(), new Size(640, 360)).Typography;
-        var huge = Presenter().Present(State(PhaseEnum.Guessing), Settings(), new Size(7680, 4320)).Typography;
+        var tiny = Presenter().Present(State(PhaseEnum.Guessing), Settings(), new WindowSize(640, 360)).Typography;
+        var huge = Presenter().Present(State(PhaseEnum.Guessing), Settings(), new WindowSize(7680, 4320)).Typography;
 
         tiny.Headline.Should().BeGreaterThanOrEqualTo(ResponsiveTypographyService.FontSizes.HeadlineMin);
         huge.Headline.Should().BeLessThanOrEqualTo(ResponsiveTypographyService.FontSizes.HeadlineMax);

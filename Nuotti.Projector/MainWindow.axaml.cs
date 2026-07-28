@@ -850,7 +850,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            Render(_presenter.Present(state, _settings, Bounds.Size));
+            Render(_presenter.Present(state, _settings, new WindowSize(Bounds.Width, Bounds.Height)));
             AppendLocal($"[gamestate] Phase: {state.Phase}, Song: {state.SongTitle()}");
         }
         catch (Exception ex)
@@ -905,7 +905,7 @@ public partial class MainWindow : Window
         // Update button appearance
         _tallyToggleButton.Content = _settings.HideTalliesUntilReveal ? "🙈" : "👁️";
 
-        Render(_presenter.Present(_gameStateService.CurrentState, _settings, Bounds.Size));
+        Render(_presenter.Present(_gameStateService.CurrentState, _settings, new WindowSize(Bounds.Width, Bounds.Height)));
 
         var status = _settings.HideTalliesUntilReveal ? "hidden" : "visible";
         AppendLocal($"[tallies] Tallies during guessing: {status}");

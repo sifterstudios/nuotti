@@ -1,4 +1,3 @@
-using Avalonia;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Models;
@@ -29,7 +28,7 @@ public sealed class PhasePresenter(
     /// <summary>Option slots the Projector renders.</summary>
     public const int ChoiceSlots = 4;
 
-    public ViewSpec Present(GameStateSnapshot state, ProjectorSettings settings, Size windowSize)
+    public ViewSpec Present(GameStateSnapshot state, ProjectorSettings settings, WindowSize windowSize)
     {
         var showTallies = !(settings.HideTalliesUntilReveal && state.Phase == Phase.Guessing);
         var songTitle = safety.SanitizeSongTitle(state.SongTitle()).SafeContent;
@@ -180,7 +179,7 @@ public sealed class PhasePresenter(
                 row.Score))
             .ToArray();
 
-    TypographySpec TypographyFor(Size windowSize) => new(
+    TypographySpec TypographyFor(WindowSize windowSize) => new(
         Headline: typography.CalculateFontSizeFromWindow(ResponsiveTypographyService.FontSizes.HeadlineMin, ResponsiveTypographyService.FontSizes.HeadlineMax, windowSize),
         Question: typography.CalculateFontSizeFromWindow(ResponsiveTypographyService.FontSizes.QuestionMin, ResponsiveTypographyService.FontSizes.QuestionMax, windowSize),
         Option: typography.CalculateFontSizeFromWindow(ResponsiveTypographyService.FontSizes.OptionMin, ResponsiveTypographyService.FontSizes.OptionMax, windowSize),
