@@ -29,12 +29,15 @@ public class NextRoundTest
     }
 
     [Fact]
-    public void AllowedPhases_ShouldContainExactly_Guessing()
+    public void AllowedPhases_ShouldContain_Intermission_And_Guessing()
     {
         var sut = CreateSample();
 
+        // Intermission is the normal path - it is where EndSong leaves a round, and nothing could
+        // leave it before. Guessing remains, for abandoning a round and skipping to the next song.
+        Assert.Contains(Nuotti.Contracts.V1.Enum.Phase.Intermission, sut.AllowedPhases);
         Assert.Contains(Nuotti.Contracts.V1.Enum.Phase.Guessing, sut.AllowedPhases);
-        Assert.Single(sut.AllowedPhases);
+        Assert.Equal(2, sut.AllowedPhases.Count);
     }
 
     [Fact]

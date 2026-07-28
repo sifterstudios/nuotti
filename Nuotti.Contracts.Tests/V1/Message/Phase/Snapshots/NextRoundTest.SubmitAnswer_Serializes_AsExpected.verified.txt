@@ -3,10 +3,12 @@
     value: song-123
   },
   allowedPhases: [
+    Intermission,
     Guessing
   ],
   targetPhase: Start,
   allowedSourcePhases: [
+    Intermission,
     Guessing
   ],
   commandId: Guid_1,

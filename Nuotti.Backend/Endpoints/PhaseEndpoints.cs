@@ -15,12 +15,14 @@ internal static class PhaseEndpoints
     {
         app.MapPhaseCommand<CreateSession>("create-session");
         app.MapPhaseCommand<StartGame>("start-game");
+        app.MapPhaseCommand<OpenAnswers>("open-answers");
         app.MapPhaseCommand<EndSong>("end-song");
         app.MapPhaseCommand<LockAnswers>("lock-answers");
         app.MapPhaseCommand<RevealAnswer>("reveal-answer");
         app.MapPhaseCommand<NextRound>("next-round");
         app.MapPhaseCommand<PlaySong>("play-song");
         app.MapPhaseCommand<GiveHint>("give-hint");
+        app.MapPhaseCommand<EndGame>("end-game");
     }
 
     static void MapPhaseCommand<T>(this WebApplication app, string route) where T : CommandBase
