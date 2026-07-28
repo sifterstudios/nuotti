@@ -58,7 +58,11 @@ public class HubSubscriptionAsyncTests
     public async Task Handler_exceptions_reach_the_publisher_instead_of_vanishing()
     {
         var client = new AwaitingHubClient();
-        using var sub = client.OnGameStateChanged(_ => throw new InvalidOperationException("boom"));
+        using var sub = client.OnGameStateChanged(async _ =>
+        {
+            await Task.Yield();
+            throw new InvalidOperationException("boom");
+        });
 
         var act = async () => await client.PublishAsync(ASnapshot());
 
