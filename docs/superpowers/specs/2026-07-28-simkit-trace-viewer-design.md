@@ -77,10 +77,17 @@ Verified against the tree at `af5d388`:
    `InProcCommandEmitter` and an `HttpCommandEmitter` are required.
 2. **`PhasePresenter` and `ViewSpec` live inside `Nuotti.Projector`**, which references
    Avalonia. Using them from tests would drag Avalonia into the test run. They must be
-   extracted to an Avalonia-free `Nuotti.Projector.Presentation`. `CONTEXT.md` already
-   states `ViewSpec` holds no Avalonia types, so the move is mechanical.
-3. **Sampled latency must be applied through `ITimeProvider`, not `Task.Delay`**, or mode 1
-   is not reproducible.
+   extracted to an Avalonia-free `Nuotti.Projector.Presentation`. `ViewSpec` itself is
+   Avalonia-free as `CONTEXT.md` states, but `PhasePresenter.Present` and
+   `ResponsiveTypographyService.CalculateFontSizeFromWindow` both take `Avalonia.Size`, so
+   the extraction also introduces a local `WindowSize` record to replace it. The other
+   presentation dependencies — `ProjectorSettings`, `ContentSafetyService`,
+   `LocalizationService` — are already Avalonia-free and move unchanged.
+3. **Sampled latency and chaos downtime must be applied through `ITimeProvider`, not
+   `Task.Delay`, and drawn from a seeded per-lane `Random`, not `Random.Shared`**, or mode 1
+   is not reproducible and `--instant` still sleeps. Both injecting hub clients also bind
+   `async` lambdas to `Action<GameStateSnapshot>` in `OnGameStateChanged` — an async void,
+   so receive order is not guaranteed and exceptions are unobservable.
 
 ## Architecture
 
@@ -284,11 +291,15 @@ is reviewed as a diff alongside existing snapshots.
 The work is large enough that it should be staged. Each stage is independently useful and
 leaves the tree green.
 
-1. **Unblock the harness** — extract `Nuotti.Projector.Presentation`; write
-   `InProcCommandEmitter` and `HttpCommandEmitter`; route sampled latency through
-   `ITimeProvider`. Closes all three gaps above. No trace yet.
-2. **In-proc world** — `Nuotti.SimKit.InProc`, `SimWorld`, `SimWorldOptions`, lanes. Proven
-   by a test that drives a single song end to end with no trace.
+1. **Unblock the harness** — extract `Nuotti.Projector.Presentation`; create
+   `Nuotti.SimKit.InProc` holding `InProcBackend` and `InProcCommandEmitter`; write
+   `HttpCommandEmitter`; route sampled latency **and chaos downtime** through
+   `ITimeProvider` with a seeded per-lane `Random`. Closes all three gaps above and ends
+   with a performer script driving a session in-process. No trace yet.
+   Planned in `docs/superpowers/plans/2026-07-28-harness-unblock.md`.
+2. **In-proc world** — `InProcHubClientFactory`, `SimWorld`, `SimWorldOptions`, lanes, added
+   to the project stage 1 created. Proven by a test that drives a single song end to end
+   across all participants, with no trace.
 3. **Trace** — `NuottiTrace`, `TraceRecorder` with alias mapping, `TraceRecord`,
    `JsonlTraceSink`, snapshot diff/hash. Proven by the seeded-determinism test.
 4. **Viewer** — `TraceViewerWriter` and the `viewer.html` template.
