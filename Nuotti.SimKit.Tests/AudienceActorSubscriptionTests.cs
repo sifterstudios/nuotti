@@ -54,6 +54,23 @@ public class AudienceActorSubscriptionTests
 
         factory.Client.Answers.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task Keeps_answering_after_the_token_passed_to_start_is_cancelled()
+    {
+        var factory = new PushingHubClientFactory();
+        var actor = AnAudience(factory);
+
+        using var startScope = new CancellationTokenSource();
+        await actor.StartAsync(startScope.Token);
+        startScope.Cancel();
+
+        // The start call's token governs starting, not the subscription's lifetime. An
+        // audience that goes silent when a connect timeout elapses is the bug this guards.
+        await factory.Client!.PushAsync(AGuessingSnapshot());
+
+        factory.Client.Answers.Should().HaveCount(1);
+    }
 }
 
 file sealed class PushingHubClientFactory : IHubClientFactory

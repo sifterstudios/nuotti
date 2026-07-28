@@ -14,6 +14,7 @@ public sealed class AudienceActor : BaseActor
     int? _scheduledForSongIndex;
     readonly object _gate = new();
     IDisposable? _subscription;
+    CancellationTokenSource? _subscriptionLifetime;
 
     public AudienceActor(IHubClientFactory hubClientFactory, Uri baseUri, string session, string name, Random random, AudienceOptions? options = null, ITimeProvider? timeProvider = null)
         : base(hubClientFactory, baseUri, session)
@@ -98,7 +99,14 @@ public sealed class AudienceActor : BaseActor
     protected override Task OnStartedAsync(CancellationToken cancellationToken = default)
     {
         if (Client is not null)
-            _subscription = Client.On<GameStateSnapshot>(s => OnStateAsync(s, cancellationToken));
+        {
+            // The subscription outlives the start call, so it must not capture the start
+            // call's token: a start-scoped timeout would silently stop the audience
+            // answering for the rest of the run. Use an independent lifetime.
+            _subscriptionLifetime = new CancellationTokenSource();
+            var token = _subscriptionLifetime.Token;
+            _subscription = Client.On<GameStateSnapshot>(s => OnStateAsync(s, token));
+        }
         return Task.CompletedTask;
     }
 
@@ -106,6 +114,9 @@ public sealed class AudienceActor : BaseActor
     {
         _subscription?.Dispose();
         _subscription = null;
+        _subscriptionLifetime?.Cancel();
+        _subscriptionLifetime?.Dispose();
+        _subscriptionLifetime = null;
         return Task.CompletedTask;
     }
 }
