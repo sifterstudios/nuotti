@@ -24,7 +24,7 @@ public class ChaosDisconnectTests
             baseFactory,
             chaosResolver,
             new ImmediateTimeProvider(),
-            () => DeterministicRandom.ForLane(seed: 1, laneIndex: 0));
+            () => LaneRandom.ForLane(seed: 1, laneIndex: 0));
 
         var actor = new ProjectorActor(chaoticFactory, new Uri("http://localhost:5000"), "SESS");
         await actor.StartAsync();

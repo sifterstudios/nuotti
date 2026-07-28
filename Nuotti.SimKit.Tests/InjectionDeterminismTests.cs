@@ -44,7 +44,7 @@ public class InjectionDeterminismTests
             new SingleClientFactory(inner),
             ResolverFor(SlowPolicy),
             new ImmediateTimeProvider(),
-            () => DeterministicRandom.ForLane(seed: 1, laneIndex: 0));
+            () => LaneRandom.ForLane(seed: 1, laneIndex: 0));
 
         var client = factory.Create(Any);
         var sw = Stopwatch.StartNew();
@@ -64,10 +64,10 @@ public class InjectionDeterminismTests
 
         // One Random per run, drawn from ten times. Creating a fresh Random inside the loop
         // would yield ten identical values and the test would pass without proving anything.
-        var runOne = DeterministicRandom.ForLane(seed: 7, laneIndex: 3);
+        var runOne = LaneRandom.ForLane(seed: 7, laneIndex: 3);
         var first = Enumerable.Range(0, 10).Select(_ => policy.SampleDelay(runOne)).ToList();
 
-        var runTwo = DeterministicRandom.ForLane(seed: 7, laneIndex: 3);
+        var runTwo = LaneRandom.ForLane(seed: 7, laneIndex: 3);
         var second = Enumerable.Range(0, 10).Select(_ => policy.SampleDelay(runTwo)).ToList();
 
         second.Should().Equal(first);
@@ -77,8 +77,8 @@ public class InjectionDeterminismTests
     [Fact]
     public void Different_lanes_get_different_sequences_from_the_same_seed()
     {
-        var a = DeterministicRandom.ForLane(seed: 7, laneIndex: 0);
-        var b = DeterministicRandom.ForLane(seed: 7, laneIndex: 1);
+        var a = LaneRandom.ForLane(seed: 7, laneIndex: 0);
+        var b = LaneRandom.ForLane(seed: 7, laneIndex: 1);
 
         var fromA = Enumerable.Range(0, 5).Select(_ => a.Next()).ToList();
         var fromB = Enumerable.Range(0, 5).Select(_ => b.Next()).ToList();
@@ -101,7 +101,7 @@ public class InjectionDeterminismTests
             new SingleClientFactory(inner),
             chaos,
             new ImmediateTimeProvider(),
-            () => DeterministicRandom.ForLane(seed: 2, laneIndex: 0));
+            () => LaneRandom.ForLane(seed: 2, laneIndex: 0));
 
         var client = factory.Create(Any);
         await client.StartAsync();
@@ -129,9 +129,41 @@ public class InjectionDeterminismTests
         // Only a hardcoded expected sequence - captured once and pinned here as a literal - can
         // catch "the derived seed changes when the process restarts," because it is checked
         // against a fixed expectation that does not travel with the process.
-        var random = DeterministicRandom.ForLane(seed: 42, laneIndex: 0);
+        //
+        // A second prior implementation derived the seed with `seed * 397 + laneIndex`: pure
+        // integer arithmetic, so it passed this same cross-process-stability test, but adjacent
+        // lanes got adjacent derived seeds, and .NET's seeded Random initializes its state
+        // linearly from the seed - so consecutive lanes drew a smooth arithmetic ramp instead of
+        // independent samples (see Adjacent_lanes_do_not_form_an_arithmetic_progression below,
+        // which is the test that formula could not pass). Pinning literals here only catches "the
+        // seed changed"; it says nothing about whether nearby seeds correlate, which is why that
+        // property needs its own test rather than a bigger pinned sequence.
+        var random = LaneRandom.ForLane(seed: 42, laneIndex: 0);
         var draws = Enumerable.Range(0, 5).Select(_ => random.Next()).ToList();
 
-        draws.Should().Equal(1387128535, 599910415, 1489872427, 1085737180, 599701995);
+        draws.Should().Equal(391759428, 683020650, 1055988885, 1889306514, 1274417821);
+    }
+
+    [Fact]
+    public void Adjacent_lanes_do_not_form_an_arithmetic_progression()
+    {
+        // The defect this guards against: a per-lane seed derived by a linear formula (e.g.
+        // `seed * 397 + laneIndex`) makes each lane's first draw a fixed step away from its
+        // neighbor's, because .NET's seeded Random initializes its state linearly from the seed.
+        // At chaos Probability 0.05 that turns "which lanes disconnect" into an evenly-spaced
+        // stripe instead of a random-looking subset. A real hash scrambles the seed enough that
+        // successive first-draws have no constant difference - so if this ever regresses to a
+        // linear derivation, the successive differences below collapse to one repeated value.
+        var firstDraws = Enumerable.Range(0, 12)
+            .Select(lane => LaneRandom.ForLane(seed: 7, laneIndex: lane).NextDouble())
+            .ToList();
+
+        var successiveDiffs = firstDraws
+            .Zip(firstDraws.Skip(1), (a, b) => b - a)
+            .Select(d => Math.Round(d, 6))
+            .ToList();
+
+        successiveDiffs.Distinct().Should().HaveCountGreaterThan(1,
+            "an arithmetic ramp has one constant successive difference; independent draws do not");
     }
 }

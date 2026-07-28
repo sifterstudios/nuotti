@@ -26,7 +26,7 @@ public class LatencyInjectionTests
             innerFactory,
             resolver,
             new ImmediateTimeProvider(),
-            () => DeterministicRandom.ForLane(seed: 1, laneIndex: 0));
+            () => LaneRandom.ForLane(seed: 1, laneIndex: 0));
         var client = factory.Create(new Uri("http://localhost:5000"));
 
         await client.StartAsync();
@@ -60,7 +60,7 @@ public class LatencyInjectionTests
             innerFactory,
             resolver,
             new ImmediateTimeProvider(),
-            () => DeterministicRandom.ForLane(seed: 1, laneIndex: 0));
+            () => LaneRandom.ForLane(seed: 1, laneIndex: 0));
         var client = factory.Create(new Uri("http://localhost:5000"));
 
         await client.StartAsync();
