@@ -497,3 +497,6 @@ $RECYCLE.BIN/
 
 # graphify knowledge-graph output (generated; regenerate with /graphify)
 graphify-out/
+
+# superpowers brainstorm scratch
+.superpowers/
