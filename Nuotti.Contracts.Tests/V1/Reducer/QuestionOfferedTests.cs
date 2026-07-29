@@ -193,4 +193,68 @@ public class QuestionOfferedTests
         next.Choices.Should().Equal("x", "y");
         next.Tallies.Should().Equal(0, 0);
     }
+
+    [Fact]
+    public void Offering_a_different_question_clears_stale_answers_so_reveal_cannot_misaward()
+    {
+        // Nothing restricts QuestionPushed to a phase (it implements neither IPhaseRestricted nor
+        // IPhaseChange), so a performer can push question B without an intervening Start after
+        // question A was answered. Tallies alone being re-zeroed is not enough: Answers still
+        // remembers aud-1's index-1 vote for A, and a later reveal of index 1 for B would credit
+        // aud-1 for a choice they never made against B's options.
+        var state = GameReducer.Initial("dev");
+        (state, var offerAError) = GameReducer.Reduce(state, new QuestionOffered("Question A?", ["a", "b", "c", "d"])
+        {
+            Text = "Question A?",
+            Choices = ["a", "b", "c", "d"],
+            SessionCode = "dev",
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+        offerAError.Should().BeNull();
+
+        (state, var phaseError) = GameReducer.Reduce(state, new GamePhaseChanged(Phase.Lobby, Phase.Guessing)
+        {
+            CurrentPhase = Phase.Lobby,
+            NewPhase = Phase.Guessing,
+            SessionCode = "dev",
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+        phaseError.Should().BeNull();
+
+        // aud-1 answers question A with index 1.
+        (state, var answerError) = GameReducer.Reduce(state, new AnswerSubmitted("aud-1", 1)
+        {
+            AudienceId = "aud-1",
+            ChoiceIndex = 1,
+            SessionCode = "dev",
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+        answerError.Should().BeNull();
+
+        // The performer pushes a different question B, with no intervening Start.
+        (state, var offerBError) = GameReducer.Reduce(state, new QuestionOffered("Question B?", ["x", "y"])
+        {
+            Text = "Question B?",
+            Choices = ["x", "y"],
+            SessionCode = "dev",
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+        offerBError.Should().BeNull();
+
+        // Revealing index 1 for B must not credit aud-1: they never answered B.
+        var (next, error) = GameReducer.Reduce(state, new CorrectAnswerRevealed(1)
+        {
+            CorrectChoiceIndex = 1,
+            SessionCode = "dev",
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+
+        error.Should().BeNull();
+        next.Scores.Should().NotContainKey("aud-1");
+    }
 }

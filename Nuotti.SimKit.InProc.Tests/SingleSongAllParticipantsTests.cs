@@ -44,17 +44,22 @@ namespace Nuotti.SimKit.InProc.Tests;
 //
 // WHAT THIS TEST DOES NOT PROVE, AND WHY:
 // Two of the brief's four required assertions - "all three audiences submitted exactly one
-// answer" and "the tally sums to 3" - are deliberately not written here. GameStateSnapshot.Choices
-// is never populated by any command or event this codebase currently has: GameReducer only
-// handles GamePhaseChanged, AnswerSubmitted, CorrectAnswerRevealed, HintGiven and CatalogUpdated,
-// and only the last of those touches state - setting Catalog, not Choices. SetlistManifest's
-// SongEntry has no choices/options field, and QuestionPushed (which does carry Options) is a
-// fire-and-forget relay with no reducer case, and no actor in Nuotti.SimKit subscribes to it.
-// AudienceActor.OnStateAsync refuses to act while Choices is empty, and even a forced answer
-// would be silently discarded by GameReducer's own bounds check against Choices. So no audience -
-// simulated or real - can currently submit an answer that the reducer will count, at any phase,
-// no matter how the session got there. This is a genuine, previously-undiscovered production gap,
-// not a setup step this test forgot to perform; see task-5-report.md for the full analysis.
+// answer" and "the tally sums to 3" - are deliberately not written here. As of stage2a's
+// QuestionOffered fix, GameReducer *can* populate GameStateSnapshot.Choices: QuestionPushed now
+// also emits a QuestionOffered event (handled by GameReducer alongside GamePhaseChanged,
+// AnswerSubmitted, CorrectAnswerRevealed, HintGiven and CatalogUpdated), which sets Choices and
+// sizes Tallies to match. But this script never sends QuestionPushed - it drives only
+// CreateSession, UpdateCatalog, StartGame, OpenAnswers, LockAnswers, RevealAnswer, PlayTrack and
+// StopTrack - so Choices stays empty throughout this particular run regardless. SetlistManifest's
+// SongEntry still has no choices/options field, and no actor in Nuotti.SimKit yet subscribes to
+// QuestionPushed to drive it from the performer's script. AudienceActor.OnStateAsync refuses to
+// act while Choices is empty, and even a forced answer would be silently discarded by
+// GameReducer's own bounds check against Choices. So no audience - simulated or real - submits a
+// counted answer in *this* test, not because the reducer still cannot count one, but because
+// this script never offers a question in the first place. Wiring QuestionPushed into the
+// performer's script (and an audience actor that reacts to it) is follow-up work; see
+// task-5-report.md for the original analysis and task-7-report.md for the fix that closed the
+// reducer-side half of the gap.
 public class SingleSongAllParticipantsTests
 {
     const string Session = "dev";

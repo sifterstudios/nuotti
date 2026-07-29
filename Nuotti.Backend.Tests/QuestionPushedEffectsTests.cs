@@ -41,6 +41,15 @@ public class QuestionPushedEffectsTests
         Assert.Single(bus.Published.OfType<QuestionPushed>());
         Assert.Single(bus.Published.OfType<QuestionOffered>());
 
+        // QuestionOffered is never sent to clients (it is deliberately absent from
+        // HubWireNames), so the GameStateChanged snapshot broadcast is the only channel by which
+        // Choices reaches a client at all. Every client-side reducer (AudienceHubClient,
+        // GameStateService, PerformerUiState) replays AnswerSubmitted against that snapshot, and
+        // its own bounds check needs Choices present. If EffectsFor ever stopped broadcasting for
+        // QuestionPushed, this would be the only thing to catch it.
+        var broadcast = Assert.Single(bus.Published.OfType<GameStateChanged>());
+        Assert.Equal(new[] { "a", "b", "c" }, broadcast.Snapshot.Choices);
+
         var answerResult = await processor.ApplyAsync(Session, Audience,
             new SubmitAnswer(null, 1) { SessionCode = Session, IssuedByRole = Role.Audience, IssuedById = "aud-1" });
 

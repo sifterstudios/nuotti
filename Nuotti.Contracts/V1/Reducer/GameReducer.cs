@@ -137,18 +137,28 @@ public static class GameReducer
                 // arrives here twice — and zeroing tallies unconditionally would silently wipe
                 // every vote already cast. Resetting the round is GamePhaseChanged -> Start's job,
                 // not a duplicate relay's.
+                //
+                // This equality check is on Choices content alone: the snapshot carries no
+                // question identity. A genuinely different question that happens to reuse the
+                // same option list, with no intervening Start, is indistinguishable from a
+                // duplicate relay and is treated as one — a known blind spot, not exact duplicate
+                // detection.
                 if (state.Choices.SequenceEqual(offered.Choices))
                 {
                     return (state, null);
                 }
 
                 // Genuinely different choices replace the previous set; tallies are re-sized and
-                // zeroed to match, mirroring a fresh question. Phase and SongIndex are untouched
-                // here — those move via GamePhaseChanged.
+                // zeroed to match, mirroring a fresh question. Answers are cleared too, exactly
+                // like GamePhaseChanged -> Start above: a different question invalidates answers
+                // to the previous one, otherwise a later reveal could award a point for a choice
+                // index the audience member cast against a question they never saw. Phase and
+                // SongIndex are untouched here — those move via GamePhaseChanged.
                 return (state with
                 {
                     Choices = offered.Choices,
-                    Tallies = new int[offered.Choices.Count]
+                    Tallies = new int[offered.Choices.Count],
+                    Answers = System.Collections.Frozen.FrozenDictionary<string, int>.Empty
                 }, null);
             }
             default:
