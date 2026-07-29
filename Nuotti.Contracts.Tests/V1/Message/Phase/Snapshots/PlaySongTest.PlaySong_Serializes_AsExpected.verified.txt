@@ -3,7 +3,7 @@
     value: song-123
   },
   allowedPhases: [
-    Play
+    Reveal
   ],
   targetPhase: Play,
   allowedSourcePhases: [

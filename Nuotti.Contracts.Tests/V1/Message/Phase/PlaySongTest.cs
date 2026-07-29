@@ -32,16 +32,19 @@ public class PlaySongTest
     }
 
     [Fact]
-    public void AllowedPhases_ShouldContainExactly_Play()
+    public void AllowedPhases_ShouldContainExactly_Reveal()
     {
         var sut = CreateSample();
 
-        Assert.Contains(Nuotti.Contracts.V1.Enum.Phase.Play, sut.AllowedPhases);
+        // Was [Play], copy-pasted from EndSongTest where [Play] is correct. PlaySong moves the
+        // session TO Play and is allowed FROM Reveal; the old value made Guard unsatisfiable,
+        // since it also checks AllowedSourcePhases = [Reveal].
+        Assert.Contains(Nuotti.Contracts.V1.Enum.Phase.Reveal, sut.AllowedPhases);
         Assert.Single(sut.AllowedPhases);
     }
 
     [Fact]
-    public Task EndSong_Serializes_AsExpected()
+    public Task PlaySong_Serializes_AsExpected()
     {
         var sut = CreateSample();
         var json = JsonSerializer.Serialize(sut, ContractsJson.DefaultOptions);

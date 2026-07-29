@@ -2,13 +2,13 @@
 namespace Nuotti.Contracts.V1.Message.Phase;
 
 /// <summary>
-/// Starts playing a track for the current song.
-/// Allowed phases: Play
+/// Starts playing a track for the current song, moving the session to Play.
+/// Allowed from: Reveal.
 /// </summary>
 public sealed record PlaySong(SongId SongId) : CommandBase, IPhaseRestricted, IPhaseChange
 {
     public SongId SongId { get; } = SongId;
-    public IReadOnlyCollection<Enum.Phase> AllowedPhases { get; } = [Enum.Phase.Play];
+    public IReadOnlyCollection<Enum.Phase> AllowedPhases { get; } = [Enum.Phase.Reveal];
 
     public Enum.Phase TargetPhase => Enum.Phase.Play;
     public IReadOnlyCollection<Enum.Phase> AllowedSourcePhases => [Enum.Phase.Reveal];
