@@ -40,3 +40,10 @@ applying `NextRound` twice advances the game twice.
   `PlayTrack` and `StopTrack` are already idempotent in effect at the Engine.
 - A future architecture review will likely suggest "apply idempotency uniformly". This ADR
   is the answer.
+
+## Amendment — 2026-07-29
+
+`QuestionPushed` now also produces a `QuestionOffered` event, so it does change game state; the
+sentence above no longer describes it. The decision is unchanged and the rationale still holds:
+re-offering the same choices is idempotent in effect, so a duplicate relay remains harmless.
+`PlayTrack` and `StopTrack` are untouched and remain pure relays.

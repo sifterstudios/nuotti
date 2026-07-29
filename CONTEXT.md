@@ -34,6 +34,10 @@ may be rejected.
 **Event** — something that happened, derived from `EventBase`. Events are facts and are
 never rejected. Events are what the Reducer consumes.
 
+**Choices** — the answer options on offer for the current round. Carried to clients by the
+`QuestionPushed` relay Command and put into the Snapshot by the `QuestionOffered` Event. The
+Reducer needs them present to bounds-check an `AnswerSubmitted` and to size the tally.
+
 **Reducer** — `GameReducer.Reduce(snapshot, event)`, a pure function returning the next
 snapshot or an error. The single place where game state changes. Both the Backend and the
 clients run it, on the same events, to reach the same state.

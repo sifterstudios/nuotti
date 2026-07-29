@@ -212,9 +212,25 @@ public sealed class SessionCommandProcessor(
                     }
                 ]);
 
+            // QuestionPushed is still relayed untouched for the wire, but it now also produces a
+            // state event: the choices have to reach GameStateSnapshot or the reducer cannot
+            // bounds-check an answer. Idempotency stays off per docs/adr/0002 — re-offering the
+            // same choices is idempotent in effect.
+            case QuestionPushed pushed:
+                return new Effects(
+                    [pushed, new QuestionOffered(pushed.Text, pushed.Options)
+                    {
+                        Text = pushed.Text,
+                        Choices = pushed.Options,
+                        SessionCode = session,
+                        CausedByCommandId = command.CommandId,
+                        CorrelationId = correlation
+                    }],
+                    BroadcastSnapshot: true,
+                    CheckIdempotency: false);
+
             // Relay Commands: forwarded to clients untouched, no state change, no idempotency
             // (docs/adr/0002). The reducer ignores them, so no snapshot is broadcast either.
-            case QuestionPushed:
             case PlayTrack:
             case StopTrack:
                 return new Effects([command], BroadcastSnapshot: false, CheckIdempotency: false);
@@ -326,6 +342,7 @@ public sealed class SessionCommandProcessor(
         CorrectAnswerRevealed e => bus.PublishAsync(e, ct),
         HintGiven e => bus.PublishAsync(e, ct),
         CatalogUpdated e => bus.PublishAsync(e, ct),
+        QuestionOffered e => bus.PublishAsync(e, ct),
         AnswerSubmitted e => bus.PublishAsync(e, ct),
         GameStateChanged e => bus.PublishAsync(e, ct),
         QuestionPushed c => bus.PublishAsync(c, ct),

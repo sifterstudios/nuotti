@@ -130,6 +130,17 @@ public static class GameReducer
             {
                 return (state with { Catalog = catalogUpdated.Catalog }, null);
             }
+            case QuestionOffered offered:
+            {
+                // The choices on offer replace the previous set; tallies are re-sized and zeroed
+                // to match, mirroring a fresh question. Phase and SongIndex are untouched here —
+                // those move via GamePhaseChanged.
+                return (state with
+                {
+                    Choices = offered.Choices,
+                    Tallies = new int[offered.Choices.Count]
+                }, null);
+            }
             default:
                 // Unknown events are no-ops in this reducer
                 return (state, null);
