@@ -999,9 +999,16 @@ Task 5 proved `Reveal` is reachable and wrote the projector and engine assertion
 rather than bending the two audience assertions into something that would pass. Two pre-existing
 production defects blocked them. The decision was to fix both here rather than defer.
 
-**Defect A — `PlaySong` can never fire.** It declares `AllowedPhases = [Play]` and
-`AllowedSourcePhases = [Reveal]`. `SessionCommandProcessor.Guard` enforces both, so the session
-would have to be in `Play` and `Reveal` at once.
+**Defect A — `PlaySong` can never fire, and that makes half the phase machine dead.** It declares
+`AllowedPhases = [Play]` and `AllowedSourcePhases = [Reveal]`. `SessionCommandProcessor.Guard`
+enforces both, so the session would have to be in `Play` and `Reveal` at once.
+
+The blast radius is not narrow. Enumerating `AllowedSourcePhases` across every `IPhaseChange`
+command: **only `PlaySong` lists `Reveal`**, so with it unfireable there is no legal transition out
+of `Reveal` at all — `Reveal` is terminal. `EndSong` requires `Play`, which only `PlaySong` can
+produce; `EndGame` requires `Intermission`, which only `EndSong` can produce. So `Play`,
+`Intermission` and `Finished` are all unreachable, and `NextRound` from `Guessing` is the only
+surviving loop. Fixing this one value restores the second half of the game.
 
 **Defect B — answers can never be tallied.** No command or event ever populates
 `GameStateSnapshot.Choices`; the only writers are the snapshot's own constructors. But
@@ -1033,6 +1040,21 @@ Play", which describes its *target* phase; that is almost certainly how the wron
 idempotency stage. Its sentence "They change no game state" describes the status quo and stops
 being true for `QuestionPushed`. The rationale still holds: re-setting identical choices is
 idempotent in effect, so a duplicate remains harmless.
+
+**The two defects are coupled, and Task 7 must account for it.** `Reveal` is reachable today only
+because the empty-`Choices` bug makes an out-of-range `CorrectAnswerRevealed` an *ignore* rather
+than an error (`GameReducer` treats an invalid reveal index as a no-op). `RevealAnswer` emits two
+events, and if the second returned an error `ApplyAsync` would reject the whole command. Once
+`Choices` is populated, that step starts taking the real scoring path — so Task 7's and Task 8's
+reveal index must be valid for the offered choices, or the reveal will start failing for a new
+reason.
+
+**A third gap, recorded but NOT fixed here.** `StepKind` has no `OpenAnswers` step and
+`PerformerActor.BuildCommandsFromScript` maps nothing to `OpenAnswers`, so **no `ScriptModel` can
+drive a session past `Start`** — `LockAnswers` requires `Guessing` and nothing can reach it from a
+script. `StepKind.Play` also maps to the unfireable `PlaySong`. This means Task 8 must drive the
+session with raw commands through `InProcCommandEmitter`, not `RunScriptAsync`. Making the script
+model able to drive a full song belongs to stage 2b.
 
 **Naming.** The new event is `QuestionOffered(string Text, IReadOnlyList<string> Choices)`,
 following the past-tense fact convention of `HintGiven`, `CatalogUpdated`, `AnswerSubmitted`,
@@ -1084,6 +1106,19 @@ public class PlaySongPhaseTests
 
         applicable.Should().NotBeEmpty(
             "a command that satisfies neither guard simultaneously is dead code");
+    }
+
+    [Fact]
+    public void Reveal_is_not_a_terminal_phase()
+    {
+        // Only PlaySong lists Reveal as a source phase. While it was unfireable, nothing could
+        // leave Reveal, which also made Play, Intermission and Finished unreachable.
+        var leavesReveal = new IPhaseChange[]
+        {
+            new PlaySong(new Nuotti.Contracts.V1.Model.SongId(Guid.NewGuid())),
+        }.Any(c => c.IsPhaseChangeAllowed(PhaseEnum.Reveal));
+
+        leavesReveal.Should().BeTrue();
     }
 
     [Fact]
@@ -1353,8 +1388,16 @@ non-vacuous by mutation and must not be disturbed. Add the two that were blocked
 - all three audiences submitted exactly one answer for the song
 - the backend's final snapshot has a tally summing to 3
 
-The script must now push a question before opening answers, so the choices reach the snapshot.
+The sequence must now push a question before opening answers, so the choices reach the snapshot.
 Use `LaneRandom.ForLane(seed: 1, laneIndex: n)` per participant and `ImmediateTimeProvider`.
+
+**Drive the session with raw commands through `InProcCommandEmitter`, not `RunScriptAsync`.**
+`StepKind` has no `OpenAnswers` step, so no `ScriptModel` can reach `Guessing` — see the third gap
+above. Task 5's test already does it this way; keep that.
+
+**Make the reveal index valid for the offered choices.** Once Task 7 populates `Choices`,
+`CorrectAnswerRevealed` takes the real scoring path instead of being ignored as out-of-range. An
+index that was harmlessly wrong before will now behave differently.
 
 - [ ] **Step 2: Prove each assertion is non-vacuous**
 
