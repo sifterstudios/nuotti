@@ -188,6 +188,9 @@ public class SingleSongAllParticipantsTests
         // incremented once per accepted AnswerSubmitted event (GameReducer's AnswerSubmitted case).
         // Three audiences each answering once sums to 3 regardless of which of the three options
         // each one happened to pick - this checks the total, not any single bucket.
+        // Load-bearing: tallies increment cumulatively and a re-answer never moves a vote, so
+        // sum == distinct answerers is what makes the pair prove "exactly one answer each".
+        finalState.Tallies.Sum().Should().Be(finalState.Answers.Count);
         finalState.Tallies.Sum().Should().Be(3);
     }
 }
