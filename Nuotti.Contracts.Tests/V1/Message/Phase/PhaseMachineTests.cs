@@ -165,6 +165,11 @@ public class PhaseMachineTests
         // (which checks AllowedSourcePhases). PlaySong violated this until fixed, making it
         // unsatisfiable from any phase. This invariant prevents the copy-paste bug from
         // re-appearing in sibling commands.
+        //
+        // The tests that predate this one could not have caught the PlaySong bug: they all
+        // consult IsPhaseChangeAllowed / AllowedSourcePhases and never AllowedPhases, so a
+        // command with a satisfiable transition but an unsatisfiable restriction looked healthy
+        // to every one of them. That blind spot is what this invariant closes.
         var bothGuards = Transitions()
             .Where(t => t is IPhaseRestricted)
             .ToList();
@@ -173,7 +178,7 @@ public class PhaseMachineTests
             .Where(cmd =>
             {
                 var restricted = (IPhaseRestricted)cmd;
-                return !restricted.AllowedPhases.SequenceEqual(cmd.AllowedSourcePhases);
+                return !restricted.AllowedPhases.ToHashSet().SetEquals(cmd.AllowedSourcePhases);
             })
             .Select(cmd => cmd.GetType().Name)
             .ToArray();
