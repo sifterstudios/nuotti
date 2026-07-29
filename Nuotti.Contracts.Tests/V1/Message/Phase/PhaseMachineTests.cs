@@ -156,4 +156,50 @@ public class PhaseMachineTests
 
         Assert.Empty(offenders);
     }
+
+    [Fact]
+    public void Commands_implementing_both_guards_keep_them_in_step()
+    {
+        // Every IPhaseRestricted+IPhaseChange command must declare the same set for both interfaces,
+        // otherwise Guard cannot be satisfied: it enforces AllowedPhases AND IsPhaseChangeAllowed
+        // (which checks AllowedSourcePhases). PlaySong violated this until fixed, making it
+        // unsatisfiable from any phase. This invariant prevents the copy-paste bug from
+        // re-appearing in sibling commands.
+        var bothGuards = Transitions()
+            .Where(t => t is IPhaseRestricted)
+            .ToList();
+
+        var offenders = bothGuards
+            .Where(cmd =>
+            {
+                var restricted = (IPhaseRestricted)cmd;
+                return !restricted.AllowedPhases.SequenceEqual(cmd.AllowedSourcePhases);
+            })
+            .Select(cmd => cmd.GetType().Name)
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void No_command_is_unsatisfiable_from_every_phase()
+    {
+        // Every command implementing both guards must be applicable from at least one phase.
+        // If AllowedPhases and AllowedSourcePhases are disjoint, Guard cannot be satisfied.
+        var bothGuards = Transitions()
+            .Where(t => t is IPhaseRestricted)
+            .ToList();
+
+        var drivable = DrivablePhases().ToHashSet();
+        var unsatisfiable = bothGuards
+            .Where(cmd => !drivable.Any(p =>
+            {
+                var restricted = (IPhaseRestricted)cmd;
+                return restricted.AllowedPhases.Contains(p) && cmd.IsPhaseChangeAllowed(p);
+            }))
+            .Select(cmd => cmd.GetType().Name)
+            .ToArray();
+
+        Assert.Empty(unsatisfiable);
+    }
 }

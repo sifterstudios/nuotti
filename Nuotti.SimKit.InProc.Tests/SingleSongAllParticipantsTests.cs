@@ -16,12 +16,13 @@ namespace Nuotti.SimKit.InProc.Tests;
 // REACHABLE PHASE SEQUENCE (established by reading the code, not by trial and error):
 // SessionCommandProcessor.Guard requires BOTH IPhaseRestricted.AllowedPhases AND, for
 // IPhaseChange commands, AllowedSourcePhases (via IsPhaseChangeAllowed) to accept the current
-// phase. Every phase command declares the same set for both members - except PlaySong, whose
-// AllowedPhases is [Play] while its AllowedSourcePhases is [Reveal]. Those two requirements can
-// never both hold (a phase cannot simultaneously equal Play and Reveal), so PlaySong can never
-// legally pass Guard from any session state. That is a production defect (reported separately,
-// not fixed here - this task adds a test and nothing else), and it is why PlaySong is not part
-// of the script below.
+// phase. Every phase command must declare the same set for both members (enforced by
+// PhaseMachineTests.Commands_implementing_both_guards_keep_them_in_step as of this change).
+//
+// PlaySong previously violated this invariant: AllowedPhases was [Play] while AllowedSourcePhases
+// was [Reveal], making the command unsatisfiable from any phase. This was a production defect
+// (stage2a fix cc2292b). The fix also unblocked subsequent phases (Play → Intermission → Finished).
+// PlaySong is not yet in the script below - that is work for a later task.
 //
 // The commands that DO agree with themselves give a fully drivable path to a revealed answer:
 // CreateSession (-> Lobby), StartGame (Lobby -> Start), OpenAnswers (Start -> Guessing),
