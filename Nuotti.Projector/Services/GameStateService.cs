@@ -79,9 +79,15 @@ public class GameStateService
         };
     }
 
+    // Unit separator (0x1F, a C0 control code): cannot occur in a choice string, so joining with
+    // it can't collide the way joining with a comma could (e.g. ["a,b"] vs ["a", "b"]).
+    const char ChoiceSeparator = (char)0x1F;
+
     static string CreateSnapshotHash(GameStateSnapshot snapshot)
     {
-        var hashInput = $"{snapshot.Phase}|{snapshot.SongIndex}|{snapshot.HintIndex}|{snapshot.Tallies.Count}|{string.Join(",", snapshot.Tallies)}|{snapshot.Choices.Count}";
+        // Choice contents matter, not just their count: a performer can correct a question's
+        // options before opening answers, keeping the same phase/song/hint/tally shape.
+        var hashInput = $"{snapshot.Phase}|{snapshot.SongIndex}|{snapshot.HintIndex}|{snapshot.Tallies.Count}|{string.Join(",", snapshot.Tallies)}|{snapshot.Choices.Count}|{string.Join(ChoiceSeparator, snapshot.Choices)}";
         return hashInput.GetHashCode().ToString();
     }
 
