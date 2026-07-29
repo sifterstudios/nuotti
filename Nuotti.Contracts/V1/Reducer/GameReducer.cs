@@ -132,9 +132,19 @@ public static class GameReducer
             }
             case QuestionOffered offered:
             {
-                // The choices on offer replace the previous set; tallies are re-sized and zeroed
-                // to match, mirroring a fresh question. Phase and SongIndex are untouched here —
-                // those move via GamePhaseChanged.
+                // Re-offering the same choices is a no-op. QuestionPushed skips idempotency by
+                // design (docs/adr/0002), so a client re-sending after a dropped connection
+                // arrives here twice — and zeroing tallies unconditionally would silently wipe
+                // every vote already cast. Resetting the round is GamePhaseChanged -> Start's job,
+                // not a duplicate relay's.
+                if (state.Choices.SequenceEqual(offered.Choices))
+                {
+                    return (state, null);
+                }
+
+                // Genuinely different choices replace the previous set; tallies are re-sized and
+                // zeroed to match, mirroring a fresh question. Phase and SongIndex are untouched
+                // here — those move via GamePhaseChanged.
                 return (state with
                 {
                     Choices = offered.Choices,

@@ -44,6 +44,11 @@ applying `NextRound` twice advances the game twice.
 ## Amendment — 2026-07-29
 
 `QuestionPushed` now also produces a `QuestionOffered` event, so it does change game state; the
-sentence above no longer describes it. The decision is unchanged and the rationale still holds:
-re-offering the same choices is idempotent in effect, so a duplicate relay remains harmless.
-`PlayTrack` and `StopTrack` are untouched and remain pure relays.
+sentence above no longer describes it. The decision is unchanged: `QuestionPushed` still skips
+the idempotency stage, so a client re-sending it after a dropped connection reaches the reducer
+twice for the same question. `GameReducer`'s `QuestionOffered` case is what keeps that harmless:
+it compares the incoming choices against the ones already on the snapshot and is a no-op when
+they match, only replacing `Choices` and re-zeroing `Tallies` when they genuinely differ. A
+duplicate relay is harmless because the reducer treats a repeat of the same question as a no-op,
+not because the event was assumed to be idempotent by construction. `PlayTrack` and `StopTrack`
+are untouched and remain pure relays.
