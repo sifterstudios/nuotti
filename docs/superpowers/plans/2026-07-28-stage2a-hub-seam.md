@@ -990,3 +990,407 @@ broadcasts, and each actor reacts to its own part of it."
 - Clients do not apply `GameReducer` to `AnswerSubmitted`; they receive it but keep no local snapshot. Stage 2b, with lanes.
 - No `SimWorld`, `SimWorldOptions` or lane roster — that is stage 2b.
 - The CLI still parses `--jitter`, `--disconnect-rate` and `--instant` without wiring them to the injection factories. Carried from stage 1's review.
+
+---
+
+## Addendum: Tasks 6-8 — the two production defects Task 5 uncovered
+
+Task 5 proved `Reveal` is reachable and wrote the projector and engine assertions, then stopped
+rather than bending the two audience assertions into something that would pass. Two pre-existing
+production defects blocked them. The decision was to fix both here rather than defer.
+
+**Defect A — `PlaySong` can never fire.** It declares `AllowedPhases = [Play]` and
+`AllowedSourcePhases = [Reveal]`. `SessionCommandProcessor.Guard` enforces both, so the session
+would have to be in `Play` and `Reveal` at once.
+
+**Defect B — answers can never be tallied.** No command or event ever populates
+`GameStateSnapshot.Choices`; the only writers are the snapshot's own constructors. But
+`GameReducer` reads it to bounds-check an incoming answer (`idx >= state.Choices.Count`) and to
+size the tally array. So through the real command path `Choices` is always empty, every
+`AnswerSubmitted` is out of range, and the reducer silently ignores it. `QuestionPushed` carries
+the options but is routed as a relay that touches no state.
+
+### Design decisions taken, with their evidence
+
+**A is a one-value correction, not a judgement call.** Every other command implementing both
+`IPhaseRestricted` and `IPhaseChange` has `AllowedPhases == AllowedSourcePhases` — verified across
+all eight (`EndGame`, `EndSong`, `LockAnswers`, `NextRound`, `OpenAnswers`, `RevealAnswer`,
+`StartGame`, and `PlaySong` itself as the outlier). `PlaySong`'s XML comment reads "Allowed phases:
+Play", which describes its *target* phase; that is almost certainly how the wrong value arrived.
+`AllowedPhases` becomes `[Reveal]`.
+
+**B needs a new Event, because the reducer consumes Events only.** `CONTEXT.md` is explicit:
+"Event — something that happened... Events are what the Reducer consumes." Feeding the
+`QuestionPushed` *command* to the reducer would violate that split. Three options were considered:
+
+- *Reducer case for the `QuestionPushed` command* — rejected, category violation as above.
+- *Populate `Choices` at `NextRound` from the catalog* — rejected, `SongRef(Id, Title, Artist)`
+  carries no choices, so there is nothing to populate from.
+- *Emit a state Event alongside the relay* — chosen. `QuestionPushed` keeps its relay behaviour
+  on the wire and additionally produces an Event the reducer consumes.
+
+**ADR 0002 is amended, not contradicted.** Its decision is narrowly that relay commands skip the
+idempotency stage. Its sentence "They change no game state" describes the status quo and stops
+being true for `QuestionPushed`. The rationale still holds: re-setting identical choices is
+idempotent in effect, so a duplicate remains harmless.
+
+**Naming.** The new event is `QuestionOffered(string Text, IReadOnlyList<string> Choices)`,
+following the past-tense fact convention of `HintGiven`, `CatalogUpdated`, `AnswerSubmitted`,
+`CorrectAnswerRevealed`. This is a naming call rather than a derived fact — if a better term
+exists in the domain, rename before this spreads.
+
+---
+
+### Task 6: Fix `PlaySong`'s phase declaration
+
+**Files:**
+- Modify: `Nuotti.Contracts/V1/Message/Phase/PlaySong.cs`
+- Test: `Nuotti.Contracts.Tests/V1/Message/PlaySongPhaseTests.cs`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `PlaySong.AllowedPhases == [Phase.Reveal]`. Task 8 relies on `PlaySong` being
+  applicable so the engine reacts to a real play command.
+
+- [ ] **Step 1: Write the failing test**
+
+```csharp
+using FluentAssertions;
+using Nuotti.Contracts.V1.Message.Phase;
+using Xunit;
+using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
+
+namespace Nuotti.Contracts.Tests.V1.Message;
+
+public class PlaySongPhaseTests
+{
+    static PlaySong ACommand() => new(new Nuotti.Contracts.V1.Model.SongId(Guid.NewGuid()))
+    {
+        SessionCode = "dev",
+        IssuedByRole = Nuotti.Contracts.V1.Enum.Role.Performer,
+        IssuedById = "perf-1"
+    };
+
+    [Fact]
+    public void Is_applicable_from_at_least_one_phase()
+    {
+        var cmd = ACommand();
+
+        // SessionCommandProcessor.Guard enforces AllowedPhases AND IsPhaseChangeAllowed, so a
+        // command whose two declarations disjoint can never be applied from any phase at all.
+        var applicable = System.Enum.GetValues<PhaseEnum>()
+            .Where(p => cmd.AllowedPhases.Contains(p) && cmd.IsPhaseChangeAllowed(p))
+            .ToList();
+
+        applicable.Should().NotBeEmpty(
+            "a command that satisfies neither guard simultaneously is dead code");
+    }
+
+    [Fact]
+    public void Declares_the_same_source_phases_on_both_interfaces()
+    {
+        var cmd = ACommand();
+
+        // Every other command implementing both interfaces keeps these in step; PlaySong was
+        // the sole outlier, and its "Allowed phases: Play" comment described the TARGET phase.
+        cmd.AllowedPhases.Should().BeEquivalentTo(cmd.AllowedSourcePhases);
+    }
+}
+```
+
+Confirm `SongId`'s constructor shape before writing (`rtk proxy grep -rn 'record SongId' -A 3 Nuotti.Contracts/V1/Model/`) and adapt.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `~/.dotnet/dotnet test Nuotti.Contracts.Tests/Nuotti.Contracts.Tests.csproj --filter FullyQualifiedName~PlaySongPhaseTests`
+Expected: FAIL — both tests. `applicable` is empty and the two collections differ.
+
+- [ ] **Step 3: Fix the declaration**
+
+In `Nuotti.Contracts/V1/Message/Phase/PlaySong.cs`, change `AllowedPhases` to `[Enum.Phase.Reveal]`
+and correct the XML comment, which currently states the target phase as if it were the source:
+
+```csharp
+/// <summary>
+/// Starts playing a track for the current song, moving the session to Play.
+/// Allowed from: Reveal.
+/// </summary>
+```
+
+- [ ] **Step 4: Run the suite and commit**
+
+Run: `~/.dotnet/dotnet test Nuotti.Contracts.Tests/Nuotti.Contracts.Tests.csproj` → PASS
+Run: `~/.dotnet/dotnet build Nuotti.sln -c Debug` → 0 errors
+
+```bash
+git add Nuotti.Contracts/V1/Message/Phase/PlaySong.cs Nuotti.Contracts.Tests
+git commit -m "fix(contracts): make PlaySong applicable at all
+
+PlaySong declared AllowedPhases [Play] and AllowedSourcePhases [Reveal]. Guard
+enforces both, so the session would have needed to be in two phases at once and
+the command could never be applied from any state.
+
+Every other command implementing both interfaces keeps the two in step. The
+\"Allowed phases: Play\" comment described the target phase, which is likely how
+the wrong value arrived."
+```
+
+---
+
+### Task 7: Populate `Choices` via a `QuestionOffered` event
+
+**Files:**
+- Create: `Nuotti.Contracts/V1/Event/QuestionOffered.cs`
+- Modify: `Nuotti.Contracts/V1/Reducer/GameReducer.cs` (new case)
+- Modify: `Nuotti.Backend/Commands/SessionCommandProcessor.cs` (`EffectsFor` and the publish map)
+- Modify: `docs/adr/0002-relay-commands-are-at-least-once.md` (amend the premise)
+- Modify: `CONTEXT.md` (add the term)
+- Test: `Nuotti.Contracts.Tests/V1/Reducer/QuestionOfferedTests.cs`, `Nuotti.Backend.Tests/QuestionPushedEffectsTests.cs`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: `sealed record QuestionOffered(string Text, IReadOnlyList<string> Choices) : EventBase`.
+  After the reducer handles it, `GameStateSnapshot.Choices` holds the offered choices and
+  `Tallies` is a zeroed array of the same length. Task 8 depends on both.
+
+- [ ] **Step 1: Write the failing reducer test**
+
+```csharp
+using FluentAssertions;
+using Nuotti.Contracts.V1.Event;
+using Nuotti.Contracts.V1.Reducer;
+using Xunit;
+
+namespace Nuotti.Contracts.Tests.V1.Reducer;
+
+public class QuestionOfferedTests
+{
+    [Fact]
+    public void Puts_the_choices_on_the_snapshot()
+    {
+        var state = GameReducer.Initial("dev");
+
+        var next = GameReducer.Reduce(state, new QuestionOffered("Which song?", ["a", "b", "c", "d"])
+        {
+            SessionCode = "dev"
+        });
+
+        next.IsSuccess.Should().BeTrue();
+        next.Value.Choices.Should().Equal("a", "b", "c", "d");
+    }
+
+    [Fact]
+    public void Sizes_the_tallies_to_the_choices_and_zeroes_them()
+    {
+        var state = GameReducer.Initial("dev");
+
+        var next = GameReducer.Reduce(state, new QuestionOffered("Which song?", ["a", "b", "c", "d"])
+        {
+            SessionCode = "dev"
+        });
+
+        // Without this, AnswerSubmitted's bounds check against Choices.Count rejects every
+        // answer and no tally ever moves — the defect this task exists to fix.
+        next.Value.Tallies.Should().HaveCount(4);
+        next.Value.Tallies.Should().OnlyContain(t => t == 0);
+    }
+
+    [Fact]
+    public void An_answer_is_counted_once_choices_are_offered()
+    {
+        var state = GameReducer.Initial("dev");
+        state = GameReducer.Reduce(state, new QuestionOffered("Which song?", ["a", "b", "c", "d"])
+        {
+            SessionCode = "dev"
+        }).Value;
+
+        var next = GameReducer.Reduce(state, new AnswerSubmitted("aud-1", 2) { SessionCode = "dev" });
+
+        next.IsSuccess.Should().BeTrue();
+        next.Value.Tallies[2].Should().Be(1);
+    }
+}
+```
+
+`GameReducer.Reduce`'s return shape and `GameReducer.Initial`'s signature must be confirmed before
+writing — the assertions above assume a result type with `IsSuccess`/`Value`. Read
+`Nuotti.Contracts/V1/Reducer/GameReducer.cs` and adapt the mechanics **without weakening what is
+asserted**. The third test is the one that matters: it is the defect, stated as a test.
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `~/.dotnet/dotnet test Nuotti.Contracts.Tests/Nuotti.Contracts.Tests.csproj --filter FullyQualifiedName~QuestionOfferedTests`
+Expected: FAIL to compile — `QuestionOffered` does not exist.
+
+- [ ] **Step 3: Add the event**
+
+`Nuotti.Contracts/V1/Event/QuestionOffered.cs`:
+
+```csharp
+namespace Nuotti.Contracts.V1.Event;
+
+/// <summary>
+/// The question and its answer choices are now the ones on offer for the current round.
+/// </summary>
+/// <remarks>
+/// Emitted alongside the QuestionPushed relay command. The relay carries the question to
+/// clients on the wire; this event is what puts the choices into GameStateSnapshot, which
+/// GameReducer needs before it can bounds-check an answer or size a tally. Before this
+/// existed, Choices was never populated by any command or event, so every AnswerSubmitted
+/// failed its bounds check and no tally ever moved.
+/// </remarks>
+public sealed record QuestionOffered(string Text, IReadOnlyList<string> Choices) : EventBase;
+```
+
+Match the style of the sibling events in that folder — check whether they redeclare positional
+members as `required` properties (`AnswerSubmitted` does) and follow suit.
+
+- [ ] **Step 4: Handle it in the reducer**
+
+Add a case to `GameReducer.Reduce` that sets `Choices` to the event's choices and replaces
+`Tallies` with a zeroed array of the same length. Follow the shape of the existing
+`CatalogUpdated` case, which is the closest analogue — a fact that replaces a collection on the
+snapshot. Do not touch `Phase`, `SongIndex` or scores.
+
+- [ ] **Step 5: Emit it from the processor**
+
+In `SessionCommandProcessor.EffectsFor`, `QuestionPushed` currently shares a relay arm with
+`PlayTrack` and `StopTrack`. Split it out:
+
+```csharp
+            // QuestionPushed is still relayed untouched for the wire, but it now also produces a
+            // state event: the choices have to reach GameStateSnapshot or the reducer cannot
+            // bounds-check an answer. Idempotency stays off per docs/adr/0002 — re-offering the
+            // same choices is idempotent in effect.
+            case QuestionPushed pushed:
+                return new Effects(
+                    [pushed, new QuestionOffered(pushed.Text, pushed.Options)
+                    {
+                        SessionCode = pushed.SessionCode,
+                        CorrelationId = correlation
+                    }],
+                    BroadcastSnapshot: true,
+                    CheckIdempotency: false);
+
+            // Relay Commands: forwarded to clients untouched, no state change, no idempotency
+            // (docs/adr/0002). The reducer ignores them, so no snapshot is broadcast either.
+            case PlayTrack:
+            case StopTrack:
+                return new Effects([command], BroadcastSnapshot: false, CheckIdempotency: false);
+```
+
+Confirm `EventBase`'s settable members (`SessionCode`, `CorrelationId`) before writing, and add
+`QuestionOffered e => bus.PublishAsync(e, ct)` to the publish map alongside the other events —
+without it the event reaches no subscriber and the processor logs "No publish mapping".
+
+- [ ] **Step 6: Write the processor test**
+
+`Nuotti.Backend.Tests/QuestionPushedEffectsTests.cs` must assert that applying a `QuestionPushed`
+leaves the stored snapshot carrying the choices, and that a subsequent `SubmitAnswer` moves the
+tally. Follow the construction style of the existing `SessionCommandProcessorTests`. The point is
+end-to-end through the real processor, not the reducer in isolation.
+
+- [ ] **Step 7: Amend ADR 0002 and CONTEXT.md**
+
+In `docs/adr/0002-relay-commands-are-at-least-once.md`, the Context section states relay commands
+"change no game state". Add a dated amendment rather than rewriting history:
+
+```markdown
+## Amendment — 2026-07-29
+
+`QuestionPushed` now also produces a `QuestionOffered` event, so it does change game state; the
+sentence above no longer describes it. The decision is unchanged and the rationale still holds:
+re-offering the same choices is idempotent in effect, so a duplicate relay remains harmless.
+`PlayTrack` and `StopTrack` are untouched and remain pure relays.
+```
+
+In `CONTEXT.md`, add to Core concepts, after **Event**:
+
+```markdown
+**Choices** — the answer options on offer for the current round. Carried to clients by the
+`QuestionPushed` relay Command and put into the Snapshot by the `QuestionOffered` Event. The
+Reducer needs them present to bounds-check an `AnswerSubmitted` and to size the tally.
+```
+
+- [ ] **Step 8: Run everything and commit**
+
+Run: `~/.dotnet/dotnet build Nuotti.sln -c Debug` → 0 errors
+Run: `~/.dotnet/dotnet test Nuotti.sln` → all green
+
+```bash
+git add Nuotti.Contracts Nuotti.Backend Nuotti.Contracts.Tests Nuotti.Backend.Tests docs/adr CONTEXT.md
+git commit -m "fix(contracts): put offered choices into the snapshot
+
+Nothing populated GameStateSnapshot.Choices — the only writers were the snapshot's
+own constructors. GameReducer reads it to bounds-check an incoming answer and to
+size the tally, so through the real command path every AnswerSubmitted was out of
+range and silently ignored: answers could never be tallied.
+
+QuestionPushed carries the options but was routed as a pure relay. It now also
+emits QuestionOffered, an Event the reducer consumes. The relay behaviour on the
+wire is unchanged, and idempotency stays off per docs/adr/0002 — re-offering the
+same choices is idempotent in effect. ADR 0002's premise is amended accordingly."
+```
+
+---
+
+### Task 8: Complete the full-participant run
+
+With Tasks 6 and 7 landed, the two assertions Task 5 could not prove become provable.
+
+**Files:**
+- Modify: `Nuotti.SimKit.InProc.Tests/SingleSongAllParticipantsTests.cs` (the file Task 5 created)
+
+**Interfaces:**
+- Consumes: everything from Tasks 1-7.
+- Produces: nothing. This is the stage exit criterion.
+
+- [ ] **Step 1: Extend the existing test**
+
+Read what Task 5 wrote and keep its projector and engine assertions — they were verified
+non-vacuous by mutation and must not be disturbed. Add the two that were blocked:
+
+- all three audiences submitted exactly one answer for the song
+- the backend's final snapshot has a tally summing to 3
+
+The script must now push a question before opening answers, so the choices reach the snapshot.
+Use `LaneRandom.ForLane(seed: 1, laneIndex: n)` per participant and `ImmediateTimeProvider`.
+
+- [ ] **Step 2: Prove each assertion is non-vacuous**
+
+For each of the four, establish what would make it fail — by mutation where practical (comment out
+the participant's subscription, re-run, confirm red, restore). Record the evidence per assertion in
+your report. An assertion that holds whether or not its participant acted is worthless, and three
+such assertions have already been caught on this project.
+
+- [ ] **Step 3: Run everything and commit**
+
+Run: `~/.dotnet/dotnet build Nuotti.sln -c Debug` → 0 errors
+Run: `~/.dotnet/dotnet test Nuotti.sln` → all green
+
+```bash
+git add Nuotti.SimKit.InProc.Tests
+git commit -m "test(simkit-inproc): one song, every participant, no network
+
+A performer script drives a full song while a projector, an engine and three
+audiences all react through the in-process hub. The audience half of this was
+unprovable until the two defects it uncovered were fixed: PlaySong could never
+fire, and offered choices never reached the snapshot so answers were never tallied.
+
+This is stage 2a's exit criterion."
+```
+
+## Revised stage exit criteria
+
+Superseding the list above:
+
+- `~/.dotnet/dotnet test Nuotti.sln` passes.
+- `IHubClient.On<T>` carries all five broadcast payloads; `HubWireNames` mirrors
+  `HubBroadcastSubscriber`, guarded by a test including the `StopTrack` → `"Stop"` trap.
+- `InProcHubClient` scopes delivery per session and gates it on start/stop.
+- A simulated audience answers without being driven directly; a simulated engine reacts to play
+  and stop; **and the answers are actually tallied**.
+- No `Random.Shared` in `Nuotti.SimKit` production code.
+- `Nuotti.SimKit.csproj` still references only `Nuotti.Contracts`.
+- `PlaySong` is applicable from at least one phase.
+- `GameStateSnapshot.Choices` is populated through the real command path.
