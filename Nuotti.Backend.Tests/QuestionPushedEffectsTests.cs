@@ -1,10 +1,12 @@
 using Nuotti.Backend.Commands;
 using Nuotti.Backend.Tests.TestSupport;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Reducer;
+using System.Text.Json;
 using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
 namespace Nuotti.Backend.Tests;
 
@@ -76,5 +78,60 @@ public class QuestionPushedEffectsTests
         Assert.Equal(Outcome.Applied, second.Outcome);
         Assert.Equal(2, bus.Published.OfType<QuestionPushed>().Count());
         Assert.Equal(2, bus.Published.OfType<QuestionOffered>().Count());
+    }
+
+    /// <summary>
+    /// Options has no data annotations, and MapRelay's minimal-API model binding deserializes the
+    /// POST body with System.Text.Json, which does not enforce C#'s non-nullable annotation at
+    /// runtime. Omitting "options" from the JSON body — exactly what a malformed or stale client
+    /// request would send — produces a QuestionPushed whose Options is null despite its
+    /// compile-time type of string[]. Round-tripping through ContractsJson.RestOptions (the same
+    /// options the REST endpoints use) reproduces that null the way the real endpoint would,
+    /// without constructing the command in a way the compiler would otherwise reject.
+    /// </summary>
+    static QuestionPushed DeserializeWithMissingOptions()
+    {
+        const string json = """{"text":"Which song?","sessionCode":"S1","issuedByRole":"Performer","issuedById":"perf-1"}""";
+        var command = JsonSerializer.Deserialize<QuestionPushed>(json, ContractsJson.RestOptions);
+        Assert.NotNull(command);
+        Assert.Null(command!.Options);
+        return command;
+    }
+
+    [Fact]
+    public async Task QuestionPushed_with_null_options_is_rejected_not_thrown_into_the_reducer()
+    {
+        var processor = Harness.Processor(out var store, out var bus);
+        store.Set(Session, GameReducer.Initial(Session) with { Phase = PhaseEnum.Guessing });
+        var pushed = DeserializeWithMissingOptions();
+
+        var result = await processor.ApplyAsync(Session, Performer, pushed);
+
+        Assert.Equal(Outcome.Rejected, result.Outcome);
+        Assert.Equal(422, result.Problem!.Status);
+        Assert.Equal("options", result.Problem.Field);
+        // Nothing reached the bus and nothing was stored: the rejection happens before any event
+        // is produced, so a bad relay leaves state exactly as it was.
+        Assert.Empty(bus.Published);
+        Assert.True(store.TryGet(Session, out var state));
+        Assert.Empty(state!.Choices);
+    }
+
+    [Fact]
+    public async Task QuestionPushed_with_empty_options_is_rejected_the_same_way()
+    {
+        var processor = Harness.Processor(out var store, out var bus);
+        store.Set(Session, GameReducer.Initial(Session) with { Phase = PhaseEnum.Guessing });
+        var pushed = new QuestionPushed("Which song?", [])
+        {
+            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        };
+
+        var result = await processor.ApplyAsync(Session, Performer, pushed);
+
+        Assert.Equal(Outcome.Rejected, result.Outcome);
+        Assert.Equal(422, result.Problem!.Status);
+        Assert.Equal("options", result.Problem.Field);
+        Assert.Empty(bus.Published);
     }
 }

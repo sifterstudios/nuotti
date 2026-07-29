@@ -217,6 +217,22 @@ public sealed class SessionCommandProcessor(
             // bounds-check an answer. Idempotency stays off per docs/adr/0002 — re-offering the
             // same choices is idempotent in effect.
             case QuestionPushed pushed:
+                // Options carries no data annotations, and this relay skips idempotency by
+                // design, so a request that omits "options" (or sends an empty array) reaches
+                // here with Options null or empty despite its compile-time type of string[] —
+                // System.Text.Json does not enforce non-nullable annotations at runtime. Left
+                // unchecked, GameReducer's SequenceEqual(offered.Choices) throws
+                // ArgumentNullException, which ProblemHandlingMiddleware turns into a 500-free but
+                // useless response leaking a LINQ parameter name ("second") into the contract.
+                if (pushed.Options is null || pushed.Options.Length == 0)
+                {
+                    rejection = NuottiProblem.UnprocessableEntity(
+                        title: "Invalid question",
+                        detail: "At least one option is required.",
+                        field: "options",
+                        correlationId: correlation);
+                    return new Effects([]);
+                }
                 return new Effects(
                     [pushed, new QuestionOffered(pushed.Text, pushed.Options)
                     {
