@@ -61,7 +61,8 @@ public static class PrivateAssetEndpoints
             if (!ValidSha(request.Sha256)) return Invalid("sha256", "A lowercase or uppercase SHA-256 hex digest is required.");
             var revision = await metadata.GetAsync(workspaceId, revisionId, ct);
             if (revision is null) return Results.NotFound();
-            if (revision.Status != AssetRevisionStatus.Draft || RightsExpired(revision.Provenance))
+            if (revision.Status is not (AssetRevisionStatus.Draft or AssetRevisionStatus.Finalizing)
+                || RightsExpired(revision.Provenance))
                 return ProblemResults.Conflict("Revision cannot be published.",
                     "The revision is not a publishable draft with current usage rights.", ReasonCode.InvalidStateTransition);
             var claim = await metadata.TryBeginFinalizationAsync(workspaceId, revisionId, ct);
