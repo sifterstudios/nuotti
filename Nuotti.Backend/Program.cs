@@ -12,6 +12,7 @@ using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Workspaces;
 using Nuotti.Backend.ShowAgents;
+using Nuotti.Backend.Assets;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
@@ -122,6 +123,7 @@ if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     builder.Services.AddSingleton<IWorkspaceAccessStore, PostgresWorkspaceAccessStore>();
     builder.Services.AddSingleton<IShowAgentAccessStore, PostgresShowAgentAccessStore>();
+    builder.Services.AddSingleton<IPrivateAssetMetadataStore, PostgresPrivateAssetMetadataStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, PostgresDurableSessionCommitStore>();
 }
 else
@@ -130,8 +132,13 @@ else
     // isolated tests. Production replaces only the adapter, not the authorization boundary.
     builder.Services.AddSingleton<IWorkspaceAccessStore, InMemoryWorkspaceAccessStore>();
     builder.Services.AddSingleton<IShowAgentAccessStore, InMemoryShowAgentAccessStore>();
+    builder.Services.AddSingleton<IPrivateAssetMetadataStore, InMemoryPrivateAssetMetadataStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, InMemoryDurableSessionCommitStore>();
 }
+if (!string.IsNullOrWhiteSpace(assetsConnection))
+    builder.Services.AddSingleton<IPrivateAssetObjectStore, AzurePrivateAssetObjectStore>();
+else
+    builder.Services.AddSingleton<IPrivateAssetObjectStore, InMemoryPrivateAssetObjectStore>();
 builder.Services.AddSingleton<DurableOutboxDispatcher>();
 builder.Services.AddHostedService<DurableOutboxWorker>();
 
@@ -204,6 +211,7 @@ app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapShowAgentEndpoints();
+app.MapPrivateAssetEndpoints();
 app.MapRecoveryEndpoints();
 app.MapNuottiEndpoints("Nuotti.Backend");
 
