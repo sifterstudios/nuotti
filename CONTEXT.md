@@ -12,20 +12,88 @@ defined separately by the `codebase-design` skill and is not restated here.
 
 **Audience** — a participant. Submits answers, may request playback.
 
-**Projector** — the big-screen display. Read-only view of the Session; renders the current
-Phase.
+**Participant** — the anonymous, device-bound identity of one Audience member within one
+Session. A Participant has a display name, answers, and score, and may reconnect only to
+that Session from the same device.
+
+**Projector** — the big-screen display, paired read-only to one Session. It renders the
+current Phase but cannot issue Commands or access Workspace content outside that Session.
 
 **Engine** — the audio process (`Nuotti.AudioEngine`). Plays tracks on request and reports
 `EngineStatus`.
 
+## SaaS and show preparation
+
+**Workspace** — one tenant in the Nuotti service. A Workspace owns its members, Song
+Library, Setlists, Sessions, and registered Show Agents. A person may belong to more than
+one Workspace.
+
+**Workspace Owner** — a Workspace member who manages membership, Workspace settings, and
+destructive Workspace actions.
+
+**Workspace Member** — a person who can manage show material and Sessions for a Workspace
+and may act as a Session's Performer.
+
+**Song Library** — the Workspace's reusable collection of Song Packages.
+
+**Song Catalog** — the answer bank from which Audience members search and select their
+answers. For a Session, it combines the Shared Song Catalog with that Session's Workspace
+Song Catalog.
+
+**Shared Song Catalog** — Nuotti-curated song entries available to every Workspace.
+
+**Workspace Song Catalog** — private song entries created by a Workspace and available
+only to that Workspace and its Audience Sessions.
+
+**Song Package** — the prepared material for one entry in either layer of the Song
+Catalog: a Playback Configuration, Hints, and an optional Lyric Track.
+
+**Song Package Revision** — an immutable published version of a Song Package. Editing
+published Playback Configuration or Hints creates a new Draft; Setlists upgrade to a
+newer revision explicitly.
+
+**Lyric Track** — optional line-timed lyrics attached to a Song Package and versioned
+independently of its published Revisions. A Session captures the current Lyric Track so
+later edits cannot alter an active show.
+
+**Playback Configuration** — the prepared playback material for a Song Package Revision:
+live-only, click-only, backing-only, or backing with click. When both tracks exist, they
+share one timeline.
+
+**Setlist** — an ordered selection of Song Package Revisions prepared for a show.
+
+**Session Setlist Snapshot** — the immutable order and exact Song Package Revisions
+captured from a Setlist when a Session is created.
+
+**Show Agent** — a named band-side device identity paired to one Workspace with a
+revocable credential. It joins an explicitly selected Session on behalf of that Workspace
+and makes prepared show material available to the Engine and Projector.
+
+**Round** — one Song Package presented as a song-guessing challenge within a Session. A
+Round contains at least one Hint and may contain multiple Guessing Windows before its
+answer is revealed and the song is played.
+
+**Hint** — information intended to make the Round's song guessable. A Visual Hint is
+shown on the Projector; a Live Hint privately cues the Performer to have the band perform
+it. Hints are ordered, and each Guessing Window follows one newly revealed Hint.
+
+**Guessing Window** — a timed opportunity within a Round for Audience members to select
+or revise their answers. The answer held when the window locks is the answer that counts.
+
+**Scoring Policy** — the versioned rules and parameters that turn a correct locked answer,
+its server timestamp, and its Guessing Window into points. A Session captures one Scoring
+Policy for all of its Rounds.
+
 ## Core concepts
 
 **Session** — one show, identified by a session code. Everything is scoped to a Session:
-groups, authorization, state, audit.
+groups, authorization, state, audit. A Session belongs to one Workspace. Audience members
+join it through the shared public experience using its globally unique session code.
 
 **Phase** — where a Session is in its lifecycle: `Lobby`, `Start`, `Hint`, `Guessing`,
 `Lock`, `Reveal`, `Play`, `Intermission`, `Finished`, plus `Idle`. Defined once in
-`Nuotti.Contracts.V1.Enum.Phase`. There is no other phase vocabulary.
+`Nuotti.Contracts.V1.Enum.Phase`. `Start` is the Round Intro; timed countdowns belong to
+the Round's Guessing Windows. There is no other phase vocabulary.
 
 **Command** — an intent issued by a role, derived from `CommandBase`. Carries `CommandId`
 for idempotency, `SessionCode`, `IssuedByRole`, `IssuedById`. Commands are requests; they

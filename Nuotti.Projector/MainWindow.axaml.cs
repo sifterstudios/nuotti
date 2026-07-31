@@ -576,8 +576,7 @@ public partial class MainWindow : Window
     {
         var ts = e.Timestamp.ToLocalTime().ToString("HH:mm:ss.fff");
         var line = $"{ts} {e.Level,-5} {e.Source}: {e.Message} | conn={e.ConnectionId} sess={e.Session} role={e.Role}";
-        _logs.Add(line);
-        TrimAndScroll();
+        AppendRow(line);
     }
 
     void AppendLocal(string message)
@@ -590,28 +589,28 @@ public partial class MainWindow : Window
         }
 
         var ts = DateTimeOffset.Now.ToString("HH:mm:ss.fff");
-        _logs.Add($"{ts} LOCAL  Projector: {message}");
-        TrimAndScroll();
+        AppendRow($"{ts} LOCAL  Projector: {message}");
     }
 
-    void TrimAndScroll()
+    void AppendRow(string row)
     {
-        const int max = 500;
-        while (_logs.Count > max)
-            _logs.RemoveAt(0);
-        // Scroll to bottom - but only if the control is properly laid out
-        try
+        LogRetention.Append(_logs, row);
+
+        // Wait until Avalonia has created and measured the new row before scrolling.
+        Dispatcher.UIThread.Post(() =>
         {
-            if (_logList.ItemCount > 0 && _logList.IsVisible && _logList.Bounds.Height > 0)
+            try
             {
-                _logList.ScrollIntoView(_logList.ItemCount - 1);
+                if (_logList.ItemCount > 0 && _logList.IsVisible && _logList.Bounds.Height > 0)
+                {
+                    _logList.ScrollIntoView(_logList.ItemCount - 1);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            // Ignore layout errors - the control might not be ready yet
-            Debug.WriteLine($"[Projector] ScrollIntoView error (non-fatal): {ex.Message}");
-        }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[Projector] ScrollIntoView error (non-fatal): {ex.Message}");
+            }
+        }, DispatcherPriority.Loaded);
     }
 
     // F2 - Monitor Selection & Fullscreen functionality

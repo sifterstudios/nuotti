@@ -175,19 +175,24 @@
                 BorderBrush="{DynamicResource DividerBrush}"
                 BorderThickness="2"
                 CornerRadius="12">
-            <StackPanel>
+            <Grid RowDefinitions="Auto,Auto,*">
                 <TextBlock Text="📋 Debug Log" 
+                           Grid.Row="0"
                            Margin="12" 
                            FontSize="16"
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <Border Height="2" 
+                        Grid.Row="1"
                         Background="{DynamicResource DividerBrush}" 
                         Margin="8,0"/>
                 <ListBox x:Name="LogList" 
+                         Grid.Row="2"
                          Margin="8" 
                          FontFamily="Consolas" 
                          FontSize="11"
+                         VerticalAlignment="Stretch"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                          Background="Transparent"
                          Foreground="{DynamicResource TextSecondaryBrush}">
                     <ListBox.ItemTemplate>
@@ -198,7 +203,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-            </StackPanel>
+            </Grid>
         </Border>
         <!-- Footer -->
         <Border Grid.Row="2" 
