@@ -22,6 +22,7 @@ public sealed record PrivateAssetUploadGrant(
 public sealed record PrivateAssetDownloadGrant(Uri DownloadUri, DateTimeOffset ExpiresAt);
 public sealed record PrivateObjectEvidence(long Size, string ContentType, string Sha256, string ETag);
 public sealed record SealedPrivateObject(string ObjectKey, PrivateObjectEvidence Evidence);
+public sealed record PrivateAssetFinalizationClaim(PrivateAssetRevision Revision, string Token);
 
 public interface IPrivateAssetMetadataStore
 {
@@ -30,11 +31,12 @@ public interface IPrivateAssetMetadataStore
     Task<(PrivateAssetRevision Revision, string ObjectKey)?> CreateDraftAsync(
         string workspaceId, string catalogEntryId, string assetType, string contentType, long declaredSize,
         AssetProvenance provenance, string userId, CancellationToken cancellationToken = default);
-    Task<PrivateAssetRevision?> TryBeginFinalizationAsync(string workspaceId, string revisionId,
+    Task<PrivateAssetFinalizationClaim?> TryBeginFinalizationAsync(string workspaceId, string revisionId,
         CancellationToken cancellationToken = default);
-    Task CancelFinalizationAsync(string workspaceId, string revisionId, CancellationToken cancellationToken = default);
+    Task CancelFinalizationAsync(string workspaceId, string revisionId, string claimToken,
+        CancellationToken cancellationToken = default);
     Task<PrivateAssetRevision?> PublishAsync(string workspaceId, string revisionId, string sealedObjectKey,
-        long storedSize, string sha256,
+        string claimToken, long storedSize, string sha256,
         CancellationToken cancellationToken = default);
     Task<PrivateAssetRevision?> GetAsync(string workspaceId, string revisionId, CancellationToken cancellationToken = default);
     Task<string?> GetObjectKeyAsync(string workspaceId, string revisionId, CancellationToken cancellationToken = default);

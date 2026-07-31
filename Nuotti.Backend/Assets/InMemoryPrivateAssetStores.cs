@@ -2,7 +2,8 @@ namespace Nuotti.Backend.Assets;
 
 public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider = null) : IPrivateAssetMetadataStore
 {
-    sealed record StoredRevision(PrivateAssetRevision Revision, string ObjectKey, DateTimeOffset? FinalizingAt = null);
+    sealed record StoredRevision(PrivateAssetRevision Revision, string ObjectKey,
+        DateTimeOffset? FinalizingAt = null, string? FinalizationToken = null);
     readonly object _gate = new();
     readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     readonly Dictionary<string, PrivateCatalogEntry> _entries = [];
@@ -37,25 +38,29 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
     }
 
     public Task<PrivateAssetRevision?> PublishAsync(string workspaceId, string revisionId, string sealedObjectKey,
-        long storedSize, string sha256,
+        string claimToken, long storedSize, string sha256,
         CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
             if (!_revisions.TryGetValue(revisionId, out var stored) || stored.Revision.WorkspaceId != workspaceId
-                || stored.Revision.Status != AssetRevisionStatus.Finalizing || stored.Revision.DeclaredSize != storedSize)
+                || stored.Revision.Status != AssetRevisionStatus.Finalizing || stored.FinalizationToken != claimToken
+                || stored.Revision.DeclaredSize != storedSize)
                 return Task.FromResult<PrivateAssetRevision?>(null);
             var published = stored.Revision with
             {
                 Status = AssetRevisionStatus.Published, StoredSize = storedSize,
                 Sha256 = sha256.ToLowerInvariant(), PublishedAt = _time.GetUtcNow()
             };
-            _revisions[revisionId] = stored with { Revision = published, ObjectKey = sealedObjectKey, FinalizingAt = null };
+            _revisions[revisionId] = stored with
+            {
+                Revision = published, ObjectKey = sealedObjectKey, FinalizingAt = null, FinalizationToken = null
+            };
             return Task.FromResult<PrivateAssetRevision?>(published);
         }
     }
 
-    public Task<PrivateAssetRevision?> TryBeginFinalizationAsync(string workspaceId, string revisionId,
+    public Task<PrivateAssetFinalizationClaim?> TryBeginFinalizationAsync(string workspaceId, string revisionId,
         CancellationToken cancellationToken = default)
     {
         lock (_gate)
@@ -64,22 +69,29 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
                 || (stored.Revision.Status != AssetRevisionStatus.Draft
                     && !(stored.Revision.Status == AssetRevisionStatus.Finalizing
                         && stored.FinalizingAt <= _time.GetUtcNow().AddMinutes(-10))))
-                return Task.FromResult<PrivateAssetRevision?>(null);
+                return Task.FromResult<PrivateAssetFinalizationClaim?>(null);
             var finalizing = stored.Revision with { Status = AssetRevisionStatus.Finalizing };
-            _revisions[revisionId] = stored with { Revision = finalizing, FinalizingAt = _time.GetUtcNow() };
-            return Task.FromResult<PrivateAssetRevision?>(finalizing);
+            var token = Guid.NewGuid().ToString("N");
+            _revisions[revisionId] = stored with
+            {
+                Revision = finalizing, FinalizingAt = _time.GetUtcNow(), FinalizationToken = token
+            };
+            return Task.FromResult<PrivateAssetFinalizationClaim?>(new(finalizing, token));
         }
     }
 
-    public Task CancelFinalizationAsync(string workspaceId, string revisionId, CancellationToken cancellationToken = default)
+    public Task CancelFinalizationAsync(string workspaceId, string revisionId, string claimToken,
+        CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
             if (_revisions.TryGetValue(revisionId, out var stored) && stored.Revision.WorkspaceId == workspaceId
-                && stored.Revision.Status == AssetRevisionStatus.Finalizing)
+                && stored.Revision.Status == AssetRevisionStatus.Finalizing
+                && stored.FinalizationToken == claimToken)
                 _revisions[revisionId] = stored with
                 {
-                    Revision = stored.Revision with { Status = AssetRevisionStatus.Draft }, FinalizingAt = null
+                    Revision = stored.Revision with { Status = AssetRevisionStatus.Draft }, FinalizingAt = null,
+                    FinalizationToken = null
                 };
         }
         return Task.CompletedTask;

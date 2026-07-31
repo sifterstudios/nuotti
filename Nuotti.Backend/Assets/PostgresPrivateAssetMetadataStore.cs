@@ -56,45 +56,51 @@ public sealed class PostgresPrivateAssetMetadataStore(NpgsqlDataSource dataSourc
     }
 
     public async Task<PrivateAssetRevision?> PublishAsync(string workspaceId, string revisionId, string sealedObjectKey,
-        long storedSize, string sha256,
+        string claimToken, long storedSize, string sha256,
         CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
         await using var command = dataSource.CreateCommand("""
-            UPDATE nuotti_private_asset_revision SET status='Published', object_key=$3, stored_size=$4, sha256=$5,
-                published_at=$6, finalizing_at=NULL
-            WHERE id=$1 AND workspace_id=$2 AND status='Finalizing' AND declared_size=$4
+            UPDATE nuotti_private_asset_revision SET status='Published', object_key=$3, stored_size=$5, sha256=$6,
+                published_at=$7, finalizing_at=NULL, finalization_token=NULL
+            WHERE id=$1 AND workspace_id=$2 AND status='Finalizing' AND finalization_token=$4 AND declared_size=$5
             """);
         command.Parameters.AddWithValue(revisionId); command.Parameters.AddWithValue(workspaceId);
-        command.Parameters.AddWithValue(sealedObjectKey); command.Parameters.AddWithValue(storedSize);
-        command.Parameters.AddWithValue(sha256.ToLowerInvariant()); command.Parameters.AddWithValue(_time.GetUtcNow());
+        command.Parameters.AddWithValue(sealedObjectKey); command.Parameters.AddWithValue(claimToken);
+        command.Parameters.AddWithValue(storedSize); command.Parameters.AddWithValue(sha256.ToLowerInvariant());
+        command.Parameters.AddWithValue(_time.GetUtcNow());
         return await command.ExecuteNonQueryAsync(cancellationToken) == 1
             ? await GetAsync(workspaceId, revisionId, cancellationToken) : null;
     }
 
-    public async Task<PrivateAssetRevision?> TryBeginFinalizationAsync(string workspaceId, string revisionId,
+    public async Task<PrivateAssetFinalizationClaim?> TryBeginFinalizationAsync(string workspaceId, string revisionId,
         CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
+        var token = Guid.NewGuid().ToString("N");
         await using var command = dataSource.CreateCommand("""
-            UPDATE nuotti_private_asset_revision SET status='Finalizing', finalizing_at=$3
+            UPDATE nuotti_private_asset_revision SET status='Finalizing', finalizing_at=$3, finalization_token=$5
             WHERE id=$1 AND workspace_id=$2
               AND (status='Draft' OR (status='Finalizing' AND finalizing_at <= $4))
             """);
         command.Parameters.AddWithValue(revisionId); command.Parameters.AddWithValue(workspaceId);
         command.Parameters.AddWithValue(_time.GetUtcNow()); command.Parameters.AddWithValue(_time.GetUtcNow().AddMinutes(-10));
-        return await command.ExecuteNonQueryAsync(cancellationToken) == 1
-            ? await GetAsync(workspaceId, revisionId, cancellationToken) : null;
+        command.Parameters.AddWithValue(token);
+        if (await command.ExecuteNonQueryAsync(cancellationToken) != 1) return null;
+        var revision = await GetAsync(workspaceId, revisionId, cancellationToken);
+        return revision is null ? null : new(revision, token);
     }
 
-    public async Task CancelFinalizationAsync(string workspaceId, string revisionId, CancellationToken cancellationToken = default)
+    public async Task CancelFinalizationAsync(string workspaceId, string revisionId, string claimToken,
+        CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken);
         await using var command = dataSource.CreateCommand("""
-            UPDATE nuotti_private_asset_revision SET status='Draft', finalizing_at=NULL
-            WHERE id=$1 AND workspace_id=$2 AND status='Finalizing'
+            UPDATE nuotti_private_asset_revision SET status='Draft', finalizing_at=NULL, finalization_token=NULL
+            WHERE id=$1 AND workspace_id=$2 AND status='Finalizing' AND finalization_token=$3
             """);
         command.Parameters.AddWithValue(revisionId); command.Parameters.AddWithValue(workspaceId);
+        command.Parameters.AddWithValue(claimToken);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -156,10 +162,12 @@ public sealed class PostgresPrivateAssetMetadataStore(NpgsqlDataSource dataSourc
                     workspace_id text NOT NULL, status text NOT NULL, asset_type text NOT NULL, content_type text NOT NULL,
                     declared_size bigint NOT NULL, stored_size bigint NULL, sha256 text NULL, provenance jsonb NOT NULL,
                     uploaded_by text NOT NULL, created_at timestamptz NOT NULL, published_at timestamptz NULL,
-                    archived_at timestamptz NULL, finalizing_at timestamptz NULL, object_key text NOT NULL UNIQUE,
+                    archived_at timestamptz NULL, finalizing_at timestamptz NULL, finalization_token text NULL,
+                    object_key text NOT NULL UNIQUE,
                     PRIMARY KEY(workspace_id,id), FOREIGN KEY(workspace_id,catalog_entry_id)
                     REFERENCES nuotti_private_catalog_entry(workspace_id,id));
                 ALTER TABLE nuotti_private_asset_revision ADD COLUMN IF NOT EXISTS finalizing_at timestamptz NULL;
+                ALTER TABLE nuotti_private_asset_revision ADD COLUMN IF NOT EXISTS finalization_token text NULL;
                 CREATE INDEX IF NOT EXISTS ix_nuotti_private_revision_workspace ON nuotti_private_asset_revision(workspace_id,id);
                 """);
             await command.ExecuteNonQueryAsync(ct);

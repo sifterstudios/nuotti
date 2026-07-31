@@ -39,11 +39,19 @@ public sealed class PrivateAssetJourneyTests(WebApplicationFactory<QuizHub> base
         var entry = await store.CreateEntryAsync("workspace", "Song", "Artist", "owner");
         var draft = await store.CreateDraftAsync("workspace", entry.CatalogEntryId, "backing-track", "audio/wav", 4,
             new("owned", "original", "NO", ["backing-track"], null, "rights-case"), "owner");
-        Assert.NotNull(await store.TryBeginFinalizationAsync("workspace", draft!.Value.Revision.RevisionId));
+        var oldClaim = await store.TryBeginFinalizationAsync("workspace", draft!.Value.Revision.RevisionId);
+        Assert.NotNull(oldClaim);
         Assert.Null(await store.TryBeginFinalizationAsync("workspace", draft.Value.Revision.RevisionId));
 
         time.Advance(TimeSpan.FromMinutes(11));
 
+        var newClaim = await store.TryBeginFinalizationAsync("workspace", draft.Value.Revision.RevisionId);
+        Assert.NotNull(newClaim);
+        await store.CancelFinalizationAsync("workspace", draft.Value.Revision.RevisionId, oldClaim.Token);
+        Assert.Null(await store.TryBeginFinalizationAsync("workspace", draft.Value.Revision.RevisionId));
+        Assert.Null(await store.PublishAsync("workspace", draft.Value.Revision.RevisionId, "sealed",
+            oldClaim.Token, 4, new string('a', 64)));
+        await store.CancelFinalizationAsync("workspace", draft.Value.Revision.RevisionId, newClaim.Token);
         Assert.NotNull(await store.TryBeginFinalizationAsync("workspace", draft.Value.Revision.RevisionId));
     }
 

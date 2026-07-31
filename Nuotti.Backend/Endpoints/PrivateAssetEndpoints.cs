@@ -64,9 +64,10 @@ public static class PrivateAssetEndpoints
             if (revision.Status != AssetRevisionStatus.Draft || RightsExpired(revision.Provenance))
                 return ProblemResults.Conflict("Revision cannot be published.",
                     "The revision is not a publishable draft with current usage rights.", ReasonCode.InvalidStateTransition);
-            revision = await metadata.TryBeginFinalizationAsync(workspaceId, revisionId, ct);
-            if (revision is null) return ProblemResults.Conflict("Revision cannot be published.",
+            var claim = await metadata.TryBeginFinalizationAsync(workspaceId, revisionId, ct);
+            if (claim is null) return ProblemResults.Conflict("Revision cannot be published.",
                 "Another publication attempt already claimed this revision.", ReasonCode.InvalidStateTransition);
+            revision = claim.Revision;
             SealedPrivateObject? sealedObject = null;
             var completed = false;
             try
@@ -82,7 +83,7 @@ public static class PrivateAssetEndpoints
                         "Stored bytes, size, content type, or digest differ from the immutable draft metadata.",
                         ReasonCode.InvalidStateTransition);
                 var published = await metadata.PublishAsync(workspaceId, revisionId, sealedObject.ObjectKey,
-                    sealedObject.Evidence.Size, sealedObject.Evidence.Sha256, ct);
+                    claim.Token, sealedObject.Evidence.Size, sealedObject.Evidence.Sha256, ct);
                 completed = published is not null;
                 return published is null
                     ? ProblemResults.Conflict("Revision cannot be published.",
@@ -100,7 +101,7 @@ public static class PrivateAssetEndpoints
                     }
                     finally
                     {
-                        await metadata.CancelFinalizationAsync(workspaceId, revisionId, CancellationToken.None);
+                        await metadata.CancelFinalizationAsync(workspaceId, revisionId, claim.Token, CancellationToken.None);
                     }
                 }
             }
