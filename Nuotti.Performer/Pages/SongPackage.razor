@@ -1,0 +1,283 @@
+@page "/song-package"
+@using Microsoft.AspNetCore.Components.Forms
+@inject SongPackageAuthoringClient Packages
+
+<PageTitle>Song Package readiness · Nuotti</PageTitle>
+
+<div class="package-page">
+    <header class="package-heading">
+        <div>
+            <p class="package-eyebrow">Song Library / Package authoring</p>
+            <h1>Package readiness</h1>
+            <p>Tracks, routing, Hints, lyrics, timing, and Projector preview on one master timeline.</p>
+        </div>
+        <div class="package-actions">
+            <button @onclick="LoadAsync" disabled="@Busy">Open draft</button>
+            <button @onclick="SaveAsync" disabled="@Busy">Save draft</button>
+            <button class="cyan" @onclick="RunPreflightAsync" disabled="@Busy">Run preflight</button>
+        </div>
+    </header>
+
+    <details class="connection-details">
+        <summary>Development connection</summary>
+        <section class="connection-card">
+            <label>Workspace ID<input @bind="WorkspaceId" placeholder="ws_…" /></label>
+            <label>Song Library entry ID<input @bind="CatalogEntryId" placeholder="entry_…" /></label>
+            <label>Member session token<input type="password" @bind="SessionToken" autocomplete="off" /></label>
+        </section>
+        <p>This temporary connection panel will be replaced by the signed-in Workspace and Song Library selection.</p>
+    </details>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <div class="package-message @(IsError ? "error" : "success")">@Message</div>
+    }
+
+    <div class="package-readiness-strip">
+        <div><strong>@ReadinessPercent%</strong><span>ready to publish</span></div>
+        <div class="package-progress"><i style="width:@(ReadinessPercent)%"></i></div>
+        <p>@BlockingCount blocking · @WarningCount warning</p>
+    </div>
+
+    <div class="package-workspace">
+        <main class="package-sections">
+            <section class="package-section">
+                <header><span>1</span><div><h2>Playback configuration</h2><p>Choose one of four modes on the master timeline.</p></div></header>
+                <div class="package-mode-grid">
+                    @foreach (var mode in Enum.GetValues<AuthoringPlaybackMode>())
+                    {
+                        <button class="@(PlaybackMode == mode ? "selected" : "")" @onclick="() => PlaybackMode = mode">
+                            <strong>@ModeName(mode)</strong><small>@ModeDescription(mode)</small>
+                        </button>
+                    }
+                </div>
+                @if (NeedsBacking)
+                {
+                    <div class="package-form-grid">
+                        <label>Published backing revision<input @bind="BackingRevision" placeholder="rev_…" /></label>
+                        <label>Backing duration (ms)<input type="number" min="1" @bind="BackingDurationMs" /></label>
+                        <label>Backing outputs<input @bind="BackingChannels" placeholder="1,2" /></label>
+                    </div>
+                }
+                @if (NeedsClick)
+                {
+                    <div class="package-form-grid">
+                        <label>Published click revision<input @bind="ClickRevision" placeholder="rev_…" /></label>
+                        <label>Click duration (ms)<input type="number" min="1" @bind="ClickDurationMs" /></label>
+                        <label>Click output<input @bind="ClickChannels" placeholder="3" /></label>
+                    </div>
+                }
+                @if (PlaybackMode != AuthoringPlaybackMode.LiveOnly)
+                {
+                    <div class="package-form-grid">
+                        <label>Master duration (ms)<input type="number" min="1" @bind="MasterDurationMs" /></label>
+                        <label>Song start offset (ms)<input type="number" min="0" @bind="SongStartOffsetMs" /></label>
+                    </div>
+                    <div class="package-timeline" aria-label="Master timeline preview">
+                        @if (NeedsClick) { <div><b>CLICK</b><i class="click"></i></div> }
+                        @if (NeedsBacking) { <div><b>BACKING</b><i class="backing" style="margin-left:@OffsetPercent%"></i></div> }
+                    </div>
+                }
+            </section>
+
+            <section class="package-section">
+                <header><span>2</span><div><h2>Hints</h2><p>At least one usable Hint is required for every Round.</p></div><button @onclick="AddHint">Add Hint</button></header>
+                @for (var index = 0; index < Hints.Count; index++)
+                {
+                    var hintIndex = index;
+                    var hint = Hints[hintIndex];
+                    <div class="package-hint-row">
+                        <b>@(hintIndex + 1)</b>
+                        <select @bind="hint.Type">@foreach (var type in Enum.GetValues<AuthoringHintType>()) { <option value="@type">@type</option> }</select>
+                        @if (hint.Type == AuthoringHintType.LiveBand)
+                        {
+                            <input @bind="hint.PerformerCue" placeholder="Private cue for the band" />
+                        }
+                        else if (hint.Type is AuthoringHintType.Image or AuthoringHintType.Visual)
+                        {
+                            <input @bind="hint.AssetRevisionId" placeholder="Published visual revision" />
+                        }
+                        else
+                        {
+                            <input @bind="hint.Text" placeholder="Hint shown on the Projector" />
+                        }
+                        <button title="Move up" @onclick="() => MoveHint(hintIndex, -1)" disabled="@(hintIndex == 0)">↑</button>
+                        <button title="Move down" @onclick="() => MoveHint(hintIndex, 1)" disabled="@(hintIndex == Hints.Count - 1)">↓</button>
+                        <button title="Remove" @onclick="() => Hints.RemoveAt(hintIndex)">×</button>
+                    </div>
+                }
+            </section>
+
+            <section class="package-section">
+                <header><span>3</span><div><h2>Lyric Track</h2><p>Optional line-timed LRC; offset is additive and never rewrites the file.</p></div></header>
+                <label class="package-toggle"><input type="checkbox" @bind="IncludeLyrics" /> Include synchronized lyrics</label>
+                @if (IncludeLyrics)
+                {
+                    <div class="package-lyrics-tools">
+                        <InputFile OnChange="ImportLrcAsync" accept=".lrc,text/plain" />
+                        <label>Lyric offset (ms)<input type="number" @bind="LyricOffsetMs" /></label>
+                    </div>
+                    <textarea class="package-lrc" @bind="Lrc" placeholder="[00:12.50]First lyric line"></textarea>
+                }
+            </section>
+        </main>
+
+        <aside class="package-side">
+            <section class="package-projector">
+                <p class="package-eyebrow">Projector preview</p>
+                @if (Readiness?.Preview.Hints.FirstOrDefault() is { } previewHint)
+                {
+                    <small>HINT @previewHint.Order</small><strong>@previewHint.DisplayText</strong>
+                }
+                else { <strong>Run preflight to preview</strong> }
+                @if (Readiness?.Preview.Lyrics.FirstOrDefault() is { } lyric)
+                {
+                    <span>@FormatMs(lyric.ActivationMs) · @lyric.Text</span>
+                }
+                <em>nuotti</em>
+            </section>
+
+            <section class="package-checks">
+                <h2>Publish checks</h2>
+                @if (Readiness is null) { <p>Run preflight for actionable checks.</p> }
+                else foreach (var finding in Readiness.Findings)
+                {
+                    <div class="package-finding @finding.Severity.ToString().ToLowerInvariant()">
+                        <b>@FindingIcon(finding.Severity) @finding.Title</b>
+                        @if (finding.Severity != AuthoringSeverity.Ready)
+                        {
+                            <small>@finding.Consequence</small><span>@finding.RecommendedAction</span>
+                            @if (finding.CanOverride)
+                            {
+                                <label><input type="checkbox" checked="@AcceptedWarnings.Contains(finding.Code)"
+                                              @onchange="e => ToggleWarningAsync(finding.Code, (bool?)e.Value == true)" disabled="@Busy" />
+                                    Accept consequence for this revision</label>
+                            }
+                        }
+                    </div>
+                }
+                <label>Revision note<textarea @bind="RevisionNote" placeholder="What changed in this revision?"></textarea></label>
+                <button class="cyan wide" @onclick="PublishAsync" disabled="@(Busy || Readiness?.CanPublish != true)">Publish immutable revision</button>
+            </section>
+        </aside>
+    </div>
+</div>
+
+@code {
+    string WorkspaceId = ""; string CatalogEntryId = ""; string SessionToken = "";
+    AuthoringPlaybackMode PlaybackMode = AuthoringPlaybackMode.BackingWithClick;
+    string? BackingRevision; string? ClickRevision; long SongStartOffsetMs; long? MasterDurationMs;
+    long? BackingDurationMs; long? ClickDurationMs; string BackingChannels = "1,2"; string ClickChannels = "3";
+    bool IncludeLyrics; string Lrc = ""; long LyricOffsetMs; string RevisionNote = "";
+    readonly List<HintEditor> Hints = [new() { Type = AuthoringHintType.Text, Text = "" }];
+    readonly HashSet<string> AcceptedWarnings = new(StringComparer.Ordinal);
+    AuthoringReadiness? Readiness; bool Busy; bool IsError; string? Message;
+    long PreflightGeneration;
+
+    bool NeedsBacking => PlaybackMode is AuthoringPlaybackMode.BackingOnly or AuthoringPlaybackMode.BackingWithClick;
+    bool NeedsClick => PlaybackMode is AuthoringPlaybackMode.ClickOnly or AuthoringPlaybackMode.BackingWithClick;
+    int BlockingCount => Readiness?.Findings.Count(x => x.Severity == AuthoringSeverity.Blocking) ?? 0;
+    int WarningCount => Readiness?.Findings.Count(x => x.Severity == AuthoringSeverity.Warning) ?? 0;
+    int ReadinessPercent => Readiness is null ? 0 : Readiness.Findings.Count == 0 ? 100
+        : (int)Math.Round(100d * Readiness.Findings.Count(x => x.Severity == AuthoringSeverity.Ready
+            || x.Severity == AuthoringSeverity.Warning && AcceptedWarnings.Contains(x.Code)) / Readiness.Findings.Count);
+    int OffsetPercent => MasterDurationMs is > 0 ? (int)Math.Clamp(100 * SongStartOffsetMs / MasterDurationMs.Value, 0, 90) : 0;
+
+    async Task LoadAsync() => await ExecuteAsync(async () =>
+    {
+        EnsureConnection();
+        var document = await Packages.GetAsync(WorkspaceId, CatalogEntryId, SessionToken);
+        if (document is null) { Message = "No draft exists for this Song Library entry yet."; return; }
+        Hydrate(document); Readiness = null; AcceptedWarnings.Clear(); Message = "Draft opened.";
+    });
+
+    async Task SaveAsync() => await ExecuteAsync(async () =>
+    {
+        EnsureConnection(); await Packages.SaveAsync(WorkspaceId, CatalogEntryId, SessionToken, BuildDocument());
+        Message = "Draft saved.";
+    });
+    async Task RunPreflightAsync()
+    {
+        var generation = ++PreflightGeneration;
+        var accepted = AcceptedWarnings.ToArray();
+        await ExecuteAsync(async () =>
+        {
+            EnsureConnection(); await Packages.SaveAsync(WorkspaceId, CatalogEntryId, SessionToken, BuildDocument());
+            var readiness = await Packages.EvaluateAsync(WorkspaceId, CatalogEntryId, SessionToken, accepted);
+            if (generation != PreflightGeneration) return;
+            Readiness = readiness;
+            Message = readiness.CanPublish ? "Preflight passed." : "Preflight found items requiring attention.";
+        });
+    }
+    async Task PublishAsync() => await ExecuteAsync(async () =>
+    {
+        EnsureConnection();
+        await Packages.SaveAsync(WorkspaceId, CatalogEntryId, SessionToken, BuildDocument());
+        Readiness = await Packages.EvaluateAsync(WorkspaceId, CatalogEntryId, SessionToken, AcceptedWarnings.ToArray());
+        if (!Readiness.CanPublish)
+        {
+            Message = "The package changed or preflight no longer passes. Resolve the current checks before publishing.";
+            return;
+        }
+        var published = await Packages.PublishAsync(WorkspaceId, CatalogEntryId, SessionToken, RevisionNote, AcceptedWarnings);
+        Message = $"Published immutable revision {published.RevisionNumber}.";
+    });
+    async Task ExecuteAsync(Func<Task> action)
+    {
+        Busy = true; Message = null; IsError = false;
+        try { await action(); }
+        catch (Exception exception) { IsError = true; Message = exception.Message; }
+        finally { Busy = false; }
+    }
+    void EnsureConnection()
+    {
+        if (string.IsNullOrWhiteSpace(WorkspaceId) || string.IsNullOrWhiteSpace(CatalogEntryId)
+            || string.IsNullOrWhiteSpace(SessionToken)) throw new InvalidOperationException("Workspace, Catalog entry, and member session token are required.");
+    }
+    AuthoringDocument BuildDocument() => new(
+        new(PlaybackMode, NeedsBacking ? NullIfBlank(BackingRevision) : null, NeedsClick ? NullIfBlank(ClickRevision) : null,
+            SongStartOffsetMs, PlaybackMode == AuthoringPlaybackMode.LiveOnly ? null : MasterDurationMs,
+            NeedsBacking ? BackingDurationMs : null, NeedsClick ? ClickDurationMs : null,
+            NeedsBacking ? ParseChannels(BackingChannels) : [], NeedsClick ? ParseChannels(ClickChannels) : []),
+        Hints.Select((x, i) => new AuthoringHint($"hint-{i + 1}", x.Type, NullIfBlank(x.Text),
+            NullIfBlank(x.AssetRevisionId), NullIfBlank(x.PerformerCue))).ToArray(),
+        IncludeLyrics ? new(Lrc, LyricOffsetMs) : null);
+    void Hydrate(AuthoringDocument document)
+    {
+        PlaybackMode = document.Playback.Mode;
+        BackingRevision = document.Playback.BackingAssetRevisionId;
+        ClickRevision = document.Playback.ClickAssetRevisionId;
+        SongStartOffsetMs = document.Playback.SongStartOffsetMs;
+        MasterDurationMs = document.Playback.MasterDurationMs;
+        BackingDurationMs = document.Playback.BackingDurationMs;
+        ClickDurationMs = document.Playback.ClickDurationMs;
+        BackingChannels = string.Join(',', document.Playback.BackingOutputChannels);
+        ClickChannels = string.Join(',', document.Playback.ClickOutputChannels);
+        Hints.Clear();
+        Hints.AddRange(document.Hints.Select(x => new HintEditor
+            { Type = x.Type, Text = x.Text, AssetRevisionId = x.AssetRevisionId, PerformerCue = x.PerformerCue }));
+        IncludeLyrics = document.Lyrics is not null;
+        Lrc = document.Lyrics?.Lrc ?? "";
+        LyricOffsetMs = document.Lyrics?.OffsetMs ?? 0;
+    }
+    static int[] ParseChannels(string value) => value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(x => int.TryParse(x, out var channel) ? channel : -1).ToArray();
+    static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    void AddHint() => Hints.Add(new() { Type = AuthoringHintType.Text });
+    void MoveHint(int index, int delta) { var target = index + delta; if (target < 0 || target >= Hints.Count) return; (Hints[index], Hints[target]) = (Hints[target], Hints[index]); }
+    async Task ToggleWarningAsync(string code, bool accepted)
+    {
+        if (accepted) AcceptedWarnings.Add(code); else AcceptedWarnings.Remove(code);
+        await RunPreflightAsync();
+    }
+    async Task ImportLrcAsync(InputFileChangeEventArgs args)
+    {
+        await using var stream = args.File.OpenReadStream(1_000_000);
+        using var reader = new StreamReader(stream); Lrc = await reader.ReadToEndAsync(); IncludeLyrics = true;
+    }
+    static string ModeName(AuthoringPlaybackMode mode) => mode switch { AuthoringPlaybackMode.LiveOnly => "Live only", AuthoringPlaybackMode.ClickOnly => "Click only", AuthoringPlaybackMode.BackingOnly => "Backing only", _ => "Backing + click" };
+    static string ModeDescription(AuthoringPlaybackMode mode) => mode switch { AuthoringPlaybackMode.LiveOnly => "Band performs without Engine audio", AuthoringPlaybackMode.ClickOnly => "Private count-in and click", AuthoringPlaybackMode.BackingOnly => "Stereo backing to the audience mix", _ => "Stereo backing and private click" };
+    static string FindingIcon(AuthoringSeverity severity) => severity switch { AuthoringSeverity.Ready => "✓", AuthoringSeverity.Warning => "!", _ => "×" };
+    static string FormatMs(long value) => TimeSpan.FromMilliseconds(value).ToString(@"mm\:ss\.fff");
+    sealed class HintEditor { public AuthoringHintType Type { get; set; } public string? Text { get; set; } public string? AssetRevisionId { get; set; } public string? PerformerCue { get; set; } }
+}

@@ -28,6 +28,8 @@ public interface IPrivateAssetMetadataStore
 {
     Task<PrivateCatalogEntry> CreateEntryAsync(string workspaceId, string title, string artist, string userId,
         CancellationToken cancellationToken = default);
+    Task<PrivateCatalogEntry?> GetEntryAsync(string workspaceId, string catalogEntryId,
+        CancellationToken cancellationToken = default);
     Task<(PrivateAssetRevision Revision, string ObjectKey)?> CreateDraftAsync(
         string workspaceId, string catalogEntryId, string assetType, string contentType, long declaredSize,
         AssetProvenance provenance, string userId, CancellationToken cancellationToken = default);
