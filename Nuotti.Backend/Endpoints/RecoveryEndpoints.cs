@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Nuotti.Backend.Persistence;
+using Nuotti.Backend.Workspaces;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Protocol;
@@ -16,11 +17,18 @@ public static class RecoveryEndpoints
     public static void MapRecoveryEndpoints(this WebApplication app)
     {
         app.MapGet("/v1/workspaces/{workspaceId}/sessions/{sessionCode}/recovery", async (
+            HttpContext http,
             string workspaceId,
             string sessionCode,
+            IWorkspaceAccessStore accessStore,
             IDurableSessionCommitStore store,
             CancellationToken cancellationToken) =>
         {
+            var selected = await WorkspaceHttpAccess.RequireSelectedAsync(
+                http, accessStore, workspaceId, cancellationToken);
+            if (selected.Principal is null) return Results.Unauthorized();
+            if (selected.Access is null) return Results.NotFound();
+
             var record = await store.LoadAsync(workspaceId, sessionCode, cancellationToken);
             if (record is null) return Results.NotFound();
 

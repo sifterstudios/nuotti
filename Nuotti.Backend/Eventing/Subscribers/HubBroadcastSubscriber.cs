@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.SignalR;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Backend.Workspaces;
+using Nuotti.Backend.Persistence;
 namespace Nuotti.Backend.Eventing.Subscribers;
 
 /// <summary>
@@ -12,15 +14,20 @@ public sealed class HubBroadcastSubscriber : IDisposable
 {
     readonly List<IDisposable> _subs = [];
     readonly IHubContext<QuizHub> _hub;
+    readonly IHubContext<WorkspaceHub> _workspaceHub;
 
-    public HubBroadcastSubscriber(IEventBus bus, IHubContext<QuizHub> hub)
+    public HubBroadcastSubscriber(IEventBus bus, IHubContext<QuizHub> hub, IHubContext<WorkspaceHub> workspaceHub)
     {
         _hub = hub;
+        _workspaceHub = workspaceHub;
 
         // The snapshot push. Clients receive the bare snapshot, not the event envelope, so the
         // payload is unchanged from when endpoints sent this themselves.
         _subs.Add(bus.Subscribe<GameStateChanged>((evt, ct) =>
             Send(evt.SessionCode, "GameStateChanged", evt.Snapshot, ct)));
+
+        _subs.Add(bus.Subscribe<SessionMessagePublisher.WorkspacePublication>((publication, ct) =>
+            SendWorkspace(publication, ct)));
 
         // Answers carry no snapshot push: one per answer would be quadratic in audience size.
         // Clients apply GameReducer to this event to keep their tallies live.
@@ -38,6 +45,22 @@ public sealed class HubBroadcastSubscriber : IDisposable
 
     Task Send(string session, string method, object payload, CancellationToken ct)
         => _hub.Clients.Group(session).SendAsync(method, payload, ct);
+
+    Task SendWorkspace(SessionMessagePublisher.WorkspacePublication publication, CancellationToken ct)
+    {
+        var (method, payload) = publication.Payload switch
+        {
+            GameStateChanged changed => ("GameStateChanged", (object)changed.Snapshot),
+            AnswerSubmitted answer => ("AnswerSubmitted", answer),
+            QuestionPushed question => ("QuestionPushed", question),
+            PlayTrack play => ("PlayTrack", play),
+            StopTrack stop => ("Stop", stop),
+            _ => (string.Empty, publication.Payload)
+        };
+        return method.Length == 0 ? Task.CompletedTask : _workspaceHub.Clients
+            .Group(WorkspaceHub.GroupName(publication.WorkspaceId, publication.SessionCode))
+            .SendAsync(method, payload, ct);
+    }
 
     public void Dispose()
     {

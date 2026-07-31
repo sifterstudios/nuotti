@@ -10,6 +10,7 @@ using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
+using Nuotti.Backend.Workspaces;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
 using Serilog;
@@ -97,15 +98,25 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
+builder.Services.AddHttpClient(nameof(HttpMagicLinkDelivery));
+builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
+    builder.Services.AddSingleton<IWorkspaceAccessStore, PostgresWorkspaceAccessStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, PostgresDurableSessionCommitStore>();
-    builder.Services.AddSingleton<DurableOutboxDispatcher>();
-    builder.Services.AddHostedService<DurableOutboxWorker>();
 }
+else
+{
+    // Keep the same durable command/recovery path available during local development and
+    // isolated tests. Production replaces only the adapter, not the authorization boundary.
+    builder.Services.AddSingleton<IWorkspaceAccessStore, InMemoryWorkspaceAccessStore>();
+    builder.Services.AddSingleton<IDurableSessionCommitStore, InMemoryDurableSessionCommitStore>();
+}
+builder.Services.AddSingleton<DurableOutboxDispatcher>();
+builder.Services.AddHostedService<DurableOutboxWorker>();
 
 // Metrics
 builder.Services.AddSingleton<BackendMetrics>();
@@ -153,23 +164,27 @@ var app = builder.Build();
 app.UseCors("NuottiCors");
 app.UseMiddleware<Nuotti.Backend.Middleware.CorrelationIdMiddleware>();
 app.UseMiddleware<ProblemHandlingMiddleware>();
-app.MapPhaseEndpoints();
-
-app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
 if (app.Environment.IsDevelopment())
 {
+    // Compatibility surfaces predate Workspace authentication and are deliberately local-only.
+    // Deployed environments expose only Workspace-scoped mutation/recovery routes.
+    app.MapPhaseEndpoints();
+    app.MapApiEndpoints();
+    app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
     app.MapHub<LogHub>("/log").RequireCors("NuottiCors");
 }
-app.MapApiEndpoints();
+app.MapHub<WorkspaceHub>(app.Environment.IsDevelopment() ? "/workspace-hub" : "/hub")
+    .RequireCors("NuottiCors");
 app.MapHealthEndpoints();
-app.MapStatusEndpoints();
+if (app.Environment.IsDevelopment()) app.MapStatusEndpoints();
 app.MapMetricsEndpoints();
 app.MapAboutEndpoints();
 app.MapTimeEndpoints();
-app.MapDiagnosticsEndpoints();
+if (app.Environment.IsDevelopment()) app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
-if (!string.IsNullOrWhiteSpace(databaseConnection)) app.MapRecoveryEndpoints();
+app.MapWorkspaceEndpoints();
+app.MapRecoveryEndpoints();
 app.MapNuottiEndpoints("Nuotti.Backend");
 
 // Force creation of subscribers so they can attach to the bus

@@ -17,7 +17,8 @@ public sealed class DurableOutboxDispatcher(
             try
             {
                 var payload = SessionMessagePublisher.DeserializeDurable(message.MessageType, message.Payload);
-                await SessionMessagePublisher.PublishAsync(bus, payload, cancellationToken);
+                await SessionMessagePublisher.PublishAsync(
+                    bus, payload, cancellationToken, message.WorkspaceId);
                 await store.MarkDeliveredAsync(message, _owner, cancellationToken);
                 delivered++;
             }
