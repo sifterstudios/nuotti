@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nuotti Projector Sync Lab</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; background:#05090b; color:#ecffff; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; }
+    main { width:min(980px,92vw); display:grid; gap:24px; }
+    h1,p { margin:0; } h1 { color:#00fff5; font-size:clamp(2rem,5vw,4rem); }
+    .muted { color:#91a5aa; }
+    .stage { min-height:240px; border:1px solid #17363a; border-radius:18px; padding:28px; display:grid; place-items:center; text-align:center; background:#091115; }
+    #lyric { font-size:clamp(2rem,6vw,5rem); font-weight:800; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+    .card { padding:16px; border-radius:12px; background:#0c181d; border:1px solid #17363a; }
+    .value { display:block; margin-top:8px; font-size:1.45rem; font-variant-numeric:tabular-nums; }
+    button { border:1px solid #00fff5; border-radius:999px; padding:11px 18px; background:transparent; color:#00fff5; font-weight:750; cursor:pointer; }
+    button.primary { background:#00fff5; color:#001413; }
+    .controls { display:flex; flex-wrap:wrap; gap:10px; }
+    #log { max-height:160px; overflow:auto; font:13px ui-monospace,monospace; color:#b8c9cd; }
+  </style>
+</head>
+<body>
+<main>
+  <header><h1>Projector Sync Lab</h1><p class="muted">Sparse Playback anchors → local frames → offset LRC. No per-line messages.</p></header>
+  <section class="stage"><div><div id="lyric">Ready for a planned start</div><p id="position" class="muted">0.000 s</p></div></section>
+  <div class="controls">
+    <button id="start" class="primary">Run 750 ms lead</button>
+    <button data-error="40">Set +40 ms bias · ignore</button>
+    <button data-error="100">Set +100 ms bias · gradual</button>
+    <button data-error="200">Set +200 ms bias · snap</button>
+  </div>
+  <section class="grid">
+    <div class="card">Planned lead<span class="value">750 ms</span></div>
+    <div class="card">Start error<span id="startError" class="value">—</span></div>
+    <div class="card">Steady p95 error<span id="steadyError" class="value">—</span></div>
+    <div class="card">Last correction<span id="correction" class="value">—</span></div>
+    <div class="card">Lead evaluation<span id="lead" class="value">Not run</span></div>
+  </section>
+  <div id="log" class="card" aria-live="polite"></div>
+</main>
+<script type="module" src="./sync-lab.js"></script>
+</body>
+</html>

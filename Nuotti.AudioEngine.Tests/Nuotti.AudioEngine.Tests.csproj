@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Nuotti.AudioEngine\Nuotti.AudioEngine.csproj" />
+    <ProjectReference Include="..\tools\Nuotti.AsioHil\Nuotti.AsioHil.csproj" />
   </ItemGroup>
 </Project>

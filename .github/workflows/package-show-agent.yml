@@ -1,0 +1,24 @@
+name: Package Windows Show Agent
+
+on:
+  workflow_dispatch:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  package:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Publish outbound-only Windows Show Agent
+        run: dotnet publish Nuotti.AudioEngine/Nuotti.AudioEngine.csproj -c Release -r win-x64 --self-contained true -o artifacts/show-agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuotti-show-agent-win-x64
+          path: artifacts/show-agent
+          if-no-files-found: error
