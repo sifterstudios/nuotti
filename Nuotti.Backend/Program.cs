@@ -8,6 +8,7 @@ using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.InfrastructureProof;
 using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Models;
+using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
@@ -99,6 +100,12 @@ builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+if (!string.IsNullOrWhiteSpace(databaseConnection))
+{
+    builder.Services.AddSingleton<IDurableSessionCommitStore, PostgresDurableSessionCommitStore>();
+    builder.Services.AddSingleton<DurableOutboxDispatcher>();
+    builder.Services.AddHostedService<DurableOutboxWorker>();
+}
 
 // Metrics
 builder.Services.AddSingleton<BackendMetrics>();
@@ -162,6 +169,7 @@ app.MapTimeEndpoints();
 app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
+if (!string.IsNullOrWhiteSpace(databaseConnection)) app.MapRecoveryEndpoints();
 app.MapNuottiEndpoints("Nuotti.Backend");
 
 // Force creation of subscribers so they can attach to the bus
