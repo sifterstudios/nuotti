@@ -1,20 +1,6 @@
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Protocol;
 namespace Nuotti.Backend.Commands;
-
-/// <summary>
-/// What happened to a Command.
-/// </summary>
-public enum Outcome
-{
-    /// <summary>The Command was accepted and its effects applied.</summary>
-    Applied,
-
-    /// <summary>The Command's id had already been seen within the idempotency window; nothing happened.</summary>
-    Duplicate,
-
-    /// <summary>The Command was refused. <see cref="CommandResult.Problem"/> says why.</summary>
-    Rejected
-}
 
 /// <summary>
 /// The result of applying a Command. Rejection is a return value, never an exception: a wrong role
