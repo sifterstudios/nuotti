@@ -79,10 +79,23 @@ var connection = new HubConnectionBuilder()
     .WithAutomaticReconnect()
     .Build();
 
-// Status sink that publishes to backend hub
-IEngineStatusSink sink = new HubStatusSink(connection, session);
-IProblemSink problemSink = new HubProblemSink(connection, session);
 var httpClient = new HttpClient();
+httpClient.BaseAddress = new Uri(backend);
+var pairCode = GetArg(args, "pair-code", envVar: "NUOTTI_PAIR_CODE");
+var agentName = GetArg(args, "agent-name", envVar: "NUOTTI_AGENT_NAME", fallback: Environment.MachineName);
+ShowAgentCloudClient? cloudAgent = null;
+if (OperatingSystem.IsWindows())
+{
+    var credentialStore = FileShowAgentCredentialStore.CreateDefault();
+    if (!string.IsNullOrWhiteSpace(pairCode) || credentialStore.Load() is not null)
+        cloudAgent = new ShowAgentCloudClient(httpClient, credentialStore);
+}
+IEngineStatusSink sink = cloudAgent is null
+    ? new HubStatusSink(connection, session)
+    : new CloudAgentStatusSink(cloudAgent);
+IProblemSink problemSink = cloudAgent is null
+    ? new HubProblemSink(connection, session)
+    : new CloudAgentProblemSink(cloudAgent);
 ISourcePreflight preflight = new HttpFilePreflight(httpClient, options: engineOptions.Safety);
 var engine = new EngineCoordinator(player, sink, preflight, problemSink);
 
@@ -221,14 +234,63 @@ async Task RunHeartbeatAsync(CancellationToken token)
 
 try
 {
-    await connection.StartAsync(cts.Token);
-    await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
-    // Emit initial status: Ready
-    var initLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
-    await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, initLat), cancellationToken: cts.Token);
-    _ = RunHeartbeatAsync(cts.Token);
-    Log.Information("Connected and joined session. Waiting for PlayTrack commands... Press Ctrl+C to exit.");
-    await Task.Delay(-1, cts.Token);
+    if (cloudAgent is not null)
+    {
+        if (!string.IsNullOrWhiteSpace(pairCode))
+        {
+            await cloudAgent.PairAsync(pairCode, agentName, cts.Token);
+            Log.Information("Show Agent paired as {AgentName}; credential protected with Windows DPAPI", agentName);
+        }
+        var lease = await cloudAgent.EnsureLeaseAsync(cts.Token)
+            ?? throw new InvalidOperationException("Show Agent credential is missing or revoked. Pair this computer again.");
+        Log.Information("Outbound Show Agent lease established. Workspace={WorkspaceId}, Session={SessionCode}, ExpiresAt={ExpiresAt}",
+            lease.WorkspaceId, lease.SessionCode, lease.ExpiresAt);
+        long cursor = cloudAgent.LoadCursor();
+        var nextHeartbeat = DateTimeOffset.MinValue;
+        while (!cts.IsCancellationRequested)
+        {
+            var commands = await cloudAgent.PollAsync(cursor, cts.Token);
+            if (commands is null)
+            {
+                Log.Warning("Show Agent was revoked. No new commands will be accepted; current playback may finish.");
+                while (player.IsPlaying && !cts.IsCancellationRequested)
+                    await Task.Delay(250, cts.Token);
+                break;
+            }
+            foreach (var command in commands)
+            {
+                switch (command.MessageType)
+                {
+                    case "PlayTrack":
+                        var play = ShowAgentCloudClient.DeserializePayload<PlayTrack>(command.Payload);
+                        if (play is not null) await engine.OnTrackPlayRequested(play.FileUrl);
+                        break;
+                    case "StopTrack":
+                        await engine.OnTrackStopped();
+                        break;
+                }
+                cursor = Math.Max(cursor, command.Sequence);
+                cloudAgent.CommitCursor(cursor);
+            }
+            if (DateTimeOffset.UtcNow >= nextHeartbeat)
+            {
+                await cloudAgent.ReportStatusAsync(player.IsPlaying ? "Playing" : "Ready", null, cts.Token);
+                nextHeartbeat = DateTimeOffset.UtcNow.AddSeconds(5);
+            }
+            await Task.Delay(250, cts.Token);
+        }
+    }
+    else
+    {
+        // Development compatibility only. Paired Windows agents use outbound HTTPS polling above.
+        await connection.StartAsync(cts.Token);
+        await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
+        var initLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
+        await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, initLat), cancellationToken: cts.Token);
+        _ = RunHeartbeatAsync(cts.Token);
+        Log.Information("Connected and joined legacy development session. Waiting for commands... Press Ctrl+C to exit.");
+        await Task.Delay(-1, cts.Token);
+    }
 }
 catch (TaskCanceledException)
 {
