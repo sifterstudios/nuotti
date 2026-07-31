@@ -1,0 +1,224 @@
+@page "/prototype/song-package"
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.AspNetCore.Components.Rendering
+@inject NavigationManager Navigation
+
+@* PROTOTYPE — Three Song Package authoring layouts, switchable via ?variant=, in the real Performer shell. *@
+
+<div class="prototype-page" tabindex="0" @onkeydown="HandleKeyDown">
+    <DynamicComponent Type="@VariantComponentType" />
+
+#if DEBUG
+    <MudPaper Class="prototype-switcher pa-2" Elevation="12">
+        <MudIconButton Icon="@Material.Filled.ArrowBack" OnClick="@(() => Cycle(-1))" />
+        <MudText Typo="Typo.subtitle2" Class="px-3">@Variant — @VariantName</MudText>
+        <MudIconButton Icon="@Material.Filled.ArrowForward" OnClick="@(() => Cycle(1))" />
+    </MudPaper>
+#endif
+</div>
+
+@code {
+    private static readonly string[] Variants = ["A", "B", "C"];
+
+    private string Variant
+    {
+        get
+        {
+            var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+            var query = QueryHelpers.ParseQuery(uri.Query);
+            var requested = query.TryGetValue("variant", out var value)
+                ? value.ToString().ToUpperInvariant()
+                : "A";
+            return Variants.Contains(requested) ? requested : "A";
+        }
+    }
+
+    private string VariantName => Variant switch
+    {
+        "A" => "Guided journey",
+        "B" => "Readiness workspace",
+        _ => "Studio split view"
+    };
+
+    private Type VariantComponentType => Variant switch
+    {
+        "A" => typeof(VariantA),
+        "B" => typeof(VariantB),
+        _ => typeof(VariantC)
+    };
+
+    private void Cycle(int direction)
+    {
+        var current = Array.IndexOf(Variants, Variant);
+        var next = (current + direction + Variants.Length) % Variants.Length;
+        Navigation.NavigateTo($"/prototype/song-package?variant={Variants[next]}");
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "ArrowLeft") Cycle(-1);
+        if (args.Key == "ArrowRight") Cycle(1);
+    }
+
+    private sealed class VariantA : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<GuidedJourney>(0);
+            builder.CloseComponent();
+        }
+    }
+
+    private sealed class VariantB : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<ReadinessWorkspace>(0);
+            builder.CloseComponent();
+        }
+    }
+
+    private sealed class VariantC : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<StudioSplitView>(0);
+            builder.CloseComponent();
+        }
+    }
+}
+
+@code {
+    private sealed class GuidedJourney : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder b)
+        {
+            b.AddMarkupContent(0, """
+                <div class="prototype-heading">
+                  <div><p class="eyebrow">Song Library / Add song</p><h1>Prepare “Take On Me”</h1><p>One decision at a time. You can leave and return without losing the draft.</p></div>
+                  <span class="draft-pill">Draft saved</span>
+                </div>
+                <div class="wizard-layout">
+                  <aside class="step-rail">
+                    <div class="step done"><b>1</b><span>Song identity<small>Take On Me · a-ha</small></span></div>
+                    <div class="step active"><b>2</b><span>Playback<small>Choose what the band needs</small></span></div>
+                    <div class="step"><b>3</b><span>Hints<small>At least one required</small></span></div>
+                    <div class="step"><b>4</b><span>Lyrics<small>Optional</small></span></div>
+                    <div class="step"><b>5</b><span>Review<small>Preview and publish</small></span></div>
+                  </aside>
+                  <main class="wizard-card">
+                    <p class="eyebrow">Step 2 of 5</p><h2>How will you perform this song?</h2>
+                    <p class="muted">Choose a playback configuration. You can change it while this package is a draft.</p>
+                    <div class="mode-grid">
+                      <button class="mode selected"><strong>Backing + click</strong><span>Backing to PA, click to monitors</span></button>
+                      <button class="mode"><strong>Backing only</strong><span>No click or count-in</span></button>
+                      <button class="mode"><strong>Click only</strong><span>The band performs everything else</span></button>
+                      <button class="mode"><strong>Live only</strong><span>No Engine audio required</span></button>
+                    </div>
+                    <div class="upload-row"><div><b>Backing track</b><small>take-on-me-backing.wav · 3:46</small></div><button>Replace</button></div>
+                    <div class="upload-row"><div><b>Click / count-in</b><small>take-on-me-click.wav · 3:46</small></div><button>Replace</button></div>
+                    <div class="timeline"><span>Click</span><div class="wave click"></div><span>Backing</span><div class="wave backing"></div></div>
+                    <div class="callout good">✓ Shared timeline detected · 48 kHz · duration aligned</div>
+                    <footer><button class="secondary">Back</button><span></span><button class="primary">Save and continue</button></footer>
+                  </main>
+                </div>
+                """);
+        }
+    }
+
+    private sealed class ReadinessWorkspace : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder b)
+        {
+            b.AddMarkupContent(0, """
+                <div class="prototype-heading">
+                  <div><p class="eyebrow">Song Library / Take On Me</p><h1>Package readiness</h1><p>Complete sections in any order. Publish when every required check passes.</p></div>
+                  <div class="header-actions"><button>Preview</button><button class="primary">Publish revision</button></div>
+                </div>
+                <div class="readiness-strip"><div><strong>78%</strong><span>ready to publish</span></div><div class="bar"><i style="width:78%"></i></div><p>2 required checks remain</p></div>
+                <div class="workspace-grid">
+                  <main class="section-stack">
+                    <section class="editor-section complete"><header><span>✓</span><div><h2>Song identity</h2><p>Shared Catalog entry</p></div><button>Edit</button></header><div class="summary-line"><b>Take On Me</b><span>a-ha · Shared Song Catalog</span></div></section>
+                    <section class="editor-section complete"><header><span>✓</span><div><h2>Playback configuration</h2><p>Backing + click</p></div><button>Edit</button></header><div class="mini-timeline"><i></i><i></i></div></section>
+                    <section class="editor-section warning"><header><span>!</span><div><h2>Hints</h2><p>One required check remains</p></div><button>Add hint</button></header><div class="hint-row"><b>1 · Visual</b><span>“Released in the mid-1980s”</span><button>⋮</button></div><div class="inline-warning">Add a private Live Hint or confirm this single Hint is enough.</div></section>
+                    <section class="editor-section optional"><header><span>○</span><div><h2>Lyric Track</h2><p>Optional · LRC or line editor</p></div><button>Import LRC</button></header><div class="drop-zone">Drop an .lrc file here, or <u>create line timing</u></div></section>
+                  </main>
+                  <aside class="checks-panel"><h2>Publish checks</h2><div class="check ok">✓ Catalog identity</div><div class="check ok">✓ Audio decodes</div><div class="check ok">✓ Shared timeline</div><div class="check bad">× Confirm Hint sequence</div><div class="check neutral">— Lyrics excluded</div><hr/><h3>Revision note</h3><textarea placeholder="What changed in this revision?"></textarea><p class="muted">Publishing creates immutable revision 3. Existing Setlists remain on revision 2.</p></aside>
+                </div>
+                """);
+        }
+    }
+
+    private sealed class StudioSplitView : ComponentBase
+    {
+        protected override void BuildRenderTree(RenderTreeBuilder b)
+        {
+            b.AddMarkupContent(0, """
+                <div class="studio-shell">
+                  <header class="studio-header"><div><p class="eyebrow">Song Package studio</p><h1>Take On Me <span>Draft revision 3</span></h1></div><div><button>Save draft</button><button class="primary">Run preflight</button></div></header>
+                  <div class="studio-columns">
+                    <nav class="studio-nav"><b>PACKAGE</b><a class="done">✓ Identity</a><a class="active">● Playback</a><a class="done">✓ Hints</a><a>○ Lyrics <small>optional</small></a><b>SHOW</b><a>○ Projector preview</a><a>○ Audio routing</a><a>○ Publish</a><div class="status-card"><strong>3 of 5 ready</strong><span>Draft autosaved just now</span></div></nav>
+                    <main class="studio-editor"><p class="eyebrow">Playback</p><h2>Arrange the show timeline</h2><div class="transport"><button>▶</button><b>00:12.840</b><span>/ 03:46.120</span><button>↺</button></div><div class="track"><label>CLICK <small>Out 3</small></label><div class="ruler"><i class="playhead"></i><span class="full-wave"></span></div></div><div class="track"><label>BACKING <small>Out 1–2</small></label><div class="ruler"><i class="playhead"></i><span class="offset-wave"></span></div></div><div class="asset-table"><div><span>Backing</span><b>take-on-me-backing.wav</b><em>48 kHz · stereo</em><button>Replace</button></div><div><span>Click</span><b>take-on-me-click.wav</b><em>48 kHz · mono</em><button>Replace</button></div></div></main>
+                    <aside class="studio-preview"><p class="eyebrow">Live preview</p><div class="projector-mini"><small>HINT 1</small><strong>Released in the<br/>mid-1980s</strong><span>nuotti</span></div><h3>Preflight</h3><div class="check ok">✓ Files cached</div><div class="check ok">✓ Timeline aligned</div><div class="check bad">! Output 3 untested</div><button class="wide">Test audio routing</button><p class="muted">Warnings can be overridden at Session preflight. Invalid media cannot.</p></aside>
+                  </div>
+                </div>
+                """);
+        }
+    }
+}
+
+<style>
+    .prototype-page { min-height: calc(100vh - 110px); outline: none; color: var(--mud-palette-text-primary); }
+    .prototype-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin-bottom:24px; }
+    .prototype-heading h1, .studio-header h1 { margin:2px 0 5px; font-size:2rem; }
+    .prototype-heading p, .studio-header p { margin:0; }
+    .eyebrow { margin:0; color:var(--mud-palette-primary); text-transform:uppercase; font-size:.72rem; font-weight:800; letter-spacing:.12em; }
+    .muted { color:var(--mud-palette-text-secondary); }
+    button { border:1px solid var(--mud-palette-lines-default); background:var(--mud-palette-surface); color:inherit; border-radius:8px; padding:9px 14px; cursor:pointer; }
+    button.primary { background:var(--mud-palette-primary); color:var(--mud-palette-primary-text); border-color:transparent; }
+    .draft-pill { background:var(--mud-palette-success-hover); color:var(--mud-palette-success); padding:7px 12px; border-radius:999px; font-weight:700; }
+    .wizard-layout { display:grid; grid-template-columns:260px minmax(0,760px); gap:28px; justify-content:center; }
+    .step-rail { padding-top:16px; }
+    .step { display:flex; gap:14px; padding:13px 8px; opacity:.55; }
+    .step b { display:grid; place-items:center; width:30px; height:30px; border:1px solid currentColor; border-radius:50%; }
+    .step span { display:flex; flex-direction:column; font-weight:750; }
+    .step small { font-weight:400; color:var(--mud-palette-text-secondary); }
+    .step.active { opacity:1; color:var(--mud-palette-primary); }
+    .step.done { opacity:.8; }
+    .wizard-card, .checks-panel, .editor-section, .studio-shell { background:var(--mud-palette-surface); border:1px solid var(--mud-palette-lines-default); border-radius:14px; }
+    .wizard-card { padding:30px; box-shadow:var(--mud-elevation-2); }
+    .mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:24px 0; }
+    .mode { text-align:left; padding:16px; display:flex; flex-direction:column; }
+    .mode span { color:var(--mud-palette-text-secondary); font-size:.85rem; }
+    .mode.selected { border:2px solid var(--mud-palette-primary); background:var(--mud-palette-primary-hover); }
+    .upload-row { display:flex; justify-content:space-between; align-items:center; padding:13px 0; border-top:1px solid var(--mud-palette-lines-default); }
+    .upload-row div { display:flex; flex-direction:column; }
+    .upload-row small { color:var(--mud-palette-text-secondary); }
+    .timeline { display:grid; grid-template-columns:65px 1fr; gap:8px; align-items:center; margin:18px 0; }
+    .wave { height:26px; border-radius:5px; background:repeating-linear-gradient(90deg,var(--mud-palette-primary) 0 2px,transparent 2px 5px); opacity:.65; }
+    .backing { margin-left:11%; }
+    .callout { padding:10px 13px; border-radius:8px; }
+    .callout.good { background:var(--mud-palette-success-hover); color:var(--mud-palette-success); }
+    .wizard-card footer { display:grid; grid-template-columns:auto 1fr auto; margin-top:24px; }
+    .header-actions { display:flex; gap:8px; }
+    .readiness-strip { display:grid; grid-template-columns:160px 1fr 180px; align-items:center; gap:20px; padding:18px 22px; background:var(--mud-palette-surface); border-radius:12px; margin-bottom:20px; }
+    .readiness-strip div:first-child { display:flex; gap:8px; align-items:baseline; }.readiness-strip strong{font-size:1.7rem}.readiness-strip span,.readiness-strip p{color:var(--mud-palette-text-secondary)}
+    .bar { background:var(--mud-palette-background-gray); height:9px; border-radius:9px; overflow:hidden; }.bar i{display:block;height:100%;background:var(--mud-palette-primary)}
+    .workspace-grid { display:grid; grid-template-columns:minmax(0,1fr) 310px; gap:20px; }
+    .section-stack { display:flex; flex-direction:column; gap:12px; }
+    .editor-section { overflow:hidden; }.editor-section header{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;padding:16px}.editor-section h2,.editor-section p{margin:0}.editor-section header>span{font-size:1.3rem}
+    .editor-section.complete header>span{color:var(--mud-palette-success)}.editor-section.warning header>span{color:var(--mud-palette-warning)}
+    .summary-line,.hint-row{display:flex;gap:20px;align-items:center;padding:12px 58px;background:var(--mud-palette-background-gray)}.summary-line span,.hint-row span{color:var(--mud-palette-text-secondary);flex:1}
+    .mini-timeline{padding:13px 58px;background:var(--mud-palette-background-gray)}.mini-timeline i{display:block;height:8px;margin:5px;background:var(--mud-palette-primary);opacity:.6;border-radius:3px}.mini-timeline i:last-child{margin-left:12%}
+    .inline-warning{padding:9px 58px;color:var(--mud-palette-warning)}.drop-zone{margin:0 16px 16px;padding:22px;border:1px dashed var(--mud-palette-lines-inputs);border-radius:8px;text-align:center;color:var(--mud-palette-text-secondary)}
+    .checks-panel{padding:20px;height:max-content}.checks-panel h2{margin-top:0}.check{padding:8px 0}.check.ok{color:var(--mud-palette-success)}.check.bad{color:var(--mud-palette-warning)}.check.neutral{color:var(--mud-palette-text-secondary)}.checks-panel textarea{width:100%;min-height:80px;border:1px solid var(--mud-palette-lines-inputs);border-radius:7px;background:transparent;color:inherit;padding:8px}
+    .studio-shell { overflow:hidden; }
+    .studio-header { display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--mud-palette-lines-default)}.studio-header h1 span{font-size:.8rem;color:var(--mud-palette-text-secondary);font-weight:500}.studio-header>div:last-child{display:flex;gap:8px}
+    .studio-columns { display:grid;grid-template-columns:200px minmax(420px,1fr) 280px;min-height:610px; }
+    .studio-nav { display:flex;flex-direction:column;padding:18px 12px;border-right:1px solid var(--mud-palette-lines-default);gap:4px}.studio-nav>b{font-size:.68rem;color:var(--mud-palette-text-secondary);letter-spacing:.12em;margin:14px 10px 4px}.studio-nav a{padding:9px 10px;border-radius:7px}.studio-nav a.active{background:var(--mud-palette-primary-hover);color:var(--mud-palette-primary);font-weight:700}.studio-nav a.done{color:var(--mud-palette-success)}.studio-nav small{display:block;margin-left:18px}.status-card{margin-top:auto;padding:12px;background:var(--mud-palette-background-gray);border-radius:8px;display:flex;flex-direction:column}
+    .studio-editor { padding:24px; }.studio-editor h2{margin-top:3px}.transport{display:flex;gap:12px;align-items:center;padding:12px;background:var(--mud-palette-background-gray);border-radius:9px;margin:18px 0}.track{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center;margin:12px 0}.track label{display:flex;flex-direction:column;font-size:.75rem;font-weight:800}.track small{color:var(--mud-palette-text-secondary)}.ruler{height:62px;background:var(--mud-palette-background-gray);position:relative;overflow:hidden}.full-wave,.offset-wave{position:absolute;left:0;right:0;top:15px;height:32px;background:repeating-linear-gradient(90deg,var(--mud-palette-secondary) 0 2px,transparent 2px 5px);opacity:.6}.offset-wave{left:12%}.playhead{position:absolute;z-index:2;left:27%;top:0;bottom:0;border-left:2px solid var(--mud-palette-error)}
+    .asset-table{margin-top:28px;border-top:1px solid var(--mud-palette-lines-default)}.asset-table>div{display:grid;grid-template-columns:80px 1fr 130px auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--mud-palette-lines-default)}.asset-table em{font-style:normal;color:var(--mud-palette-text-secondary)}
+    .studio-preview{padding:20px;border-left:1px solid var(--mud-palette-lines-default);background:var(--mud-palette-background-gray)}.projector-mini{aspect-ratio:16/10;background:#111827;color:white;border-radius:8px;padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}.projector-mini small{color:#a5b4fc}.projector-mini strong{font-size:1.4rem;margin:18px 0}.projector-mini span{font-size:.65rem;opacity:.6}.wide{width:100%;margin-top:12px}
+    .prototype-switcher { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2000; display:flex; align-items:center; border:2px solid var(--mud-palette-primary); border-radius:999px; }
+    @@media(max-width:1000px){.wizard-layout,.workspace-grid,.studio-columns{grid-template-columns:1fr}.step-rail{display:none}.studio-nav,.studio-preview{border:0}.studio-columns{display:block}.readiness-strip{grid-template-columns:1fr}.mode-grid{grid-template-columns:1fr}}
+</style>
