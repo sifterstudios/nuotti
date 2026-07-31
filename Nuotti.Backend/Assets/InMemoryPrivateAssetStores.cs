@@ -20,6 +20,13 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
         }
     }
 
+    public Task<PrivateCatalogEntry?> GetEntryAsync(string workspaceId, string catalogEntryId,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_gate) return Task.FromResult<PrivateCatalogEntry?>(_entries.TryGetValue(catalogEntryId, out var entry)
+            && entry.WorkspaceId == workspaceId ? entry : null);
+    }
+
     public Task<(PrivateAssetRevision Revision, string ObjectKey)?> CreateDraftAsync(
         string workspaceId, string catalogEntryId, string assetType, string contentType, long declaredSize,
         AssetProvenance provenance, string userId, CancellationToken cancellationToken = default)

@@ -26,7 +26,8 @@ public class PerformerJoinInProcTests
     sealed class NoopProcessor : ISessionCommandProcessor
     {
         // These tests exercise Join only, which never reaches the processor.
-        public Task<CommandResult> ApplyAsync(string session, Actor actor, CommandBase command, Guid? correlationId = null, CancellationToken ct = default)
+        public Task<CommandResult> ApplyAsync(string session, Actor actor, CommandBase command,
+            Guid? correlationId = null, CancellationToken ct = default, string workspaceId = "legacy")
             => Task.FromResult(CommandResult.Applied());
     }
     sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, ISessionCommandProcessor processor) : QuizHub(new NullLogger<QuizHub>(), log, sessions, processor) { public void SetContext(HubCallerContext ctx) => Context = ctx; public void SetGroups(IGroupManager groups) => Groups = groups; public void SetClients(IHubCallerClients clients) => Clients = clients; }

@@ -15,6 +15,8 @@ builder.Services.AddMudServices();
 builder.AddNuottiWebHost();
 
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<SongPackageAuthoringClient>(client =>
+    client.BaseAddress = new Uri("https+http://backend"));
 builder.Services.AddScoped<SessionSelectionService>();
 builder.Services.AddSingleton<PerformerUiState>();
 builder.Services.AddScoped<PerformerCommands>();
