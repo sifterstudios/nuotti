@@ -6,6 +6,7 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Reducer;
+using Nuotti.Contracts.V1.Protocol;
 using System.Text.Json;
 using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
 namespace Nuotti.Backend.Tests;

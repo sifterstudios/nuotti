@@ -3,6 +3,7 @@ using Nuotti.Backend.Exception;
 using Nuotti.Backend.Middleware;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
+using Nuotti.Contracts.V1.Protocol;
 namespace Nuotti.Backend.Endpoints;
 
 /// <summary>

@@ -7,6 +7,7 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Protocol;
 namespace Nuotti.Backend.Endpoints;
 
 internal static class ApiEndpoints

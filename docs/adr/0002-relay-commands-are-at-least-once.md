@@ -52,3 +52,19 @@ they match, only replacing `Choices` and re-zeroing `Tallies` when they genuinel
 duplicate relay is harmless because the reducer treats a repeat of the same question as a no-op,
 not because the event was assumed to be idempotent by construction. `PlayTrack` and `StopTrack`
 are untouched and remain pure relays.
+
+## Amendment — 2026-07-31
+
+The durable Session protocol is now represented by additive contracts in
+`Nuotti.Contracts.V1.Protocol`. A versioned `SessionCommand` carries the existing Command and its
+idempotency identity plus the expected control generation. `SessionEvent` assigns a unique Event
+to a monotonically increasing, Workspace-scoped Session sequence. `SessionCommandResult` makes
+Applied, Duplicate, and Rejected outcomes explicit. `SessionCursor` and `SessionSnapshot` define
+replay and compatible checkpoint semantics.
+
+These contracts do not silently change the legacy relay decision. Existing `PlayTrack` and
+`StopTrack` processing remains at-least-once. Both messages may now carry an optional playback
+instance and control generation; when absent, their serialized shape and behavior remain the
+legacy contract. A later implementation may supersede the relays with stateful playback
+Commands/Events, at which point that processor must use the durable outcome, ordering, and
+generation rules rather than reinterpret the old relay semantics.

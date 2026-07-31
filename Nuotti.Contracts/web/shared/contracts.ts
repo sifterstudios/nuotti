@@ -148,10 +148,57 @@ export interface Hint {
 export interface Tally { choiceId: string; count: number }
 
 // Simple messages (readonly record structs in C#)
-export interface PlayTrack { fileUrl: string }
+export interface PlayTrack {
+    fileUrl: string;
+    playbackInstanceId?: string | null;
+    controlGeneration?: ControlGeneration | null;
+}
+export interface StopTrack {
+    playbackInstanceId?: string | null;
+    controlGeneration?: ControlGeneration | null;
+}
 export interface QuestionPushed { text: string; options: string[] }
 export interface SessionCreated { sessionCode: string; hostId: string }
 export interface JoinedAudience { connectionId: string; name: string }
+
+// Durable Session protocol. Generic payloads remain structural on the web side.
+export interface SessionProtocolVersion { major: number; minor: number }
+export type SessionSequence = string;
+export type ControlGeneration = string;
+export interface PlaybackIdentity {
+    playbackInstanceId: string;
+    controlGeneration: ControlGeneration;
+}
+export interface SessionCursor { workspaceId: string; sessionCode: string; sequence: SessionSequence }
+export interface SessionCommand<TCommand extends CommandBase = CommandBase> {
+    version: SessionProtocolVersion;
+    workspaceId: string;
+    command: TCommand;
+    expectedControlGeneration: ControlGeneration;
+}
+export interface SessionEvent<TEvent extends EventBase = EventBase> {
+    version: SessionProtocolVersion;
+    workspaceId: string;
+    sequence: SessionSequence;
+    event: TEvent;
+}
+export type Outcome = "Applied" | "Duplicate" | "Rejected";
+export interface SessionCommandResult {
+    version: SessionProtocolVersion;
+    commandId: string;
+    outcome: Outcome;
+    cursor?: SessionCursor | null;
+    problem?: NuottiProblem | null;
+}
+export interface SessionSnapshot<TState = GameStateSnapshot> {
+    writerVersion: SessionProtocolVersion;
+    minimumReaderVersion: SessionProtocolVersion;
+    workspaceId: string;
+    sessionCode: string;
+    lastSequence: SessionSequence;
+    controlGeneration: ControlGeneration;
+    state: TState;
+}
 
 // Events
 export interface AnswerSubmitted extends EventBase { audienceId: string; choiceIndex: number }
