@@ -146,7 +146,7 @@ public sealed class SessionCommandProcessor(
             else
             {
                 store.Set(session, seeded);
-                await bus.PublishAsync(createdEvent, ct);
+                await SessionMessagePublisher.PublishAsync(bus, createdEvent, ct, workspaceId);
             }
             Complete(activity, command, seeded);
             return CommandResult.Applied(seeded);
@@ -203,7 +203,7 @@ public sealed class SessionCommandProcessor(
         else
         {
             if (stateChanged) store.Set(session, next);
-            foreach (var publication in publications) await PublishAsync(publication, ct);
+            foreach (var publication in publications) await PublishAsync(publication, ct, workspaceId);
         }
 
         Complete(activity, command, stateChanged ? next : null);
@@ -420,7 +420,8 @@ public sealed class SessionCommandProcessor(
     /// Publishes with the runtime type. IEventBus keys subscribers by TEvent, so passing an
     /// `object` would register everything under `object` and reach no subscriber.
     /// </summary>
-    Task PublishAsync(object evt, CancellationToken ct) => SessionMessagePublisher.PublishAsync(bus, evt, ct);
+    Task PublishAsync(object evt, CancellationToken ct, string workspaceId) =>
+        SessionMessagePublisher.PublishAsync(bus, evt, ct, workspaceId);
 
     void Complete(System.Diagnostics.Activity? activity, CommandBase command, GameStateSnapshot? state)
     {

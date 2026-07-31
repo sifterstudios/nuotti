@@ -9,6 +9,7 @@ namespace Nuotti.Backend.Persistence;
 /// <summary>Single registry for Session message serialization and runtime-type publication.</summary>
 public static class SessionMessagePublisher
 {
+    public sealed record WorkspacePublication(string WorkspaceId, string SessionCode, object Payload);
     sealed record Entry(Type Type, bool Durable, Func<IEventBus, object, CancellationToken, Task> Publish);
 
     static Entry Of<T>(bool durable = true) => new(typeof(T), durable,
@@ -24,10 +25,23 @@ public static class SessionMessagePublisher
     static readonly IReadOnlyDictionary<Type, Entry> ByType = Entries.ToDictionary(entry => entry.Type);
     static readonly IReadOnlyDictionary<string, Entry> ByName = Entries.ToDictionary(entry => entry.Type.Name, StringComparer.Ordinal);
 
-    public static Task PublishAsync(IEventBus bus, object message, CancellationToken cancellationToken = default)
-        => ByType.TryGetValue(message.GetType(), out var entry)
-            ? entry.Publish(bus, message, cancellationToken)
-            : throw new NotSupportedException($"Message type '{message.GetType().Name}' is not publishable.");
+    public static async Task PublishAsync(IEventBus bus, object message,
+        CancellationToken cancellationToken = default, string? workspaceId = null)
+    {
+        if (!ByType.TryGetValue(message.GetType(), out var entry))
+            throw new NotSupportedException($"Message type '{message.GetType().Name}' is not publishable.");
+        await entry.Publish(bus, message, cancellationToken);
+        if (workspaceId is not null && workspaceId != "legacy")
+        {
+            var sessionCode = message switch
+            {
+                EventBase evt => evt.SessionCode,
+                CommandBase command => command.SessionCode,
+                _ => throw new NotSupportedException("Workspace publication requires a Session message.")
+            };
+            await bus.PublishAsync(new WorkspacePublication(workspaceId, sessionCode, message), cancellationToken);
+        }
+    }
 
     public static (string Type, string Payload) SerializeDurable(object message)
     {
