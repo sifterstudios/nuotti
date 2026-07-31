@@ -1,6 +1,7 @@
 using Nuotti.Backend.Assets;
 using Nuotti.Backend.Exception;
 using Nuotti.Backend.SongPackages;
+using Nuotti.Backend.SessionSnapshots;
 using Nuotti.Backend.Workspaces;
 using Nuotti.Contracts.V1.Enum;
 
@@ -56,7 +57,7 @@ public static class SongPackageEndpoints
         app.MapPost("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}/package/publish", async (
             HttpContext http, string workspaceId, string catalogEntryId, PublishSongPackageRequest request,
             IWorkspaceAccessStore access, ISongPackageStore packages, SongPackageReadinessEvaluator evaluator,
-            CancellationToken ct) =>
+            ILyricTrackRevisionStore lyricTracks, CancellationToken ct) =>
         {
             var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
             if (selected.Principal is null) return Results.Unauthorized();
@@ -82,8 +83,30 @@ public static class SongPackageEndpoints
                 return ProblemResults.UnprocessableEntity("Song Package is not Show Ready.", string.Join(" ", unresolved),
                     ReasonCode.InvalidStateTransition);
             }
+            if (draft.Document.Lyrics is { } lyric)
+                await lyricTracks.PublishAsync(workspaceId, catalogEntryId, lyric.Lrc, lyric.OffsetMs,
+                    selected.Principal.UserId, ct);
             return Results.Ok(await packages.PublishAsync(workspaceId, catalogEntryId, draft.Document,
                 request.RevisionNote, accepted.Order(StringComparer.Ordinal).ToArray(), selected.Principal.UserId, ct));
+        });
+
+        app.MapPost("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}/lyric-track/revisions", async (
+            HttpContext http, string workspaceId, string catalogEntryId, LyricTrackDraft lyric,
+            IWorkspaceAccessStore access, IPrivateAssetMetadataStore assets, ILyricTrackRevisionStore tracks,
+            CancellationToken ct) =>
+        {
+            var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
+            if (selected.Principal is null) return Results.Unauthorized();
+            if (selected.Access is null || await assets.GetEntryAsync(workspaceId, catalogEntryId, ct) is null)
+                return Results.NotFound();
+            var error = "Use valid LRC and an offset within five minutes.";
+            var validLrc = !string.IsNullOrWhiteSpace(lyric.Lrc) && lyric.Lrc.Length <= 1_000_000
+                && SongPackageReadinessEvaluator.TryParseLrc(lyric.Lrc, out _, out error);
+            if (!validLrc || lyric.OffsetMs is < -300_000 or > 300_000)
+                return ProblemResults.BadRequest("Lyric Track is invalid.", error,
+                    ReasonCode.InvalidStateTransition);
+            return Results.Ok(await tracks.PublishAsync(workspaceId, catalogEntryId, lyric.Lrc, lyric.OffsetMs,
+                selected.Principal.UserId, ct));
         });
 
         app.MapGet("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}/package/revisions", async (

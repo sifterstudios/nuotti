@@ -51,4 +51,6 @@ public interface ISongPackageStore
         CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SongPackageRevision>> GetRevisionsAsync(string workspaceId, string catalogEntryId,
         CancellationToken cancellationToken = default);
+    Task<SongPackageRevision?> GetRevisionAsync(string workspaceId, string revisionId,
+        CancellationToken cancellationToken = default);
 }
