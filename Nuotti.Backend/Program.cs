@@ -11,12 +11,27 @@ using Nuotti.Backend.Models;
 using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Workspaces;
+using Nuotti.Backend.ShowAgents;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
+using System.Threading.RateLimiting;
 using Serilog;
 using ServiceDefaults;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("show-agent-pairing", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+});
 builder.AddNuottiWebHost(enableFileSink: false);
 
 // Add service-specific health checks
@@ -106,6 +121,7 @@ builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     builder.Services.AddSingleton<IWorkspaceAccessStore, PostgresWorkspaceAccessStore>();
+    builder.Services.AddSingleton<IShowAgentAccessStore, PostgresShowAgentAccessStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, PostgresDurableSessionCommitStore>();
 }
 else
@@ -113,6 +129,7 @@ else
     // Keep the same durable command/recovery path available during local development and
     // isolated tests. Production replaces only the adapter, not the authorization boundary.
     builder.Services.AddSingleton<IWorkspaceAccessStore, InMemoryWorkspaceAccessStore>();
+    builder.Services.AddSingleton<IShowAgentAccessStore, InMemoryShowAgentAccessStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, InMemoryDurableSessionCommitStore>();
 }
 builder.Services.AddSingleton<DurableOutboxDispatcher>();
@@ -158,10 +175,12 @@ builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
 builder.Services.AddSingleton<HubBroadcastSubscriber>();
 builder.Services.AddSingleton<MetricsSubscriber>();
 builder.Services.AddSingleton<LogStreamSubscriber>();
+builder.Services.AddSingleton<ShowAgentCommandSubscriber>();
 
 var app = builder.Build();
 
 app.UseCors("NuottiCors");
+app.UseRateLimiter();
 app.UseMiddleware<Nuotti.Backend.Middleware.CorrelationIdMiddleware>();
 app.UseMiddleware<ProblemHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
@@ -184,6 +203,7 @@ if (app.Environment.IsDevelopment()) app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
 app.MapWorkspaceEndpoints();
+app.MapShowAgentEndpoints();
 app.MapRecoveryEndpoints();
 app.MapNuottiEndpoints("Nuotti.Backend");
 
@@ -191,6 +211,7 @@ app.MapNuottiEndpoints("Nuotti.Backend");
 _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
 _ = app.Services.GetRequiredService<LogStreamSubscriber>();
+_ = app.Services.GetRequiredService<ShowAgentCommandSubscriber>();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
