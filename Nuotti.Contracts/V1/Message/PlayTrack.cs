@@ -7,6 +7,10 @@ namespace Nuotti.Contracts.V1.Message;
 /// <param name="FileUrl">Public or accessible URL to the audio file to play.</param>
 public record PlayTrack(string FileUrl) : CommandBase
 {
+    /// <summary>Immutable private asset revision captured by the Session Setlist Snapshot.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AssetRevisionId { get; init; }
+
     /// <summary>The playback attempt this relay targets. Null preserves the legacy relay contract.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PlaybackInstanceId { get; init; }

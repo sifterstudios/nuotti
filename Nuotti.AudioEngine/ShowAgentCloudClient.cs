@@ -8,6 +8,10 @@ namespace Nuotti.AudioEngine;
 
 public sealed record CloudAgentCommand(long Sequence, string MessageType, JsonElement Payload);
 public sealed record CloudAgentLease(string AccessToken, DateTimeOffset ExpiresAt, string WorkspaceId, string SessionCode);
+public sealed record CloudSnapshotAsset(string RevisionId, string AssetType, string Sha256, long Size, bool Required);
+public sealed record CloudSessionSnapshot(string SnapshotId, string WorkspaceId, string SessionCode, int Version,
+    IReadOnlyList<CloudSnapshotAsset> Assets);
+public sealed record CloudAssetGrant(Uri DownloadUri, DateTimeOffset ExpiresAt);
 sealed record PairResponse(string AgentId, string Credential, string AccessToken, DateTimeOffset AccessTokenExpiresAt);
 
 public sealed class ShowAgentCloudClient(HttpClient http, IShowAgentCredentialStore credentials)
@@ -57,6 +61,28 @@ public sealed class ShowAgentCloudClient(HttpClient http, IShowAgentCredentialSt
         return await response.Content.ReadFromJsonAsync<CloudAgentCommand[]>(Json, ct) ?? [];
     }
 
+    public async Task<CloudSessionSnapshot?> GetSnapshotAsync(CancellationToken ct = default)
+    {
+        var lease = await EnsureLeaseAsync(ct);
+        if (lease is null) return null;
+        using var request = AgentRequest(HttpMethod.Get, "/v1/show-agent/setlist-snapshot", lease.AccessToken);
+        using var response = await http.SendAsync(request, ct);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        if (response.StatusCode == HttpStatusCode.Unauthorized) { _lease = null; return null; }
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<CloudSessionSnapshot>(Json, ct);
+    }
+
+    public async Task<CloudAssetGrant> GetAssetGrantAsync(string revisionId, CancellationToken ct = default)
+    {
+        var lease = await EnsureLeaseAsync(ct) ?? throw new InvalidOperationException("Show Agent lease is unavailable.");
+        using var request = AgentRequest(HttpMethod.Post,
+            $"/v1/show-agent/assets/{Uri.EscapeDataString(revisionId)}/download", lease.AccessToken);
+        using var response = await http.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CloudAssetGrant>(Json, ct))!;
+    }
+
     public async Task<bool> ReportStatusAsync(string state, string? detail, CancellationToken ct = default)
     {
         var lease = await EnsureLeaseAsync(ct);
@@ -81,4 +107,11 @@ public sealed class ShowAgentCloudClient(HttpClient http, IShowAgentCredentialSt
     }
 
     public static T? DeserializePayload<T>(JsonElement payload) => payload.Deserialize<T>(Json);
+
+    static HttpRequestMessage AgentRequest(HttpMethod method, string path, string token)
+    {
+        var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
+    }
 }

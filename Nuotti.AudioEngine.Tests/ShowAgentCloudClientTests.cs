@@ -50,9 +50,10 @@ public sealed class ShowAgentCloudClientTests
     public void Playback_payload_uses_web_json_names()
     {
         using var document = System.Text.Json.JsonDocument.Parse(
-            """{"fileUrl":"track.wav","sessionCode":"SHOW1","issuedByRole":"Performer","issuedById":"performer-1"}""");
+            """{"fileUrl":"track.wav","assetRevisionId":"rev-1","sessionCode":"SHOW1","issuedByRole":"Performer","issuedById":"performer-1"}""");
         var command = ShowAgentCloudClient.DeserializePayload<Nuotti.Contracts.V1.Message.PlayTrack>(document.RootElement);
         Assert.Equal("track.wav", command!.FileUrl);
+        Assert.Equal("rev-1", command.AssetRevisionId);
     }
 
     static HttpResponseMessage Json(HttpStatusCode status, string json) => new(status)

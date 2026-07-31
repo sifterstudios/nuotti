@@ -47,4 +47,11 @@ public sealed class InMemorySongPackageStore(TimeProvider? timeProvider = null) 
         lock (_gate) return Task.FromResult<IReadOnlyList<SongPackageRevision>>(
             _revisions.GetValueOrDefault((workspaceId, catalogEntryId))?.ToArray() ?? []);
     }
+
+    public Task<SongPackageRevision?> GetRevisionAsync(string workspaceId, string revisionId,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_gate) return Task.FromResult(_revisions.Values.SelectMany(x => x)
+            .FirstOrDefault(x => x.WorkspaceId == workspaceId && x.RevisionId == revisionId));
+    }
 }

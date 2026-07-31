@@ -93,6 +93,22 @@ public sealed class PostgresSongPackageStore(NpgsqlDataSource dataSource, TimePr
         return result;
     }
 
+    public async Task<SongPackageRevision?> GetRevisionAsync(string workspaceId, string revisionId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        await using var command = dataSource.CreateCommand("""
+            SELECT catalog_entry_id,revision_number,document::text,revision_note,published_by,published_at,accepted_warnings::text
+            FROM nuotti_song_package_revision WHERE workspace_id=$1 AND id=$2
+            """);
+        command.Parameters.AddWithValue(workspaceId); command.Parameters.AddWithValue(revisionId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? new(workspaceId, reader.GetString(0), revisionId,
+            reader.GetInt32(1), JsonSerializer.Deserialize<SongPackageDocument>(reader.GetString(2), Json)!,
+            reader.GetString(3), reader.GetString(4), reader.GetFieldValue<DateTimeOffset>(5),
+            JsonSerializer.Deserialize<string[]>(reader.GetString(6), Json) ?? []) : null;
+    }
+
     async Task EnsureSchemaAsync(CancellationToken ct)
     {
         if (_initialized) return;

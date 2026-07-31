@@ -245,6 +245,28 @@ try
             ?? throw new InvalidOperationException("Show Agent credential is missing or revoked. Pair this computer again.");
         Log.Information("Outbound Show Agent lease established. Workspace={WorkspaceId}, Session={SessionCode}, ExpiresAt={ExpiresAt}",
             lease.WorkspaceId, lease.SessionCode, lease.ExpiresAt);
+        var showSnapshot = await cloudAgent.GetSnapshotAsync(cts.Token)
+            ?? throw new InvalidOperationException("This Session has no immutable Session Setlist Snapshot.");
+        if (showSnapshot.WorkspaceId != lease.WorkspaceId || showSnapshot.SessionCode != lease.SessionCode)
+            throw new InvalidOperationException("Show Agent received a snapshot outside its paired Session.");
+        var cacheRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Nuotti", "show-cache", lease.WorkspaceId, lease.SessionCode);
+        var venueCache = new VenueAssetCache(httpClient, cacheRoot);
+        var cacheOverrides = GetArg(args, "cache-overrides", envVar: "NUOTTI_CACHE_OVERRIDES")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.Ordinal);
+        var cachePreflight = await venueCache.PrepareAsync(showSnapshot, cloudAgent.GetAssetGrantAsync,
+            cacheOverrides, cts.Token);
+        foreach (var finding in cachePreflight.Findings)
+            Log.Warning("Venue cache preflight {Code}: {Detail}", finding.Code, finding.Detail);
+        if (!cachePreflight.Ready)
+        {
+            await cloudAgent.ReportStatusAsync("Error", string.Join(" ", cachePreflight.Findings
+                .Select(x => x.Detail)), cts.Token);
+            throw new InvalidOperationException("Venue cache preflight failed. Resolve or explicitly accept the named safe degradations.");
+        }
+        Log.Information("Venue cache ready. Snapshot={SnapshotId}, Assets={AssetCount}",
+            showSnapshot.SnapshotId, cachePreflight.LocalPaths.Count);
         long cursor = cloudAgent.LoadCursor();
         var nextHeartbeat = DateTimeOffset.MinValue;
         while (!cts.IsCancellationRequested)
@@ -263,7 +285,16 @@ try
                 {
                     case "PlayTrack":
                         var play = ShowAgentCloudClient.DeserializePayload<PlayTrack>(command.Payload);
-                        if (play is not null) await engine.OnTrackPlayRequested(play.FileUrl);
+                        if (play is not null)
+                        {
+                            if (!VenueAssetCache.TryResolveCapturedSource(play, cachePreflight.LocalPaths, out var source))
+                            {
+                                await cloudAgent.ReportStatusAsync("Error",
+                                    $"PlayTrack rejected: asset '{play.AssetRevisionId ?? play.FileUrl}' is not in the verified Session cache.", cts.Token);
+                                throw new InvalidOperationException("Playback command referenced material outside the Session Setlist Snapshot.");
+                            }
+                            await engine.OnTrackPlayRequested(new Uri(source).AbsoluteUri);
+                        }
                         break;
                     case "StopTrack":
                         await engine.OnTrackStopped();
