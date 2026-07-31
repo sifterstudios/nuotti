@@ -5,6 +5,7 @@ using Nuotti.Backend.Eventing;
 using Nuotti.Backend.Eventing.Subscribers;
 using Nuotti.Backend.Exception;
 using Nuotti.Backend.Idempotency;
+using Nuotti.Backend.InfrastructureProof;
 using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
@@ -32,12 +33,23 @@ builder.Services
     .ValidateOnStart();
 builder.Services.AddSingleton<IValidateOptions<NuottiOptions>, NuottiOptionsValidator>();
 
-builder.Services
+var signalR = builder.Services
     .AddSignalR(o =>
     {
         o.EnableDetailedErrors = true;
     })
     .AddJsonProtocol(o => o.PayloadSerializerOptions.PropertyNamingPolicy = null);
+
+var databaseConnection = builder.Configuration.GetConnectionString("nuotti");
+var realtimeConnection = builder.Configuration.GetConnectionString("realtime");
+var assetsConnection = builder.Configuration.GetConnectionString("assets");
+if (!string.IsNullOrWhiteSpace(databaseConnection)) builder.AddNpgsqlDataSource("nuotti");
+if (!string.IsNullOrWhiteSpace(assetsConnection)) builder.AddAzureBlobServiceClient("assets");
+if (!string.IsNullOrWhiteSpace(realtimeConnection))
+{
+    builder.AddRedisClient("realtime");
+    signalR.AddStackExchangeRedis(realtimeConnection);
+}
 
 // CORS: environment-based policy
 builder.Services.AddCors(options =>
@@ -149,6 +161,7 @@ app.MapAboutEndpoints();
 app.MapTimeEndpoints();
 app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
+app.MapInfrastructureProofEndpoints();
 app.MapNuottiEndpoints("Nuotti.Backend");
 
 // Force creation of subscribers so they can attach to the bus
