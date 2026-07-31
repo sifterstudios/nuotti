@@ -1,0 +1,209 @@
+@page "/prototype/round-experience"
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Navigation
+
+<PageTitle>Audience + Projector Prototype</PageTitle>
+
+<div class="prototype variant-@Variant.ToLowerInvariant()">
+    <header class="prototype-header">
+        <div>
+            <span class="eyebrow">Nuotti experience study</span>
+            <h1>One round, two points of view</h1>
+            <p>Compare what a participant holds with what the whole room sees.</p>
+        </div>
+        <div class="variant-picker" aria-label="Prototype variant">
+            @foreach (var choice in Variants)
+            {
+                <button class="@(choice == Variant ? "active" : "")" @onclick="() => ChooseVariant(choice)">
+                    @choice
+                </button>
+            }
+        </div>
+    </header>
+
+    <nav class="state-rail" aria-label="Round state">
+        @foreach (var item in States)
+        {
+            <button class="@(item.Key == State ? "active" : "")" @onclick="() => State = item.Key">
+                <span>@item.Number</span>@item.Label
+            </button>
+        }
+    </nav>
+
+    <main class="experience-grid">
+        <section class="surface phone-surface">
+            <div class="surface-label"><span>Participant</span><small>Alex · 1,750 pts</small></div>
+            <div class="phone">
+                <div class="phone-bar"><b>NUOTTI</b><span>● Live · 184</span></div>
+                @PhoneContent()
+            </div>
+        </section>
+
+        <section class="surface projector-surface">
+            <div class="surface-label"><span>Projector</span><small>Room view · session FIREBIRD</small></div>
+            <div class="projector">
+                <div class="projector-brand">NUOTTI <span>FIREBIRD</span></div>
+                @ProjectorContent()
+            </div>
+        </section>
+    </main>
+
+    <aside class="design-note">
+        <b>@VariantTitle</b>
+        <span>@VariantDescription</span>
+    </aside>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string Variant { get; set; } = "A";
+    private string State { get; set; } = "guessing";
+
+    private static readonly string[] Variants = ["A", "B", "C"];
+    private static readonly (string Key, string Number, string Label)[] States =
+    [
+        ("join", "01", "Join"),
+        ("hint", "02", "Hint"),
+        ("guessing", "03", "Guess"),
+        ("locked", "04", "Locked"),
+        ("reveal", "05", "Reveal"),
+        ("leaderboard", "06", "Scores"),
+        ("lyrics", "07", "Lyrics"),
+        ("reconnect", "08", "Reconnect"),
+        ("error", "09", "Error")
+    ];
+
+    private string VariantTitle => Variant switch
+    {
+        "B" => "B · Shared stage pulse",
+        "C" => "C · Catalog-first clarity",
+        _ => "A · Focused handoff"
+    };
+
+    private string VariantDescription => Variant switch
+    {
+        "B" => "The room's energy leads. Participant and projector share a strong visual pulse and persistent round progress.",
+        "C" => "Search and status stay visible together. This favors fast scanning, accessibility, and confidence in a large catalog.",
+        _ => "Each state has one dominant job. Context recedes until it is needed, keeping the participant calm under time pressure."
+    };
+
+    private void ChooseVariant(string choice)
+    {
+        Variant = choice;
+        Navigation.NavigateTo($"/prototype/round-experience?variant={choice}", replace: true);
+    }
+
+    private RenderFragment PhoneContent() => __builder =>
+    {
+        <div class="phone-content">
+            @switch (State)
+            {
+                case "join":
+                    <div class="center-state">
+                        <span class="round-kicker">YOU'RE IN</span>
+                        <div class="avatar">A</div>
+                        <h2>Welcome, Alex</h2>
+                        <p>The next song starts soon. Keep this screen open.</p>
+                        <div class="status-card"><i></i><span><b>Connected</b><small>184 people in the room</small></span></div>
+                    </div>
+                    break;
+                case "hint":
+                    <div class="round-meta"><span>ROUND 3</span><b>Hint 1 of 4</b></div>
+                    <div class="hint-card"><span class="hint-icon">✦</span><small>VISUAL HINT</small><h2>A deserted highway at midnight</h2><p>The song title is somewhere in your catalog.</p></div>
+                    <button class="primary">Get ready to guess</button>
+                    break;
+                case "guessing":
+                    <div class="round-meta"><span>ROUND 3 · HINT 1</span><b class="timer">0:18</b></div>
+                    <h2 class="prompt">What song is it?</h2>
+                    <label class="search"><span>⌕</span><input value="hotel" aria-label="Search songs" /><kbd>×</kbd></label>
+                    <div class="answer-count">4 matches from 1,037 songs</div>
+                    <div class="results">
+                        <button><span><b>Hotel California</b><small>Eagles · 1976</small></span><em>Choose</em></button>
+                        <button><span><b>Heartbreak Hotel</b><small>Elvis Presley · 1956</small></span><em>Choose</em></button>
+                        <button><span><b>Hotel Yorba</b><small>The White Stripes · 2001</small></span><em>Choose</em></button>
+                    </div>
+                    <div class="selection"><span>✓</span><p><small>Your answer</small><b>Hotel California</b></p><button>Change</button></div>
+                    break;
+                case "locked":
+                    <div class="center-state">
+                        <div class="lock-icon">✓</div><span class="round-kicker">ANSWER LOCKED</span>
+                        <h2>Hotel California</h2><p>Your final choice is in. Watch the stage for the reveal.</p>
+                        <div class="answer-stat">184 / 184 answered</div>
+                    </div>
+                    break;
+                case "reveal":
+                    <div class="center-state success">
+                        <span class="round-kicker">YOU GOT IT</span><div class="score-pop">+823</div>
+                        <h2>Hotel California</h2><p>Eagles · 1976</p>
+                        <div class="status-card"><span>⚡</span><span><b>Quick answer</b><small>Locked with 12 seconds left</small></span></div>
+                    </div>
+                    break;
+                case "leaderboard":
+                    <div class="round-meta"><span>AFTER ROUND 3</span><b>Top 10</b></div>
+                    <h2 class="prompt">Leaderboard</h2>
+                    <div class="leader-list">
+                        <div><em>1</em><b>Sam</b><span>3,840</span></div><div><em>2</em><b>Rita</b><span>3,610</span></div>
+                        <div class="me"><em>6</em><b>Alex <small>YOU</small></b><span>2,573</span></div><div><em>7</em><b>Mika</b><span>2,510</span></div>
+                    </div>
+                    <p class="quiet">The band is getting ready…</p>
+                    break;
+                case "lyrics":
+                    <div class="center-state">
+                        <span class="round-kicker">NOW PLAYING</span><h2>Hotel California</h2><p>Eagles</p>
+                        <div class="sound-wave">▂▅▇▃▆▂▅▇▃</div>
+                        <div class="lyrics-note">Lyrics are on the big screen.<br />Enjoy the show!</div>
+                    </div>
+                    break;
+                case "reconnect":
+                    <div class="center-state warning">
+                        <div class="spinner"></div><span class="round-kicker">CONNECTION LOST</span>
+                        <h2>Rejoining the show…</h2><p>Your answer and score are safe on this device.</p>
+                        <button class="secondary">Try again now</button>
+                    </div>
+                    break;
+                default:
+                    <div class="center-state warning">
+                        <div class="error-icon">!</div><span class="round-kicker">COULDN'T SEND ANSWER</span>
+                        <h2>Hotel California is still selected</h2><p>We’ll keep trying until the round locks.</p>
+                        <button class="primary">Send again</button>
+                    </div>
+                    break;
+            }
+        </div>
+    };
+
+    private RenderFragment ProjectorContent() => __builder =>
+    {
+        <div class="projector-content">
+            @switch (State)
+            {
+                case "join":
+                    <div class="projector-center"><span class="huge-code">FIREBIRD</span><h2>Join at nuotti.live</h2><div class="crowd-count">184 <small>people are in</small></div></div>
+                    break;
+                case "hint":
+                    <div class="projector-center"><span class="projector-kicker">ROUND 3 · VISUAL HINT</span><div class="moon">☾</div><h2>A deserted highway at midnight</h2><p>Look closely. Guessing opens next.</p></div>
+                    break;
+                case "guessing":
+                    <div class="projector-center"><span class="projector-kicker">WHAT SONG IS IT?</span><div class="big-timer">18</div><div class="progress"><i style="width:72%"></i></div><h2>132 of 184 have answered</h2><p>You can change your answer until time runs out.</p></div>
+                    break;
+                case "locked":
+                    <div class="projector-center"><span class="projector-kicker">ANSWERS LOCKED</span><div class="big-check">✓</div><h2>184 answers are in</h2><p>The band is ready for the reveal.</p></div>
+                    break;
+                case "reveal":
+                    <div class="projector-center reveal"><span class="projector-kicker">THE SONG IS</span><h2>Hotel<br />California</h2><p>Eagles · 1976</p><div class="correct-count">67% guessed it</div></div>
+                    break;
+                case "leaderboard":
+                    <div class="projector-board"><span class="projector-kicker">LEADERBOARD · ROUND 3</span><div><em>1</em><b>Sam</b><span>3,840</span></div><div><em>2</em><b>Rita</b><span>3,610</span></div><div><em>3</em><b>Jonas</b><span>3,420</span></div><p>Next song coming up</p></div>
+                    break;
+                case "lyrics":
+                    <div class="projector-center lyric-view"><span class="projector-kicker">HOTEL CALIFORNIA · EAGLES</span><p>On a dark desert highway</p><h2>Cool wind in my hair</h2><p>Warm smell of colitas</p><div class="song-progress"><i></i></div></div>
+                    break;
+                case "reconnect":
+                    <div class="projector-center"><span class="projector-kicker">ROUND PAUSED</span><div class="big-pause">Ⅱ</div><h2>Hold on — reconnecting</h2><p>No answers will be lost. The performer can resume when ready.</p></div>
+                    break;
+                default:
+                    <div class="projector-center"><span class="projector-kicker">TECHNICAL PAUSE</span><div class="big-pause">!</div><h2>The performer is sorting it out</h2><p>Stay connected. We’ll continue from the same place.</p></div>
+                    break;
+            }
+        </div>
+    };
+}
