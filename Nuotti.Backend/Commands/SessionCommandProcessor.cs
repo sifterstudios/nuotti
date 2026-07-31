@@ -1,6 +1,7 @@
 using Nuotti.Backend.Audit;
 using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Metrics;
+using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Telemetry;
 using Nuotti.Contracts.V1.Enum;
@@ -10,6 +11,7 @@ using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Reducer;
+using Nuotti.Contracts.V1.Protocol;
 using System.ComponentModel.DataAnnotations;
 using PhaseEnum = Nuotti.Contracts.V1.Enum.Phase;
 namespace Nuotti.Backend.Commands;
@@ -21,7 +23,9 @@ public sealed class SessionCommandProcessor(
     IEventBus bus,
     ILogger<SessionCommandProcessor> logger,
     BackendMetrics? metrics = null,
-    AuditLogService? audit = null) : ISessionCommandProcessor
+    AuditLogService? audit = null,
+    IDurableSessionCommitStore? durable = null,
+    DurableOutboxDispatcher? outbox = null) : ISessionCommandProcessor
 {
     /// <summary>
     /// What a Command does. Events are reduced in order; the reducer ignores types it does not know,
@@ -41,12 +45,44 @@ public sealed class SessionCommandProcessor(
         bool BroadcastSnapshot = true,
         bool CheckIdempotency = true);
 
+    sealed class StaleCommitException : System.Exception { }
+
     public async Task<CommandResult> ApplyAsync(
         string session,
         Actor actor,
         CommandBase command,
         Guid? correlationId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string workspaceId = "legacy")
+    {
+        const int maxAttempts = 4;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                return await ApplyAttemptAsync(session, actor, command, correlationId, ct, workspaceId);
+            }
+            catch (StaleCommitException)
+            {
+                if (attempt == maxAttempts) break;
+                await Task.Yield();
+            }
+        }
+
+        return CommandResult.Rejected(NuottiProblem.Conflict(
+            "Session is busy",
+            "The Session changed repeatedly while this command was being applied. Retry the command.",
+            ReasonCode.InvalidStateTransition,
+            correlationId: correlationId ?? command.CommandId));
+    }
+
+    async Task<CommandResult> ApplyAttemptAsync(
+        string session,
+        Actor actor,
+        CommandBase command,
+        Guid? correlationId,
+        CancellationToken ct,
+        string workspaceId)
     {
         using var activity = BackendActivitySource.StartCommandHandling(
             command.GetType().Name, session, command.CommandId);
@@ -70,16 +106,23 @@ public sealed class SessionCommandProcessor(
                 CorrelationId: correlation));
         }
 
+        if (durable is not null)
+        {
+            var prior = await durable.FindOutcomeAsync(workspaceId, session, command.CommandId, ct);
+            if (prior is not null) return prior;
+        }
+
         // create-session is guarded on existence rather than on phase. A fresh session reads as
         // Lobby (GameReducer.Initial), so guarding it against its declared AllowedPhases of [Idle]
         // would reject every create. Guarding on existence is what actually matters: re-sending
         // create mid-game used to silently reset scores and tallies.
         if (command is CreateSession)
         {
-            if (!idempotency.TryRegister(session, command.CommandId)) return CommandResult.Duplicate();
+            if (durable is null && !idempotency.TryRegister(session, command.CommandId)) return CommandResult.Duplicate();
             metrics?.RecordCommandReceived(command.CommandId);
 
-            if (store.TryGet(session, out _))
+            var durableExisting = durable is null ? null : await durable.LoadAsync(workspaceId, session, ct);
+            if (durableExisting is not null || store.TryGet(session, out _))
             {
                 return Reject(activity, NuottiProblem.Conflict(
                     title: "Session already exists",
@@ -89,18 +132,34 @@ public sealed class SessionCommandProcessor(
             }
 
             var seeded = GameReducer.Initial(session);
-            store.Set(session, seeded);
-            await PublishStateAsync(session, seeded, command, correlation, ct);
+            var createdEvent = StateChanged(session, seeded, command, correlation);
+            if (durable is not null)
+            {
+                var commit = await durable.CommitAsync(
+                    workspaceId, session, command.CommandId, SessionSequence.None, seeded, [createdEvent],
+                    DurableCommitPrecondition.SessionMustNotExist, ct);
+                if (commit.WasDuplicate) return commit.Result;
+                if (commit.Result.Outcome == Outcome.Rejected) return commit.Result;
+                store.Set(session, seeded);
+                if (outbox is not null) await outbox.DispatchPendingAsync(cancellationToken: ct);
+            }
+            else
+            {
+                store.Set(session, seeded);
+                await bus.PublishAsync(createdEvent, ct);
+            }
             Complete(activity, command, seeded);
             return CommandResult.Applied(seeded);
         }
 
-        var state = store.GetOrCreate(session, GameReducer.Initial);
+        var persisted = durable is null ? null : await durable.LoadAsync(workspaceId, session, ct);
+        var state = persisted?.Snapshot ?? store.GetOrCreate(session, GameReducer.Initial);
+        if (persisted is not null) store.Set(session, state);
 
         var effects = EffectsFor(command, state, actor, session, correlation, out var rejection);
         if (rejection is not null) return Reject(activity, rejection);
 
-        if (effects.CheckIdempotency && !idempotency.TryRegister(session, command.CommandId))
+        if (durable is null && effects.CheckIdempotency && !idempotency.TryRegister(session, command.CommandId))
         {
             return CommandResult.Duplicate();
         }
@@ -125,16 +184,26 @@ public sealed class SessionCommandProcessor(
         }
 
         var stateChanged = !ReferenceEquals(next, state);
-        if (stateChanged) store.Set(session, next);
-
-        foreach (var evt in effects.Events)
-        {
-            await PublishAsync(evt, ct);
-        }
-
+        var publications = effects.Events.ToList();
         if (effects.BroadcastSnapshot && stateChanged)
+            publications.Add(StateChanged(session, next, command, correlation));
+
+        if (durable is not null && effects.CheckIdempotency)
         {
-            await PublishStateAsync(session, next, command, correlation, ct);
+            var expectedSequence = persisted?.LastSequence ?? SessionSequence.None;
+            var commit = await durable.CommitAsync(
+                workspaceId, session, command.CommandId, expectedSequence, next, publications,
+                cancellationToken: ct);
+            if (commit.WasDuplicate) return commit.Result;
+            if (commit.WasStale)
+                throw new StaleCommitException();
+            store.Set(session, next);
+            if (outbox is not null) await outbox.DispatchPendingAsync(cancellationToken: ct);
+        }
+        else
+        {
+            if (stateChanged) store.Set(session, next);
+            foreach (var publication in publications) await PublishAsync(publication, ct);
         }
 
         Complete(activity, command, stateChanged ? next : null);
@@ -338,40 +407,20 @@ public sealed class SessionCommandProcessor(
             .ToArray();
     }
 
-    Task PublishStateAsync(
-        string session, GameStateSnapshot snapshot, CommandBase command, Guid correlation, CancellationToken ct)
-        => bus.PublishAsync(
-            new GameStateChanged(snapshot)
-            {
-                SessionCode = session,
-                CausedByCommandId = command.CommandId,
-                CorrelationId = correlation
-            }, ct);
+    static GameStateChanged StateChanged(
+        string session, GameStateSnapshot snapshot, CommandBase command, Guid correlation)
+        => new(snapshot)
+        {
+            SessionCode = session,
+            CausedByCommandId = command.CommandId,
+            CorrelationId = correlation
+        };
 
     /// <summary>
     /// Publishes with the runtime type. IEventBus keys subscribers by TEvent, so passing an
     /// `object` would register everything under `object` and reach no subscriber.
     /// </summary>
-    Task PublishAsync(object evt, CancellationToken ct) => evt switch
-    {
-        GamePhaseChanged e => bus.PublishAsync(e, ct),
-        CorrectAnswerRevealed e => bus.PublishAsync(e, ct),
-        HintGiven e => bus.PublishAsync(e, ct),
-        CatalogUpdated e => bus.PublishAsync(e, ct),
-        QuestionOffered e => bus.PublishAsync(e, ct),
-        AnswerSubmitted e => bus.PublishAsync(e, ct),
-        GameStateChanged e => bus.PublishAsync(e, ct),
-        QuestionPushed c => bus.PublishAsync(c, ct),
-        PlayTrack c => bus.PublishAsync(c, ct),
-        StopTrack c => bus.PublishAsync(c, ct),
-        _ => Unmapped(evt)
-    };
-
-    Task Unmapped(object evt)
-    {
-        logger.LogError("No publish mapping for {Type}; it would reach no subscriber", evt.GetType().Name);
-        return Task.CompletedTask;
-    }
+    Task PublishAsync(object evt, CancellationToken ct) => SessionMessagePublisher.PublishAsync(bus, evt, ct);
 
     void Complete(System.Diagnostics.Activity? activity, CommandBase command, GameStateSnapshot? state)
     {

@@ -26,5 +26,6 @@ public interface ISessionCommandProcessor
         Actor actor,
         CommandBase command,
         Guid? correlationId = null,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        string workspaceId = "legacy");
 }
