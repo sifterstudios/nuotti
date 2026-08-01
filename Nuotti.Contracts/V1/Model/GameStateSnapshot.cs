@@ -60,6 +60,52 @@ public sealed record GameStateSnapshot
     public IReadOnlyDictionary<string, int> Answers { get; init; } = FrozenDictionary<string, int>.Empty;
 
     /// <summary>
+    /// Receipt times for the current window's answers. Internal; not serialized.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, DateTime> AnswerReceivedAtUtc { get; init; } =
+        FrozenDictionary<string, DateTime>.Empty;
+
+    /// <summary>
+    /// Earliest receipt times locked for the current Round (survives subsequent Windows).
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, DateTime> LockedAnswerReceivedAtUtc { get; init; } =
+        FrozenDictionary<string, DateTime>.Empty;
+
+    /// <summary>
+    /// Locked choice at the last Lock for the current Round.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<string, int> LockedAnswers { get; init; } =
+        FrozenDictionary<string, int>.Empty;
+
+    /// <summary>
+    /// When true, Reveal has finalized scores for the current Round — further CorrectAnswerRevealed events are no-ops.
+    /// </summary>
+    public bool ScoresFinalized { get; init; }
+
+    /// <summary>
+    /// Configured Guessing Window length in seconds (10–120).
+    /// </summary>
+    public int GuessingWindowSeconds { get; init; } = 30;
+
+    /// <summary>
+    /// Absolute UTC deadline for the active Guessing Window, if any.
+    /// </summary>
+    public DateTime? GuessingWindowDeadlineUtc { get; init; }
+
+    /// <summary>
+    /// UTC when the active Guessing Window opened (for time-decayed scoring).
+    /// </summary>
+    public DateTime? GuessingWindowOpenedAtUtc { get; init; }
+
+    /// <summary>
+    /// Session-captured scoring policy. Null falls back to <see cref="ScoringPolicy.Standard"/>.
+    /// </summary>
+    public ScoringPolicy? ScoringPolicy { get; init; }
+
+    /// <summary>
     /// UTC timestamp when the current song started, if applicable.
     /// </summary>
     public DateTime? SongStartedAtUtc { get; init; }

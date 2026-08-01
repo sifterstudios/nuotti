@@ -52,12 +52,26 @@ public static class GameStateSnapshotViews
         => Math.Max(1, state.HintIndex + 1);
 
     /// <summary>
-    /// The top <paramref name="count"/> players, highest score first. Ties keep dictionary order.
+    /// The top <paramref name="count"/> players, highest score first. Equal scores share a rank
+    /// (competition ranking: 10,10,5 → ranks 1,1,3).
     /// </summary>
     public static IReadOnlyList<ScoreRow> TopPlayers(this GameStateSnapshot state, int count = 10)
-        => state.Scores
+    {
+        var ordered = state.Scores
             .OrderByDescending(kvp => kvp.Value)
+            .ThenBy(kvp => kvp.Key, StringComparer.Ordinal)
             .Take(count)
-            .Select((kvp, i) => new ScoreRow(kvp.Key, kvp.Value, i + 1))
             .ToArray();
+
+        var rows = new List<ScoreRow>(ordered.Length);
+        for (var i = 0; i < ordered.Length; i++)
+        {
+            var rank = i == 0 || ordered[i].Value != ordered[i - 1].Value
+                ? i + 1
+                : rows[i - 1].Rank;
+            rows.Add(new ScoreRow(ordered[i].Key, ordered[i].Value, rank));
+        }
+
+        return rows;
+    }
 }

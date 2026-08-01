@@ -184,6 +184,23 @@ public sealed class SessionCommandProcessor(
         }
 
         var stateChanged = !ReferenceEquals(next, state);
+        if (command is OpenAnswers openAnswers)
+        {
+            var seconds = OpenAnswers.ClampWindowSeconds(openAnswers.WindowSeconds);
+            var openedAt = DateTime.UtcNow;
+            next = next with
+            {
+                GuessingWindowSeconds = seconds,
+                GuessingWindowOpenedAtUtc = openedAt,
+                GuessingWindowDeadlineUtc = openedAt.AddSeconds(seconds),
+                // New Window clears live answers; Lock-held answers remain for Reveal.
+                Answers = System.Collections.Frozen.FrozenDictionary<string, int>.Empty,
+                AnswerReceivedAtUtc = System.Collections.Frozen.FrozenDictionary<string, DateTime>.Empty,
+                Tallies = next.Choices.Count == 0 ? next.Tallies : new int[next.Choices.Count]
+            };
+            stateChanged = true;
+        }
+
         var publications = effects.Events.ToList();
         if (effects.BroadcastSnapshot && stateChanged)
             publications.Add(StateChanged(session, next, command, correlation));
