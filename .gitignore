@@ -134,6 +134,9 @@ ipch/
 
 # Visual Studio Trace Files
 *.e2e
+# Do not ignore the Nuotti.E2E test project (name ends with .E2E on case-insensitive FS).
+!tests/Nuotti.E2E/
+!tests/Nuotti.E2E/**
 
 # TFS 2012 Local Workspace
 $tf/
