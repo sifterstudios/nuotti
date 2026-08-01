@@ -137,7 +137,13 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
             list.Add(new ShowAgentCommand(sequence, messageType, payload));
             // Playback commands describe desired state. While an Agent is offline only the newest
             // Play/Stop intent is meaningful; replaying intermediate tracks would be harmful.
-            if (list.Count > 1) list.RemoveRange(0, list.Count - 1);
+            // Prepare and other control messages must survive until acknowledged.
+            if (messageType is "PlayTrack" or "StopTrack")
+            {
+                var olderPlayback = list.Where(c => c.MessageType is "PlayTrack" or "StopTrack"
+                    && c.Sequence < sequence).ToArray();
+                foreach (var stale in olderPlayback) list.Remove(stale);
+            }
             return Task.CompletedTask;
         }
     }

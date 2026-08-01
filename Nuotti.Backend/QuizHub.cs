@@ -13,7 +13,8 @@ public class QuizHub(
     ILogger<QuizHub> logger,
     ILogStreamer log,
     ISessionStore sessions,
-    ISessionCommandProcessor processor) : Hub
+    ISessionCommandProcessor processor,
+    ISessionWorkspaceBinder? workspaces = null) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
@@ -217,8 +218,10 @@ public class QuizHub(
             Context.ConnectionId, session, choiceIndex, cmd.CommandId);
 
         // The role came from Join, so the server established it — unlike an HTTP caller, who merely
-        // claims one in the request body.
-        var result = await processor.ApplyAsync(session, Actor.Verified(Role.Audience, audienceId), cmd);
+        // claims one in the request body. Resolve Workspace so durable state matches CreateSession.
+        var workspaceId = workspaces?.Resolve(session) ?? "legacy";
+        var result = await processor.ApplyAsync(session, Actor.Verified(Role.Audience, audienceId), cmd,
+            workspaceId: workspaceId);
         if (result.Problem is not null)
         {
             await SendProblemAsync(result.Problem);

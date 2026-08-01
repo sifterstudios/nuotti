@@ -102,7 +102,9 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
             Payload = JsonSerializer.SerializeToElement(payload, payload.GetType())
         });
         // Compact offline playback to the latest desired Play/Stop state.
-        if (commands.Count > 1) commands.RemoveRange(0, commands.Count - 1);
+        // Prepare and other control messages must survive until acknowledged.
+        if (messageType is "PlayTrack" or "StopTrack")
+            commands.RemoveAll(c => c.MessageType is "PlayTrack" or "StopTrack" && c.Sequence < sequence);
         return null;
     }, cancellationToken);
 

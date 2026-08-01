@@ -16,6 +16,7 @@ public sealed class ShowAgentCommandSubscriber : IDisposable
             {
                 PlayTrack => "PlayTrack",
                 StopTrack => "StopTrack",
+                PreparePlayback => "Prepare",
                 _ => null
             };
             if (messageType is not null)

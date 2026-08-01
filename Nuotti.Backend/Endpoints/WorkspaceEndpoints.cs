@@ -1,5 +1,6 @@
 using Nuotti.Backend.Commands;
 using Nuotti.Backend.Middleware;
+using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Workspaces;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
@@ -97,7 +98,8 @@ public static class WorkspaceEndpoints
 
         app.MapPost("/v1/workspaces/{workspaceId}/sessions/{sessionCode}/create", async (
             HttpContext http, string workspaceId, string sessionCode,
-            IWorkspaceAccessStore store, ISessionCommandProcessor processor, CancellationToken ct) =>
+            IWorkspaceAccessStore store, ISessionCommandProcessor processor,
+            ISessionWorkspaceBinder sessions, CancellationToken ct) =>
         {
             var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, store, workspaceId, ct);
             if (selected.Principal is null) return Results.Unauthorized();
@@ -108,9 +110,13 @@ public static class WorkspaceEndpoints
                 IssuedByRole = Role.Performer,
                 IssuedById = selected.Principal.UserId
             };
-            return (await processor.ApplyAsync(sessionCode,
+            var result = await processor.ApplyAsync(sessionCode,
                 Actor.Verified(Role.Performer, selected.Principal.UserId), command,
-                CorrelationIdMiddleware.GetCorrelationId(http), ct, workspaceId)).ToHttpResult();
+                CorrelationIdMiddleware.GetCorrelationId(http), ct, workspaceId);
+            if (result.Outcome is Nuotti.Contracts.V1.Protocol.Outcome.Applied
+                or Nuotti.Contracts.V1.Protocol.Outcome.Duplicate)
+                sessions.Bind(sessionCode, workspaceId);
+            return result.ToHttpResult();
         });
 
         app.MapPost("/v1/workspaces/{workspaceId}/sessions/{sessionCode}/start", async (

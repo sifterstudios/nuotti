@@ -1,0 +1,20 @@
+using Nuotti.Contracts.V1.Message.Phase;
+using Nuotti.Contracts.V1.Model;
+
+namespace Nuotti.Contracts.V1.Message;
+
+/// <summary>
+/// Performer starts cached venue playback: moves Reveal → Play and relays a PlayTrack
+/// resolved from the Session Setlist Snapshot asset revision.
+/// </summary>
+public sealed record StartPlayback(SongId SongId, string AssetRevisionId) : CommandBase, IPhaseRestricted, IPhaseChange
+{
+    public SongId SongId { get; } = SongId;
+    public string AssetRevisionId { get; } = AssetRevisionId;
+
+    public IReadOnlyCollection<Enum.Phase> AllowedPhases { get; } = [Enum.Phase.Reveal];
+
+    public Enum.Phase TargetPhase => Enum.Phase.Play;
+    public IReadOnlyCollection<Enum.Phase> AllowedSourcePhases => [Enum.Phase.Reveal];
+    public bool IsPhaseChangeAllowed(Enum.Phase current) => AllowedSourcePhases.Contains(current);
+}

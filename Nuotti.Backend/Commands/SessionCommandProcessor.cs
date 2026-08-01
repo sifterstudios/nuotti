@@ -191,19 +191,40 @@ public sealed class SessionCommandProcessor(
         if (durable is not null && effects.CheckIdempotency)
         {
             var expectedSequence = persisted?.LastSequence ?? SessionSequence.None;
+            // Relays (PlayTrack, PreparePlayback, …) are at-least-once and not outbox-durable —
+            // commit only durable events, then publish relays live so Show Agent still receives them.
+            var durablePublications = publications.Where(SessionMessagePublisher.IsDurable).ToList();
+            var liveRelays = publications.Where(p => !SessionMessagePublisher.IsDurable(p)).ToList();
             var commit = await durable.CommitAsync(
-                workspaceId, session, command.CommandId, expectedSequence, next, publications,
+                workspaceId, session, command.CommandId, expectedSequence, next, durablePublications,
                 cancellationToken: ct);
             if (commit.WasDuplicate) return commit.Result;
             if (commit.WasStale)
                 throw new StaleCommitException();
             store.Set(session, next);
             if (outbox is not null) await outbox.DispatchPendingAsync(cancellationToken: ct);
+            foreach (var relay in liveRelays) await PublishAsync(relay, ct, workspaceId);
         }
         else
         {
             if (stateChanged) store.Set(session, next);
             foreach (var publication in publications) await PublishAsync(publication, ct, workspaceId);
+            // At-least-once relays that also change state (QuestionPushed → QuestionOffered) must
+            // still advance the Workspace durable snapshot; otherwise the next phase command
+            // reloads a Choices-less record and wipes memory. Use a fresh CommandId so retries
+            // remain at-least-once on the wire (docs/adr/0002).
+            if (durable is not null && stateChanged && workspaceId != "legacy")
+            {
+                var durableOnly = publications.Where(SessionMessagePublisher.IsDurable).ToList();
+                if (durableOnly.Count > 0)
+                {
+                    var latest = await durable.LoadAsync(workspaceId, session, ct);
+                    var expectedSequence = latest?.LastSequence ?? SessionSequence.None;
+                    await durable.CommitAsync(
+                        workspaceId, session, Guid.NewGuid(), expectedSequence, next, durableOnly,
+                        cancellationToken: ct);
+                }
+            }
         }
 
         Complete(activity, command, stateChanged ? next : null);
@@ -237,6 +258,33 @@ public sealed class SessionCommandProcessor(
                         CorrelationId = correlation
                     }
                 ]);
+
+            // StartPlayback must be matched before IPhaseChange: it both moves Reveal→Play and
+            // relays a cache-resolved PlayTrack so the Show Agent can start backing/click.
+            case StartPlayback start:
+                if (string.IsNullOrWhiteSpace(start.AssetRevisionId))
+                {
+                    rejection = NuottiProblem.UnprocessableEntity(
+                        title: "Invalid Start",
+                        detail: "AssetRevisionId from the Session Setlist Snapshot is required.",
+                        field: "assetRevisionId",
+                        correlationId: correlation);
+                    return new Effects([]);
+                }
+                return new Effects([
+                    Phase(state.Phase, start.TargetPhase, session, command, correlation),
+                    new PlayTrack(start.AssetRevisionId)
+                    {
+                        AssetRevisionId = start.AssetRevisionId,
+                        SessionCode = session,
+                        IssuedByRole = command.IssuedByRole,
+                        IssuedById = command.IssuedById,
+                        CommandId = command.CommandId
+                    }
+                ]);
+
+            case PreparePlayback prepare:
+                return new Effects([prepare], BroadcastSnapshot: false, CheckIdempotency: false);
 
             case IPhaseChange phaseChange:
                 return new Effects([

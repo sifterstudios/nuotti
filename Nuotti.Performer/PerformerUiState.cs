@@ -41,6 +41,8 @@ public sealed class PerformerUiState
     // Performer-local state, not part of the session snapshot
     public int? SelectedCorrectIndex { get; private set; }
     public IReadOnlyDictionary<string, int> BaselineScores { get; private set; } = new Dictionary<string, int>();
+    /// <summary>Backing/click AssetRevisionId from the Session Setlist Snapshot for Start.</summary>
+    public string? VenueAssetRevisionId { get; private set; }
 
     // Role counts
     public int ProjectorCount { get; private set; }
@@ -139,6 +141,12 @@ public sealed class PerformerUiState
     public void SetSelectedCorrectIndex(int? index)
     {
         SelectedCorrectIndex = index;
+        Changed?.Invoke();
+    }
+
+    public void SetVenueAssetRevisionId(string? assetRevisionId)
+    {
+        VenueAssetRevisionId = string.IsNullOrWhiteSpace(assetRevisionId) ? null : assetRevisionId.Trim();
         Changed?.Invoke();
     }
 

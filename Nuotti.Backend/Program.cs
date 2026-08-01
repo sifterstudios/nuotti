@@ -121,6 +121,7 @@ builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+builder.Services.AddSingleton<ISessionWorkspaceBinder, InMemorySessionWorkspaceBinder>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     builder.Services.AddSingleton<IWorkspaceAccessStore, PostgresWorkspaceAccessStore>();

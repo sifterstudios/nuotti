@@ -19,7 +19,8 @@ public static class SessionMessagePublisher
     [
         Of<GamePhaseChanged>(), Of<CorrectAnswerRevealed>(), Of<HintGiven>(),
         Of<CatalogUpdated>(), Of<QuestionOffered>(), Of<AnswerSubmitted>(), Of<GameStateChanged>(),
-        Of<QuestionPushed>(false), Of<PlayTrack>(false), Of<StopTrack>(false)
+        Of<QuestionPushed>(false), Of<PlayTrack>(false), Of<StopTrack>(false),
+        Of<PreparePlayback>(false)
     ];
 
     static readonly IReadOnlyDictionary<Type, Entry> ByType = Entries.ToDictionary(entry => entry.Type);
@@ -42,6 +43,9 @@ public static class SessionMessagePublisher
             await bus.PublishAsync(new WorkspacePublication(workspaceId, sessionCode, message), cancellationToken);
         }
     }
+
+    public static bool IsDurable(object message)
+        => ByType.TryGetValue(message.GetType(), out var entry) && entry.Durable;
 
     public static (string Type, string Payload) SerializeDurable(object message)
     {

@@ -48,7 +48,8 @@ internal static class ApiEndpoints
         // Upload a setlist manifest and replace the session's song catalog. Manifest validation and
         // catalog construction live behind the processor with every other command effect.
         app.MapPost("/api/manifest/{session}",
-                async (HttpContext http, ISessionCommandProcessor processor, string session, SetlistManifest manifest) =>
+                async (HttpContext http, ISessionCommandProcessor processor,
+                    ISessionWorkspaceBinder workspaces, string session, SetlistManifest manifest) =>
                 {
                     var cmd = new UpdateCatalog(manifest)
                     {
@@ -62,7 +63,8 @@ internal static class ApiEndpoints
                         Actor.Claimed(cmd),
                         cmd,
                         CorrelationIdMiddleware.GetCorrelationId(http),
-                        http.RequestAborted);
+                        http.RequestAborted,
+                        workspaces.Resolve(session) ?? "legacy");
 
                     if (result.Outcome == Outcome.Rejected) return ProblemResults.From(result.Problem!);
 
@@ -91,14 +93,17 @@ internal static class ApiEndpoints
 
     static void MapRelay<T>(this WebApplication app, string route) where T : CommandBase
     {
-        app.MapPost(route, async (HttpContext http, ISessionCommandProcessor processor, string session, T cmd) =>
+        app.MapPost(route, async (HttpContext http, ISessionCommandProcessor processor,
+                ISessionWorkspaceBinder workspaces, string session, T cmd) =>
             {
+                var workspaceId = workspaces.Resolve(session) ?? "legacy";
                 var result = await processor.ApplyAsync(
                     session,
                     Actor.Claimed(cmd),
                     cmd,
                     CorrelationIdMiddleware.GetCorrelationId(http),
-                    http.RequestAborted);
+                    http.RequestAborted,
+                    workspaceId);
 
                 return result.ToHttpResult();
             })

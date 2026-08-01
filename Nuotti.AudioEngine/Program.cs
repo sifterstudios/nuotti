@@ -283,6 +283,10 @@ try
             {
                 switch (command.MessageType)
                 {
+                    case "Prepare":
+                        Log.Information("Prepare received from cloud Backend; venue cache already verified at pair time");
+                        await cloudAgent.ReportStatusAsync("Ready", "prepared", cts.Token);
+                        break;
                     case "PlayTrack":
                         var play = ShowAgentCloudClient.DeserializePayload<PlayTrack>(command.Payload);
                         if (play is not null)

@@ -111,6 +111,42 @@ public sealed class PerformerCommands
         await SendAsync("give-hint", cmd, ct);
     }
 
+    public async Task OpenAnswersAsync(CancellationToken ct = default)
+    {
+        EnsureSession();
+        var cmd = new OpenAnswers
+        {
+            SessionCode = _state.SessionCode!,
+            IssuedByRole = Role.Performer,
+            IssuedById = "performer-ui"
+        };
+        await SendAsync("open-answers", cmd, ct);
+    }
+
+    public async Task PreparePlaybackAsync(CancellationToken ct = default)
+    {
+        EnsureSession();
+        var cmd = new PreparePlayback
+        {
+            SessionCode = _state.SessionCode!,
+            IssuedByRole = Role.Performer,
+            IssuedById = "performer-ui"
+        };
+        await SendAsync("prepare-playback", cmd, ct);
+    }
+
+    public async Task StartPlaybackAsync(SongId songId, string assetRevisionId, CancellationToken ct = default)
+    {
+        EnsureSession();
+        var cmd = new StartPlayback(songId, assetRevisionId)
+        {
+            SessionCode = _state.SessionCode!,
+            IssuedByRole = Role.Performer,
+            IssuedById = "performer-ui"
+        };
+        await SendAsync("start-playback", cmd, ct);
+    }
+
     void EnsureSession()
     {
         if (string.IsNullOrWhiteSpace(_state.SessionCode)) throw new InvalidOperationException("Session not set");

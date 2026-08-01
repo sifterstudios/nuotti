@@ -33,6 +33,14 @@
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true"
+                       data-testid="btn-open-window"
+                       StartIcon="@Material.Filled.Timer"
+                       OnClick="@(e => OpenWindow(e))" Disabled="@(!CanOpenWindow)">
+                Open Window (W)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Warning" FullWidth="true" 
                        data-testid="btn-lock"
                        StartIcon="@Material.Filled.Lock" 
@@ -46,6 +54,22 @@
                        StartIcon="@Material.Filled.Visibility" 
                        OnClick="@(e => Reveal(e))" Disabled="@(!CanReveal)">
                 Reveal (R)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Default" FullWidth="true"
+                       data-testid="btn-prepare"
+                       StartIcon="@Material.Filled.Download"
+                       OnClick="@(e => Prepare(e))" Disabled="@(!CanPrepare)">
+                Prepare (P)
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       data-testid="btn-start-playback"
+                       StartIcon="@Material.Filled.PlayCircle"
+                       OnClick="@(e => StartPlayback(e))" Disabled="@(!CanStartPlayback)">
+                Start (A)
             </MudButton>
         </MudItem>
         <MudItem xs="12" sm="6" md="4" lg="2">
@@ -126,9 +150,12 @@
     bool HasSelection => State.SelectedCorrectIndex.HasValue;
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
     bool CanNextSong => State.Phase is Phase.Guessing && State.EngineCount > 0; // NextRound requires Engine
-    bool CanGiveHint => State.Phase is Phase.Start or Phase.Hint or Phase.Guessing;
+    bool CanGiveHint => State.Phase is Phase.Guessing;
+    bool CanOpenWindow => State.Phase is Phase.Start or Phase.Hint;
     bool CanLock => State.Phase is Phase.Guessing;
     bool CanReveal => State.Phase is Phase.Lock && HasSelection;
+    bool CanPrepare => State.Phase is Phase.Reveal;
+    bool CanStartPlayback => State.Phase is Phase.Reveal && !string.IsNullOrWhiteSpace(State.VenueAssetRevisionId);
     bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
 
     // Debounce: prevent double-triggers within 500ms for all flow buttons
@@ -191,6 +218,25 @@
         await Commands.GiveHintAsync(hint);
         // Optimistically increment; server snapshot will sync if different
         State.IncrementHintIndex();
+    }
+
+    async Task OpenWindow(MouseEventArgs _)
+    {
+        if (Debounced(nameof(OpenWindow))) return;
+        await Commands.OpenAnswersAsync();
+    }
+
+    async Task Prepare(MouseEventArgs _)
+    {
+        if (Debounced(nameof(Prepare))) return;
+        await Commands.PreparePlaybackAsync();
+    }
+
+    async Task StartPlayback(MouseEventArgs _)
+    {
+        if (Debounced(nameof(StartPlayback))) return;
+        if (State.CurrentSong is null || string.IsNullOrWhiteSpace(State.VenueAssetRevisionId)) return;
+        await Commands.StartPlaybackAsync(State.CurrentSong.Id, State.VenueAssetRevisionId);
     }
 
     async Task LockAnswers(MouseEventArgs _)
@@ -321,6 +367,10 @@
                 if (CanGiveHint)
                     _ = GiveHint(new MouseEventArgs());
                 break;
+            case "w":
+                if (CanOpenWindow)
+                    _ = OpenWindow(new MouseEventArgs());
+                break;
             case "l":
                 if (CanLock)
                     _ = LockAnswers(new MouseEventArgs());
@@ -328,6 +378,14 @@
             case "r":
                 if (CanReveal)
                     _ = Reveal(new MouseEventArgs());
+                break;
+            case "p":
+                if (CanPrepare)
+                    _ = Prepare(new MouseEventArgs());
+                break;
+            case "a":
+                if (CanStartPlayback)
+                    _ = StartPlayback(new MouseEventArgs());
                 break;
             case "e":
                 if (CanEndSong)
