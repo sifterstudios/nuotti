@@ -27,6 +27,19 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
             && entry.WorkspaceId == workspaceId ? entry : null);
     }
 
+    public Task<IReadOnlyList<PrivateCatalogEntry>> ListEntriesAsync(string workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            IReadOnlyList<PrivateCatalogEntry> list = _entries.Values
+                .Where(e => e.WorkspaceId == workspaceId)
+                .OrderBy(e => e.Title, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            return Task.FromResult(list);
+        }
+    }
+
     public Task<(PrivateAssetRevision Revision, string ObjectKey)?> CreateDraftAsync(
         string workspaceId, string catalogEntryId, string assetType, string contentType, long declaredSize,
         AssetProvenance provenance, string userId, CancellationToken cancellationToken = default)

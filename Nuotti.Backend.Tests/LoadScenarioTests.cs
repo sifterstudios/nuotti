@@ -40,8 +40,8 @@ public class LoadScenarioTests
                 var ctx = new TestContext($"load-aud-{i}");
                 hub.SetContext(ctx);
 
-                await hub.Join(session, "Audience", name: $"A-{i}");
-                await hub.SubmitAnswer(session, choiceIndex: i % 4);
+                await hub.Join(session, "Audience", name: $"A-{i}", deviceSecret: $"dev-A-{i}");
+                await hub.SubmitAnswer(session, i % 4, Guid.Empty);
             }
             catch (System.Exception ex)
             {

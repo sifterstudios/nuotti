@@ -283,6 +283,10 @@ try
             {
                 switch (command.MessageType)
                 {
+                    case "Prepare":
+                        Log.Information("Prepare received from cloud Backend; venue cache already verified at pair time");
+                        await cloudAgent.ReportStatusAsync("Ready", "prepared", cts.Token);
+                        break;
                     case "PlayTrack":
                         var play = ShowAgentCloudClient.DeserializePayload<PlayTrack>(command.Payload);
                         if (play is not null)
@@ -315,7 +319,7 @@ try
     {
         // Development compatibility only. Paired Windows agents use outbound HTTPS polling above.
         await connection.StartAsync(cts.Token);
-        await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
+        await connection.InvokeAsync("Join", session, "engine", null, null, cancellationToken: cts.Token);
         var initLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
         await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, initLat), cancellationToken: cts.Token);
         _ = RunHeartbeatAsync(cts.Token);

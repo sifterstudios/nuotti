@@ -50,7 +50,7 @@ public class BackendCommandFlowTests : IClassFixture<WebApplicationFactory<QuizH
         });
 
         await connection.StartAsync();
-        await connection.InvokeAsync("Join", session, "projector", null);
+        await connection.InvokeAsync("Join", session, "projector", null, null);
 
         // Send StartGame without explicit session creation; server initializes state lazily
         var resp = await client.PostAsJsonAsync($"/v1/message/phase/start-game/{session}", MakeStart(session));

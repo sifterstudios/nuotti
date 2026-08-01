@@ -63,7 +63,7 @@ public sealed class PerformerClient : IAsyncDisposable
         {
             await _hub.StartAsync(cancellationToken);
             ConnectedChanged?.Invoke(IsConnected);
-            await _hub.InvokeAsync("Join", _sessionCode, "performer", null, cancellationToken);
+            await _hub.InvokeAsync("Join", _sessionCode, "performer", null, null, cancellationToken);
         }
     }
 

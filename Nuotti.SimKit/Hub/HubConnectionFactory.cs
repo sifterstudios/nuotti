@@ -42,16 +42,22 @@ internal sealed class RealHubClient : IHubClient
 
     public Task JoinAsync(string session, string role, string? name = null, CancellationToken cancellationToken = default)
     {
-        // Audience may have a display name; others pass null
-        if (!string.IsNullOrWhiteSpace(name) && string.Equals(role, "audience", StringComparison.OrdinalIgnoreCase))
+        // Audience may have a display name; others pass null. Device secret is stable per client
+        // instance so SimKit reconnects restore the same Participant within the Session.
+        if (string.Equals(role, "audience", StringComparison.OrdinalIgnoreCase))
         {
-            return _connection.InvokeAsync("CreateOrJoinWithName", session, name, cancellationToken);
+            var deviceSecret = _deviceSecret ??= Guid.NewGuid().ToString("N");
+            if (!string.IsNullOrWhiteSpace(name))
+                return _connection.InvokeAsync("CreateOrJoinWithName", session, name, deviceSecret, cancellationToken);
+            return _connection.InvokeAsync("Join", session, role, name, deviceSecret, cancellationToken);
         }
-        return _connection.InvokeAsync("Join", session, role, name, cancellationToken);
+        return _connection.InvokeAsync("Join", session, role, name, null, cancellationToken);
     }
 
+    string? _deviceSecret;
+
     public Task SubmitAnswerAsync(string session, int choiceIndex, CancellationToken cancellationToken = default)
-        => _connection.InvokeAsync("SubmitAnswer", session, choiceIndex, cancellationToken);
+        => _connection.InvokeAsync("SubmitAnswer", session, choiceIndex, Guid.Empty, cancellationToken);
 
     public IDisposable On<T>(Func<T, Task> handler)
         => _connection.On(HubWireNames.For<T>(), handler);

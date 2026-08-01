@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Commands;
+using Nuotti.Backend.Participants;
 using Nuotti.Backend.RateLimiting;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Enum;
@@ -13,10 +14,13 @@ public class QuizHub(
     ILogger<QuizHub> logger,
     ILogStreamer log,
     ISessionStore sessions,
-    ISessionCommandProcessor processor) : Hub
+    ISessionCommandProcessor processor,
+    IParticipantIdentityStore participants,
+    ISessionWorkspaceBinder? workspaces = null) : Hub
 {
     const string SessionKey = "session";
     const string RoleKey = "role";
+    const string ParticipantKey = "participantId";
 
     // Engine reports status changes via hub; broadcast to entire session
     public Task EngineStatusChanged(string session, EngineStatusChanged evt)
@@ -30,7 +34,7 @@ public class QuizHub(
     public Task Echo(string session, long clientTicks, long engineTicks)
         => Clients.Group($"{session}:performer").SendAsync("Echo", clientTicks, engineTicks);
 
-    public async Task Join(string session, string role, string? name = null)
+    public async Task Join(string session, string role, string? name, string? deviceSecret)
     {
         if (string.IsNullOrWhiteSpace(session))
         {
@@ -56,38 +60,80 @@ public class QuizHub(
         Context.Items[SessionKey] = session;
         Context.Items[RoleKey] = normalizedRole;
 
+        string? participantId = null;
+        string? displayName = name;
+        if (string.Equals(normalizedRole, "audience", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(deviceSecret))
+            {
+                await SendProblemAsync(NuottiProblem.BadRequest(
+                    title: "Device identity required",
+                    detail: "Audience joins require a device-bound secret for Session-scoped reconnect.",
+                    reason: ReasonCode.InvalidStateTransition,
+                    field: "deviceSecret"));
+                return;
+            }
+
+            try
+            {
+                var participant = participants.JoinOrRestore(session, deviceSecret, name);
+                participantId = participant.ParticipantId;
+                displayName = participant.DisplayName;
+                Context.Items[ParticipantKey] = participantId;
+            }
+            catch (ArgumentException ex)
+            {
+                await SendProblemAsync(NuottiProblem.BadRequest(
+                    title: "Invalid display name",
+                    detail: ex.Message,
+                    reason: ReasonCode.InvalidStateTransition,
+                    field: "name"));
+                return;
+            }
+        }
+
         // Join session-wide group and session+role group
         await Groups.AddToGroupAsync(Context.ConnectionId, session);
         await Groups.AddToGroupAsync(Context.ConnectionId, $"{session}:{normalizedRole.ToLowerInvariant()}");
         // Track connection by role in the session store
-        sessions.Touch(session, normalizedRole, Context.ConnectionId, name);
+        sessions.Touch(session, normalizedRole, Context.ConnectionId, displayName);
 
         // Send server time to client for time drift detection
         var serverTime = DateTimeOffset.UtcNow;
         await Clients.Caller.SendAsync("ServerTime", serverTime.Ticks, serverTime.ToString("O"));
 
-        logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name}", Context.ConnectionId, session, role, name);
+        if (participantId is not null)
+        {
+            await Clients.Caller.SendAsync("ParticipantRestored", new
+            {
+                ParticipantId = participantId,
+                SessionCode = session,
+                DisplayName = displayName
+            });
+        }
+
+        logger.LogInformation("Join: conn={ConnectionId} session={Session} role={Role} name={Name} participant={ParticipantId}",
+            Context.ConnectionId, session, role, displayName, participantId);
         await log.BroadcastAsync(new LogEvent(
             Timestamp: DateTimeOffset.UtcNow,
             Level: "Info",
             Source: nameof(QuizHub),
-            Message: $"Join: name={name}",
+            Message: $"Join: name={displayName}",
             ConnectionId: Context.ConnectionId,
             Session: session,
             Role: role
         ));
 
-        if (!string.IsNullOrWhiteSpace(name))
+        if (!string.IsNullOrWhiteSpace(displayName) && string.Equals(normalizedRole, "audience", StringComparison.OrdinalIgnoreCase))
         {
-            await Clients.Group(session).SendAsync("JoinedAudience", new JoinedAudience(Context.ConnectionId, name));
+            await Clients.Group(session).SendAsync("JoinedAudience",
+                new JoinedAudience(participantId ?? Context.ConnectionId, displayName));
         }
     }
 
-    public Task CreateOrJoinWithName(string session, string audienceName) => Join(session, role: "audience", name: audienceName);
+    public Task CreateOrJoinWithName(string session, string audienceName, string deviceSecret)
+        => Join(session, role: "audience", name: audienceName, deviceSecret: deviceSecret);
 
-    // // Compatibility shim for older clients (e.g., AudioEngine) that invoke 'CreateOrJoin'
-    // public Task CreateOrJoin(string session) => Join(session, role: "engine");
-    //
     public async override Task OnConnectedAsync()
     {
         await base.OnConnectedAsync();
@@ -127,16 +173,13 @@ public class QuizHub(
             Session: session,
             Role: role
         ));
-        // Remove from the session store
         sessions.Remove(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
-    // Emit a NuottiProblem to the calling client
     Task SendProblemAsync(NuottiProblem problem)
         => Clients.Caller.SendAsync("Problem", problem);
 
-    // Audience can ask the projector to play a track. Projector will then call the REST API to actually play.
     public async Task RequestPlay(string session, PlayTrack cmd)
     {
         var role = Context.Items.TryGetValue(RoleKey, out var roleObj) ? roleObj as string : null;
@@ -150,7 +193,6 @@ public class QuizHub(
             return;
         }
 
-        // Rate limit play/stop actions to 1 per 2 seconds per connection
         if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "PlayStop", TimeSpan.FromSeconds(2)))
         {
             await SendProblemAsync(new NuottiProblem(
@@ -177,10 +219,9 @@ public class QuizHub(
         await Clients.Group(session).SendAsync("RequestPlay", cmd);
     }
 
-    // Audience submits answer choice
-    public async Task SubmitAnswer(string session, int choiceIndex)
+    // Audience submits an answer. Pass Guid.Empty to mint a fresh CommandId; otherwise retry with the same id.
+    public async Task SubmitAnswer(string session, int choiceIndex, Guid commandId)
     {
-        // Only audience members may submit answers
         var role = Context.Items.TryGetValue(RoleKey, out var roleObj) ? roleObj as string : null;
         if (!string.Equals(role, "audience", StringComparison.OrdinalIgnoreCase))
         {
@@ -192,7 +233,6 @@ public class QuizHub(
             return;
         }
 
-        // Debounce SubmitAnswer per-connection with 500ms window
         if (!ConnectionRateLimiter.TryAllow(Context.ConnectionId, "SubmitAnswer", TimeSpan.FromMilliseconds(500)))
         {
             await SendProblemAsync(new NuottiProblem(
@@ -205,23 +245,36 @@ public class QuizHub(
             return;
         }
 
-        var audienceId = Context.ConnectionId;
+        var audienceId = Context.Items.TryGetValue(ParticipantKey, out var partObj) && partObj is string partId
+            ? partId
+            : Context.ConnectionId;
+        var resolvedCommandId = commandId == Guid.Empty ? Guid.NewGuid() : commandId;
         var cmd = new SubmitAnswer(SongId: null, ChoiceIndex: choiceIndex)
         {
             SessionCode = session,
             IssuedByRole = Role.Audience,
-            IssuedById = audienceId
+            IssuedById = audienceId,
+            CommandId = resolvedCommandId
         };
 
-        logger.LogInformation("SubmitAnswer: conn={ConnectionId} session={Session} choiceIndex={ChoiceIndex} CommandId={CommandId}",
-            Context.ConnectionId, session, choiceIndex, cmd.CommandId);
+        logger.LogInformation("SubmitAnswer: conn={ConnectionId} session={Session} choiceIndex={ChoiceIndex} CommandId={CommandId} audience={AudienceId}",
+            Context.ConnectionId, session, choiceIndex, cmd.CommandId, audienceId);
 
-        // The role came from Join, so the server established it — unlike an HTTP caller, who merely
-        // claims one in the request body.
-        var result = await processor.ApplyAsync(session, Actor.Verified(Role.Audience, audienceId), cmd);
+        var workspaceId = workspaces?.Resolve(session) ?? "legacy";
+        var result = await processor.ApplyAsync(session, Actor.Verified(Role.Audience, audienceId), cmd,
+            workspaceId: workspaceId);
         if (result.Problem is not null)
         {
             await SendProblemAsync(result.Problem);
+        }
+        else
+        {
+            await Clients.Caller.SendAsync("AnswerAccepted", new
+            {
+                CommandId = cmd.CommandId,
+                ChoiceIndex = choiceIndex,
+                Outcome = result.Outcome.ToString()
+            });
         }
     }
 }

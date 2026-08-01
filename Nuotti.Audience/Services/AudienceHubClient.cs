@@ -20,6 +20,15 @@ public class AudienceHubClient : IAsyncDisposable
     public string? BackendBaseUrl { get; }
     public string? SessionCode { get; private set; }
     public string? AudienceName { get; private set; }
+    public string? ParticipantId { get; private set; }
+    public string DeviceSecret { get; private set; } = Guid.NewGuid().ToString("N");
+    public int? MyAnswerChoiceIndex { get; private set; }
+    public bool HasPendingAnswer => _pendingAnswer is not null;
+    public string? PendingAnswerLabel => _pendingAnswer is null ? null : "Waiting to send";
+
+    PendingAnswer? _pendingAnswer;
+
+    sealed record PendingAnswer(int ChoiceIndex, Guid CommandId);
 
     public QuestionPushed? CurrentQuestion { get; private set; }
     public GameStateSnapshot? CurrentGameState { get; private set; }
@@ -126,6 +135,28 @@ public class AudienceHubClient : IAsyncDisposable
                 JoinedAudience?.Invoke(j);
             });
 
+            _connection.On<System.Text.Json.JsonElement>("ParticipantRestored", payload =>
+            {
+                if (payload.TryGetProperty("ParticipantId", out var id))
+                    ParticipantId = id.GetString();
+                else if (payload.TryGetProperty("participantId", out var idCamel))
+                    ParticipantId = idCamel.GetString();
+                Log($"[Audience] ParticipantRestored: {ParticipantId}");
+            });
+
+            _connection.On<System.Text.Json.JsonElement>("AnswerAccepted", payload =>
+            {
+                Guid? acceptedId = null;
+                if (payload.TryGetProperty("CommandId", out var cmd) || payload.TryGetProperty("commandId", out cmd))
+                    acceptedId = cmd.TryGetGuid(out var g) ? g : null;
+                if (_pendingAnswer is not null && (acceptedId is null || acceptedId == _pendingAnswer.CommandId))
+                {
+                    MyAnswerChoiceIndex = _pendingAnswer.ChoiceIndex;
+                    _pendingAnswer = null;
+                }
+                Log($"[Audience] AnswerAccepted: {acceptedId}");
+            });
+
             _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
             {
                 Log($"[Audience] AnswerSubmitted: choiceIndex={a.ChoiceIndex}");
@@ -176,11 +207,13 @@ public class AudienceHubClient : IAsyncDisposable
         {
             try
             {
-                // Rejoin the session
-                await _connection!.InvokeAsync("Join", SessionCode, "audience", AudienceName);
+                // Rejoin the session with the same device-bound identity
+                await _connection!.InvokeAsync("Join", SessionCode, "audience", AudienceName, DeviceSecret);
                 
-                // Fetch current game state
+                // Fetch current game state and server-held answer
                 await FetchGameStateAsync();
+                await FetchMyAnswerAsync();
+                await FlushPendingAnswerAsync();
                 
                 Log($"[Audience] Session state restored for: {SessionCode}");
             }
@@ -212,7 +245,8 @@ public class AudienceHubClient : IAsyncDisposable
         }
         
         Log($"[Audience] Invoking Join: session={sessionCode} name={audienceName}");
-        await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName);
+        await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName, DeviceSecret);
+        await FetchMyAnswerAsync();
     }
 
     public async Task SubmitAnswerAsync(int choiceIndex)
@@ -222,9 +256,71 @@ public class AudienceHubClient : IAsyncDisposable
             Log("[Audience] SubmitAnswer skipped: no session");
             return;
         }
-        await EnsureConnectedAsync();
-        Log($"[Audience] Submitting answer: session={SessionCode} choiceIndex={choiceIndex}");
-        await _connection!.InvokeAsync("SubmitAnswer", SessionCode!, choiceIndex);
+
+        var commandId = _pendingAnswer?.ChoiceIndex == choiceIndex
+            ? _pendingAnswer.CommandId
+            : Guid.NewGuid();
+        _pendingAnswer = new PendingAnswer(choiceIndex, commandId);
+        MyAnswerChoiceIndex = choiceIndex;
+
+        try
+        {
+            await EnsureConnectedAsync();
+            Log($"[Audience] Submitting answer: session={SessionCode} choiceIndex={choiceIndex} commandId={commandId}");
+            await _connection!.InvokeAsync("SubmitAnswer", SessionCode!, choiceIndex, commandId);
+        }
+        catch (Exception ex)
+        {
+            Log($"[Audience] SubmitAnswer deferred (Waiting to send): {ex.Message}");
+        }
+    }
+
+    async Task FlushPendingAnswerAsync()
+    {
+        if (_pendingAnswer is null || string.IsNullOrWhiteSpace(SessionCode)) return;
+        var pending = _pendingAnswer;
+        try
+        {
+            await _connection!.InvokeAsync("SubmitAnswer", SessionCode!, pending.ChoiceIndex, pending.CommandId);
+        }
+        catch (Exception ex)
+        {
+            Log($"[Audience] Flush pending answer failed: {ex.Message}");
+        }
+    }
+
+    public async Task<int?> FetchMyAnswerAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SessionCode) || string.IsNullOrWhiteSpace(ParticipantId))
+            return MyAnswerChoiceIndex;
+
+        try
+        {
+            var response = await _http.GetAsync(
+                $"{BackendBaseUrl}/status/{SessionCode}/answer?participantId={Uri.EscapeDataString(ParticipantId)}");
+            if (!response.IsSuccessStatusCode) return MyAnswerChoiceIndex;
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("choiceIndex", out var choice)
+                || doc.RootElement.TryGetProperty("ChoiceIndex", out choice))
+            {
+                if (choice.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    MyAnswerChoiceIndex = choice.GetInt32();
+                    return MyAnswerChoiceIndex;
+                }
+                if (choice.ValueKind == System.Text.Json.JsonValueKind.Null)
+                {
+                    MyAnswerChoiceIndex = null;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"[Audience] Failed to fetch my answer: {ex.Message}");
+        }
+
+        return MyAnswerChoiceIndex;
     }
 
     public async Task RequestPlayAsync(string fileUrl)

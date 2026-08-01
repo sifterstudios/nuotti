@@ -1,4 +1,5 @@
 using Nuotti.Backend;
+using Nuotti.Backend.Catalog;
 using Nuotti.Backend.Commands;
 using Nuotti.Backend.Endpoints;
 using Nuotti.Backend.Eventing;
@@ -8,6 +9,7 @@ using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.InfrastructureProof;
 using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Models;
+using Nuotti.Backend.Participants;
 using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Workspaces;
@@ -121,6 +123,10 @@ builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+builder.Services.AddSingleton<ISessionWorkspaceBinder, InMemorySessionWorkspaceBinder>();
+builder.Services.AddSingleton<IParticipantIdentityStore, InMemoryParticipantIdentityStore>();
+builder.Services.AddSingleton<ISharedSongCatalog, InMemorySharedSongCatalog>();
+builder.Services.AddSingleton<IAudienceCatalogSearch, AudienceCatalogSearch>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
     builder.Services.AddSingleton<IWorkspaceAccessStore, PostgresWorkspaceAccessStore>();
@@ -214,6 +220,12 @@ app.MapHub<WorkspaceHub>(app.Environment.IsDevelopment() ? "/workspace-hub" : "/
     .RequireCors("NuottiCors");
 app.MapHealthEndpoints();
 if (app.Environment.IsDevelopment()) app.MapStatusEndpoints();
+if (app.Environment.IsDevelopment())
+{
+    app.MapAudienceCatalogEndpoints();
+    app.MapParticipantEndpoints();
+    app.MapAudienceAnswerStatusEndpoints();
+}
 app.MapMetricsEndpoints();
 app.MapAboutEndpoints();
 app.MapTimeEndpoints();
