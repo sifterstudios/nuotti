@@ -62,7 +62,11 @@ public sealed class AudienceIdentityCatalogGuessingTests(WebApplicationFactory<Q
         Assert.DoesNotContain(search!, s => s.Title == "Leaked Song");
 
         var participants = _factory.Services.GetRequiredService<IParticipantIdentityStore>();
-        string? participantId = null;
+        // InvokeAsync("Join") completes when the hub method returns, but ParticipantRestored is
+        // broadcast back as a separate message. Asserting on the captured id straight after the
+        // invoke is a race the test loses whenever the machine is busy: it read null on three of
+        // six local runs and on CI. Wait for the message itself rather than for a moment in time.
+        var restoredSignal = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var hub = new HubConnectionBuilder()
             .WithUrl(new Uri(client.BaseAddress!, "/hub"),
                 o => o.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler())
@@ -71,10 +75,11 @@ public sealed class AudienceIdentityCatalogGuessingTests(WebApplicationFactory<Q
         {
             var json = System.Text.Json.JsonSerializer.Serialize(payload);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            participantId = doc.RootElement.GetProperty("ParticipantId").GetString();
+            restoredSignal.TrySetResult(doc.RootElement.GetProperty("ParticipantId").GetString());
         });
         await hub.StartAsync();
         await hub.InvokeAsync("Join", session, "audience", "PlayerOne", "device-aud-256");
+        var participantId = await restoredSignal.Task.WaitAsync(TimeSpan.FromSeconds(30));
         Assert.False(string.IsNullOrWhiteSpace(participantId));
 
         Assert.True(participants.TryModerateName(session, participantId!, "StageSafe", out var moderated));
