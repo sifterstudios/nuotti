@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
 using Nuotti.Backend.Sessions;
+using Nuotti.Contracts.V1.Model;
 namespace Nuotti.Backend.Tests;
 
 public class SessionStoreTests
@@ -12,7 +13,7 @@ public class SessionStoreTests
             SessionIdleTimeoutSeconds = idleSeconds,
             SessionEvictionIntervalSeconds = 3600 // large; we will trigger eviction manually
         });
-        return new InMemorySessionStore(options, time);
+        return new InMemorySessionStore(options, new MockGameStateStore(), time);
     }
 
     [Fact]
@@ -75,6 +76,14 @@ public class SessionStoreTests
         Assert.Equal(0, counts.Projector);
         Assert.Equal(0, counts.Engine);
     }
+}
+
+internal sealed class MockGameStateStore : IGameStateStore
+{
+    public bool TryGet(string session, out GameStateSnapshot snapshot) { snapshot = default!; return false; }
+    public GameStateSnapshot GetOrCreate(string session, Func<string, GameStateSnapshot> factory) => factory(session);
+    public void Set(string session, GameStateSnapshot snapshot) { }
+    public void Remove(string session) { }
 }
 
 internal sealed class FakeTimeProvider(DateTimeOffset start) : TimeProvider

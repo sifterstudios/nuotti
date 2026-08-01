@@ -129,7 +129,7 @@ public sealed class TestableQuizHub(
 public static class Harness
 {
     public static InMemorySessionStore SessionStore()
-        => new(Options.Create(new NuottiOptions()));
+        => new(Options.Create(new NuottiOptions()), new InMemoryGameStateStore());
 
     public static InMemoryIdempotencyStore IdempotencyStore()
         => new(Options.Create(new NuottiOptions()));

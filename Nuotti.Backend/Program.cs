@@ -133,7 +133,9 @@ if (builder.Configuration.GetSection(MailgunOptions.SectionName).Get<MailgunOpti
     builder.Services.AddSingleton<IMagicLinkDelivery, MailgunMagicLinkDelivery>();
 else
     builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
-builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
+builder.Services.AddSingleton<ISessionStore>(sp => new InMemorySessionStore(
+    sp.GetRequiredService<IOptions<NuottiOptions>>(),
+    sp.GetRequiredService<IGameStateStore>()));
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 builder.Services.AddSingleton<ISessionWorkspaceBinder, InMemorySessionWorkspaceBinder>();

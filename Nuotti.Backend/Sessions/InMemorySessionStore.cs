@@ -5,6 +5,7 @@ namespace Nuotti.Backend.Sessions;
 
 public sealed class InMemorySessionStore : ISessionStore, IDisposable
 {
+    readonly IGameStateStore _gameStateStore;
     readonly TimeProvider _time;
     readonly TimeSpan _idleTimeout;
     readonly TimeSpan _scanInterval;
@@ -13,13 +14,13 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
     readonly ConcurrentDictionary<string, SessionState> _sessions = new ConcurrentDictionary<string, SessionState>(); // session -> state
     readonly ConcurrentDictionary<string, (string session, string role)> _byConnection = new ConcurrentDictionary<string, (string session, string role)>(); // connId -> (session,role)
 
-    public InMemorySessionStore(IOptions<NuottiOptions> options, TimeProvider? timeProvider = null)
+    public InMemorySessionStore(IOptions<NuottiOptions> options, IGameStateStore gameStateStore, TimeProvider? timeProvider = null)
     {
+        _gameStateStore = gameStateStore;
         _time = timeProvider ?? TimeProvider.System;
         _idleTimeout = TimeSpan.FromSeconds(Math.Max(1, options.Value.SessionIdleTimeoutSeconds));
         _scanInterval = TimeSpan.FromSeconds(Math.Max(1, options.Value.SessionEvictionIntervalSeconds));
         _timer = _time.CreateTimer(Scan, null, _scanInterval, _scanInterval);
-        Console.WriteLine($"[InMemorySessionStore] Initialized, scan interval={_scanInterval.TotalSeconds}s");
     }
 
     public void Touch(string session, string role, string connectionId, string? audienceName = null)
@@ -91,6 +92,7 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
             {
                 // Evict entire session and its connections
                 _sessions.TryRemove(sess, out SessionState _removed);
+                _gameStateStore.Remove(sess);
                 foreach (var conn in state.GetAllConnectionIds())
                 {
                     _byConnection.TryRemove(conn, out (string session, string role) _info);
