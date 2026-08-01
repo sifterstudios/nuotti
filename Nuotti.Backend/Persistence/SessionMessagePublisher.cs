@@ -19,6 +19,7 @@ public static class SessionMessagePublisher
     [
         Of<GamePhaseChanged>(), Of<CorrectAnswerRevealed>(), Of<HintGiven>(),
         Of<CatalogUpdated>(), Of<QuestionOffered>(), Of<AnswerSubmitted>(), Of<GameStateChanged>(),
+        Of<CurrentSongSet>(),
         Of<QuestionPushed>(false), Of<PlayTrack>(false), Of<StopTrack>(false),
         Of<PreparePlayback>(false)
     ];

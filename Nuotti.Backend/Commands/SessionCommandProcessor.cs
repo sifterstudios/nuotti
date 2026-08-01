@@ -2,6 +2,7 @@ using Nuotti.Backend.Audit;
 using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Metrics;
 using Nuotti.Backend.Persistence;
+using Nuotti.Backend.Retention;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Telemetry;
 using Nuotti.Contracts.V1.Enum;
@@ -25,7 +26,8 @@ public sealed class SessionCommandProcessor(
     BackendMetrics? metrics = null,
     AuditLogService? audit = null,
     IDurableSessionCommitStore? durable = null,
-    DurableOutboxDispatcher? outbox = null) : ISessionCommandProcessor
+    DurableOutboxDispatcher? outbox = null,
+    ISessionResultsStore? results = null) : ISessionCommandProcessor
 {
     /// <summary>
     /// What a Command does. Events are reduced in order; the reducer ignores types it does not know,
@@ -245,6 +247,20 @@ public sealed class SessionCommandProcessor(
         }
 
         Complete(activity, command, stateChanged ? next : null);
+        if (command is EndGame && results is not null && stateChanged)
+        {
+            var sequence = durable is null
+                ? 0L
+                : (await durable.LoadAsync(workspaceId, session, ct))?.LastSequence.Value ?? 0L;
+            await results.SaveAsync(new SessionShowResult(
+                workspaceId,
+                session,
+                DateTimeOffset.UtcNow,
+                next.Scores,
+                sequence,
+                command.CommandId,
+                SongCount: Math.Max(next.SongIndex + 1, next.Catalog.Count)), ct);
+        }
         return CommandResult.Applied(stateChanged ? next : null);
     }
 
@@ -304,6 +320,21 @@ public sealed class SessionCommandProcessor(
 
             case PreparePlayback prepare:
                 return new Effects([prepare], BroadcastSnapshot: false, CheckIdempotency: false);
+
+            // NextRound must set CurrentSong/SongIndex before the generic IPhaseChange arm.
+            case NextRound nextRound:
+            {
+                var (song, index) = ResolveSong(state, nextRound.SongId);
+                return new Effects([
+                    Phase(state.Phase, nextRound.TargetPhase, session, command, correlation),
+                    new CurrentSongSet(song, index)
+                    {
+                        SessionCode = session,
+                        CausedByCommandId = command.CommandId,
+                        CorrelationId = correlation
+                    }
+                ]);
+            }
 
             case IPhaseChange phaseChange:
                 return new Effects([
@@ -403,6 +434,17 @@ public sealed class SessionCommandProcessor(
             CausedByCommandId = command.CommandId,
             CorrelationId = correlation
         };
+
+    static (SongRef Song, int Index) ResolveSong(GameStateSnapshot state, SongId songId)
+    {
+        for (var i = 0; i < state.Catalog.Count; i++)
+        {
+            if (state.Catalog[i].Id.Value == songId.Value)
+                return (state.Catalog[i], i);
+        }
+
+        return (new SongRef(songId, songId.Value, string.Empty), state.SongIndex + 1);
+    }
 
     static Role RequiredRole(CommandBase command)
         => command is SubmitAnswer ? Role.Audience : Role.Performer;
