@@ -75,4 +75,9 @@ public class ColorPalette
     /// Optional option/choice background color.
     /// </summary>
     public string? OptionBackground { get; set; }
+
+    /// <summary>
+    /// Ink color for text drawn on <see cref="Primary"/> (e.g. cyan buttons use dark ink).
+    /// </summary>
+    public string OnPrimary { get; set; } = "#FFFFFF";
 }

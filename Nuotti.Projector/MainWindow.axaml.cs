@@ -15,6 +15,7 @@ using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Controls;
 using Nuotti.Projector.Models;
 using Nuotti.Projector.Presentation;
+using Nuotti.Projector.Presentation.Playback;
 using Nuotti.Projector.Services;
 using Nuotti.Projector.Views;
 using System;
@@ -72,6 +73,8 @@ public partial class MainWindow : Window
     private CursorService? _cursorService;
     private ProjectorSettings _settings;
     private readonly PhasePresenter _presenter;
+    private readonly ProjectorPlaybackPresenter _playbackPresenter = new();
+    private readonly Stopwatch _playbackClock = Stopwatch.StartNew();
 
     // F5 - Phase views
     private readonly Dictionary<PhaseView, PhaseViewBase> _phaseViews = new();
@@ -361,7 +364,16 @@ public partial class MainWindow : Window
         _connection.Closed += async (_) =>
         {
             _connectionTextBlock.Text = "Disconnected";
+            _playbackPresenter.Freeze(_playbackClock.Elapsed);
             _reconnectOverlay.Show("Connection Lost", "Attempting to reconnect...");
+            try
+            {
+                RenderCurrent();
+            }
+            catch (Exception renderEx)
+            {
+                AppendLocal($"[hub] holding render failed: {renderEx.Message}");
+            }
 
             var delayMs = Random.Shared.Next(0, 5) * 1000;
             AppendLocal($"[hub] disconnected; reconnecting in {delayMs} ms");
@@ -411,8 +423,10 @@ public partial class MainWindow : Window
                 AppendLocal("[hub] state resync failed, continuing with current state");
             }
 
+            _playbackPresenter.ResumeFromHold(_playbackClock.Elapsed);
             _connectionTextBlock.Text = "Connected";
             _reconnectOverlay.Hide();
+            RenderCurrent();
 
             _ = StartLogConnection();
             AppendLocal("[hub] reconnected successfully");
@@ -849,13 +863,20 @@ public partial class MainWindow : Window
     {
         try
         {
-            Render(_presenter.Present(state, _settings, new WindowSize(Bounds.Width, Bounds.Height)));
+            RenderCurrent(state);
             AppendLocal($"[gamestate] Phase: {state.Phase}, Song: {state.SongTitle()}");
         }
         catch (Exception ex)
         {
             AppendLocal($"[gamestate] Error: {ex.Message}");
         }
+    }
+
+    void RenderCurrent(GameStateSnapshot? state = null)
+    {
+        state ??= _gameStateService.CurrentState;
+        var playback = _playbackPresenter.Present(_playbackClock.Elapsed);
+        Render(_presenter.Present(state, _settings, new WindowSize(Bounds.Width, Bounds.Height), playback));
     }
 
     /// <summary>
@@ -904,7 +925,7 @@ public partial class MainWindow : Window
         // Update button appearance
         _tallyToggleButton.Content = _settings.HideTalliesUntilReveal ? "🙈" : "👁️";
 
-        Render(_presenter.Present(_gameStateService.CurrentState, _settings, new WindowSize(Bounds.Width, Bounds.Height)));
+        RenderCurrent();
 
         var status = _settings.HideTalliesUntilReveal ? "hidden" : "visible";
         AppendLocal($"[tallies] Tallies during guessing: {status}");

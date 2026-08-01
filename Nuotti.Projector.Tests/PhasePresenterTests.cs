@@ -316,4 +316,38 @@ public class PhasePresenterTests
         spec.Question.Should().Be("What song is this?");
         spec.Question.Should().NotStartWith("[");
     }
+
+    [Fact]
+    public void Projector_never_emits_audio_and_Play_shows_offset_LRC_line()
+    {
+        var playback = new Projector.Presentation.Playback.ProjectorPlaybackFrame(
+            TimeSpan.FromSeconds(3.5),
+            new Projector.Presentation.Playback.LyricLine(TimeSpan.FromSeconds(1.5), "First sung line"),
+            Projector.Presentation.Playback.ProjectorConnectionVisual.Live,
+            EmitsAudio: false);
+
+        var spec = Presenter().Present(State(PhaseEnum.Play), Settings(), Hd, playback);
+
+        spec.EmitsAudio.Should().BeFalse();
+        spec.ActiveLyricLine.Should().Be("First sung line");
+        spec.Simple.Detail.Should().Be("First sung line");
+        spec.Typography.Headline.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Disconnect_holding_shows_neutral_fallback_on_Play()
+    {
+        var playback = new Projector.Presentation.Playback.ProjectorPlaybackFrame(
+            TimeSpan.Zero,
+            null,
+            Projector.Presentation.Playback.ProjectorConnectionVisual.Holding,
+            EmitsAudio: false,
+            FallbackMessage: "Reconnecting…");
+
+        var spec = Presenter().Present(State(PhaseEnum.Play), Settings(), Uhd, playback);
+
+        spec.ConnectionDegraded.Should().BeTrue();
+        spec.ActiveLyricLine.Should().Be("Reconnecting…");
+        spec.EmitsAudio.Should().BeFalse();
+    }
 }
