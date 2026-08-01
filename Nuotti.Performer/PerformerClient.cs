@@ -40,7 +40,18 @@ public sealed class PerformerClient : IAsyncDisposable
                 .WithAutomaticReconnect()
                 .Build();
 
-            _hub.Reconnected += _ => { ConnectedChanged?.Invoke(IsConnected); return Task.CompletedTask; };
+            _hub.Reconnected += async _ =>
+            {
+                ConnectedChanged?.Invoke(IsConnected);
+                try
+                {
+                    await _hub.InvokeAsync("Join", _sessionCode, "performer", null, null);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[PerformerClient] rejoin after reconnect failed: {ex.Message}");
+                }
+            };
             _hub.Reconnecting += _ => { ConnectedChanged?.Invoke(IsConnected); return Task.CompletedTask; };
             _hub.Closed += _ => { ConnectedChanged?.Invoke(IsConnected); return Task.CompletedTask; };
 

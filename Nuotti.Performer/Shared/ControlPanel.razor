@@ -7,6 +7,17 @@
 
 <MudPaper Elevation="2" Class="pa-4" @onkeydown="OnKeyDown">
     <MudText Typo="Typo.h6" Class="mb-4">Flow Controls</MudText>
+    @if (State.IsReconciling || !string.IsNullOrWhiteSpace(State.RecoveryImpact))
+    {
+        <MudAlert Severity="@(State.IsReconciling ? Severity.Warning : Severity.Info)" Class="mb-3" Dense="true"
+                  data-testid="recovery-banner">
+            <MudText Typo="Typo.subtitle2">@State.RecoveryImpact</MudText>
+            @if (!string.IsNullOrWhiteSpace(State.RecoveryAction))
+            {
+                <MudText Typo="Typo.caption">@State.RecoveryAction</MudText>
+            }
+        </MudAlert>
+    }
     <MudGrid>
         <MudItem xs="12" sm="6" md="4" lg="2">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" 
@@ -156,16 +167,16 @@
 
     // State helpers
     bool HasSelection => State.SelectedCorrectIndex.HasValue;
-    bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
-    bool CanNextSong => State.Phase is Phase.Intermission or Phase.Guessing;
-    bool CanGiveHint => State.Phase is Phase.Guessing;
-    bool CanOpenWindow => State.Phase is Phase.Start or Phase.Hint;
-    bool CanLock => State.Phase is Phase.Guessing;
-    bool CanReveal => State.Phase is Phase.Lock && HasSelection;
-    bool CanPrepare => State.Phase is Phase.Reveal;
-    bool CanStartPlayback => State.Phase is Phase.Reveal && !string.IsNullOrWhiteSpace(State.VenueAssetRevisionId);
-    bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
-    bool CanEndGame => State.Phase is Phase.Intermission;
+    bool CanStartSet => State.ControlsReady && State.Phase is Phase.Lobby or Phase.Finished;
+    bool CanNextSong => State.ControlsReady && State.Phase is Phase.Intermission or Phase.Guessing;
+    bool CanGiveHint => State.ControlsReady && State.Phase is Phase.Guessing;
+    bool CanOpenWindow => State.ControlsReady && State.Phase is Phase.Start or Phase.Hint;
+    bool CanLock => State.ControlsReady && State.Phase is Phase.Guessing;
+    bool CanReveal => State.ControlsReady && State.Phase is Phase.Lock && HasSelection;
+    bool CanPrepare => State.ControlsReady && State.Phase is Phase.Reveal;
+    bool CanStartPlayback => State.ControlsReady && State.Phase is Phase.Reveal && !string.IsNullOrWhiteSpace(State.VenueAssetRevisionId);
+    bool CanEndSong => State.ControlsReady && State.Phase is Phase.Play && State.EngineCount > 0;
+    bool CanEndGame => State.ControlsReady && State.Phase is Phase.Intermission;
 
     // Debounce: prevent double-triggers within 500ms for all flow buttons
     readonly Dictionary<string, DateTime> _lastInvoke = new();

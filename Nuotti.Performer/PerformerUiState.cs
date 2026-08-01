@@ -25,6 +25,18 @@ public sealed class PerformerUiState
     public string? SessionCode { get; private set; }
     public Uri? BackendBaseUri { get; private set; }
 
+    /// <summary>True while recovery is in flight; Performer controls must wait.</summary>
+    public bool IsReconciling { get; private set; }
+
+    /// <summary>Plain-language impact after the last reconciliation.</summary>
+    public string? RecoveryImpact { get; private set; }
+
+    /// <summary>Recommended next action after recovery.</summary>
+    public string? RecoveryAction { get; private set; }
+
+    /// <summary>Controls may fire only when connected and not reconciling.</summary>
+    public bool ControlsReady => Connected && !IsReconciling;
+
     /// <summary>The snapshot itself, for callers that want to pass it on whole.</summary>
     public GameStateSnapshot Snapshot => _snapshot;
 
@@ -59,6 +71,29 @@ public sealed class PerformerUiState
     public void SetConnection(bool connected)
     {
         Connected = connected;
+        if (!connected)
+        {
+            IsReconciling = true;
+            RecoveryImpact = "Connection lost.";
+            RecoveryAction = "Wait for reconciliation before sending commands.";
+        }
+        Changed?.Invoke();
+    }
+
+    public void BeginReconciliation()
+    {
+        IsReconciling = true;
+        RecoveryImpact = "Reconnecting…";
+        RecoveryAction = "Controls are paused until the Session catches up.";
+        Changed?.Invoke();
+    }
+
+    public void CompleteReconciliation(Nuotti.Contracts.V1.Recovery.SessionReconcileResult result)
+    {
+        UpdateGameState(result.Snapshot);
+        IsReconciling = false;
+        RecoveryImpact = result.ImpactSummary;
+        RecoveryAction = result.RecommendedAction;
         Changed?.Invoke();
     }
 

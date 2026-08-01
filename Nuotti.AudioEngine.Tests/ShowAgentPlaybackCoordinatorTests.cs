@@ -161,4 +161,24 @@ public class ShowAgentPlaybackCoordinatorTests
         lost.Fault.Should().Be(PlaybackFault.ProcessLost);
         _audio.IsRunning.Should().BeFalse();
     }
+
+    [Fact]
+    public void WAN_poll_gap_keeps_Playing_and_duplicate_Start_is_safe()
+    {
+        var c = Create();
+        c.Prepare(Assets());
+        c.Start(Id(), DateTimeOffset.UtcNow);
+        c.OnMeasuredAsioStart();
+        _audio.IsRunning.Should().BeTrue();
+
+        // Simulated WAN loss: no new commands arrive; audio keeps running.
+        _clock.Advance(TimeSpan.FromSeconds(5));
+        c.State.Should().Be(PlaybackLifecycle.Playing);
+        _audio.IsRunning.Should().BeTrue();
+
+        var dup = c.Start(Id(), DateTimeOffset.UtcNow);
+        dup.Outcome.Should().Be(Outcome.Duplicate);
+        c.State.Should().Be(PlaybackLifecycle.Playing);
+        _audio.IsRunning.Should().BeTrue();
+    }
 }
