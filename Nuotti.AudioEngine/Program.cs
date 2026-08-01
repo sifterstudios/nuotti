@@ -6,8 +6,10 @@ using Nuotti.AudioEngine;
 using Nuotti.AudioEngine.AudioDevices;
 using Nuotti.AudioEngine.Output;
 using Nuotti.AudioEngine.Playback;
+using Nuotti.AudioEngine.Playback.Coordinator;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Protocol;
 using System.Text.Json;
 using Serilog;
 
@@ -98,6 +100,17 @@ IProblemSink problemSink = cloudAgent is null
     : new CloudAgentProblemSink(cloudAgent);
 ISourcePreflight preflight = new HttpFilePreflight(httpClient, options: engineOptions.Safety);
 var engine = new EngineCoordinator(player, sink, preflight, problemSink);
+var playbackClock = new StopwatchMonotonicClock();
+var playbackAudio = new EngineSharedTimelineAdapter(player);
+var playbackJournal = new InMemoryPlaybackJournal();
+var playbackAnchors = new InMemoryAnchorEmitter();
+var playbackCoordinator = new ShowAgentPlaybackCoordinator(
+    playbackClock, playbackAudio, playbackJournal, playbackAnchors);
+player.Error += (_, ex) =>
+{
+    Log.Error(ex, "Audio player fault — coordinator failing safe");
+    playbackCoordinator.OnDriverLost();
+};
 
 // Audio device enumeration (foundation)
 IAudioDeviceEnumerator deviceEnumerator = new BasicAudioDeviceEnumerator();
@@ -284,8 +297,36 @@ try
                 switch (command.MessageType)
                 {
                     case "Prepare":
-                        Log.Information("Prepare received from cloud Backend; venue cache already verified at pair time");
-                        await cloudAgent.ReportStatusAsync("Ready", "prepared", cts.Token);
+                        Log.Information("Prepare received — priming stage-grade playback coordinator");
+                        string? backingPath = null;
+                        string? clickPath = null;
+                        string songRevision = showSnapshot.SnapshotId;
+                        foreach (var asset in showSnapshot.Assets)
+                        {
+                            if (!cachePreflight.LocalPaths.TryGetValue(asset.RevisionId, out var local)) continue;
+                            if (asset.AssetType == "backing-track" && backingPath is null)
+                            {
+                                backingPath = local;
+                                songRevision = asset.RevisionId;
+                            }
+                            else if (asset.AssetType == "click-track" && clickPath is null)
+                                clickPath = local;
+                        }
+                        backingPath ??= cachePreflight.LocalPaths.Values.FirstOrDefault();
+                        if (string.IsNullOrWhiteSpace(backingPath))
+                        {
+                            await cloudAgent.ReportStatusAsync("Error", "Prepare failed: no verified backing asset in venue cache.", cts.Token);
+                            break;
+                        }
+                        var prepareResult = playbackCoordinator.Prepare(new VerifiedPlaybackAssets(
+                            songRevision,
+                            backingPath,
+                            clickPath,
+                            BackingOffsetFrames: 0,
+                            SampleRate: 48_000));
+                        await cloudAgent.ReportStatusAsync(
+                            prepareResult.State == PlaybackLifecycle.Ready ? "Ready" : "Error",
+                            prepareResult.Detail ?? prepareResult.State.ToString(), cts.Token);
                         break;
                     case "PlayTrack":
                         var play = ShowAgentCloudClient.DeserializePayload<PlayTrack>(command.Payload);
@@ -297,10 +338,43 @@ try
                                     $"PlayTrack rejected: asset '{play.AssetRevisionId ?? play.FileUrl}' is not in the verified Session cache.", cts.Token);
                                 throw new InvalidOperationException("Playback command referenced material outside the Session Setlist Snapshot.");
                             }
-                            await engine.OnTrackPlayRequested(new Uri(source).AbsoluteUri);
+                            if (playbackCoordinator.State != PlaybackLifecycle.Ready
+                                && playbackCoordinator.State != PlaybackLifecycle.Scheduled)
+                            {
+                                var clickForPlay = showSnapshot.Assets
+                                    .Where(a => a.AssetType == "click-track")
+                                    .Select(a => cachePreflight.LocalPaths.GetValueOrDefault(a.RevisionId))
+                                    .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p));
+                                playbackCoordinator.Prepare(new VerifiedPlaybackAssets(
+                                    play.AssetRevisionId ?? showSnapshot.SnapshotId,
+                                    source,
+                                    clickForPlay,
+                                    0,
+                                    48_000));
+                            }
+                            var identity = new PlaybackIdentity(
+                                play.PlaybackInstanceId ?? $"play_{command.Sequence}",
+                                play.ControlGeneration ?? ControlGeneration.Initial.Next());
+                            var scheduled = playbackCoordinator.Start(identity, DateTimeOffset.UtcNow);
+                            if (scheduled.Outcome == Outcome.Rejected)
+                            {
+                                await cloudAgent.ReportStatusAsync("Error", scheduled.Detail ?? "Start rejected", cts.Token);
+                                break;
+                            }
+                            if (scheduled.Outcome == Outcome.Duplicate)
+                            {
+                                Log.Information("Duplicate PlayTrack ignored for {Instance}", identity.PlaybackInstanceId);
+                                break;
+                            }
+                            // Measured ASIO start supersedes the planned scheduled lead.
+                            var measured = playbackCoordinator.OnMeasuredAsioStart();
+                            await cloudAgent.ReportStatusAsync(
+                                measured.State == PlaybackLifecycle.Playing ? "Playing" : "Error",
+                                measured.Detail, cts.Token);
                         }
                         break;
                     case "StopTrack":
+                        playbackCoordinator.Stop();
                         await engine.OnTrackStopped();
                         break;
                 }

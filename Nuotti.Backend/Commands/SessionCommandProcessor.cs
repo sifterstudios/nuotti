@@ -293,6 +293,8 @@ public sealed class SessionCommandProcessor(
                     new PlayTrack(start.AssetRevisionId)
                     {
                         AssetRevisionId = start.AssetRevisionId,
+                        PlaybackInstanceId = $"play_{command.CommandId:N}",
+                        ControlGeneration = ControlGeneration.Initial.Next(),
                         SessionCode = session,
                         IssuedByRole = command.IssuedByRole,
                         IssuedById = command.IssuedById,
