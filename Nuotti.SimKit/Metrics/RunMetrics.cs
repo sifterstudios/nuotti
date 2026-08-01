@@ -10,9 +10,11 @@ public sealed class RunMetrics
     // Core acceptance criteria
     public double CommandApplyLatencyP50Ms { get; init; }
     public double CommandApplyLatencyP95Ms { get; init; }
+    public double CommandApplyLatencyP99Ms { get; init; }
     public int Disconnections { get; init; }
     public int Errors { get; init; }
     public double AnswerThroughputPerSec { get; init; }
+    public double ReconnectResyncLatencyP95Ms { get; init; }
 
     // Helpful counts
     public int CommandsIssued { get; init; }
@@ -28,6 +30,7 @@ public sealed class RunMetricsCollector
     private readonly object _gate = new();
     private readonly Dictionary<string, DateTimeOffset> _commandIssuedAt = new();
     private readonly List<double> _commandLatenciesMs = new();
+    private readonly List<double> _reconnectLatenciesMs = new();
     private int _disconnections;
     private int _errors;
     private int _answers;
@@ -78,9 +81,14 @@ public sealed class RunMetricsCollector
         Interlocked.Increment(ref _answers);
     }
 
+    public void RecordReconnectResync(double latencyMs)
+    {
+        lock (_gate) _reconnectLatenciesMs.Add(latencyMs);
+    }
+
     public RunMetrics BuildSnapshot(DateTimeOffset? endedAtUtc = null)
     {
-        double p50, p95;
+        double p50, p95, p99, reconnectP95;
         int issuedCount;
         lock (_gate)
         {
@@ -89,6 +97,10 @@ public sealed class RunMetricsCollector
             Array.Sort(arr);
             p50 = Percentile(arr, 50);
             p95 = Percentile(arr, 95);
+            p99 = Percentile(arr, 99);
+            var reconnect = _reconnectLatenciesMs.ToArray();
+            Array.Sort(reconnect);
+            reconnectP95 = Percentile(reconnect, 95);
         }
         var ended = endedAtUtc ?? DateTimeOffset.UtcNow;
         var elapsedSec = Math.Max((ended - _startedAt).TotalSeconds, 1e-6);
@@ -99,12 +111,14 @@ public sealed class RunMetricsCollector
             EndedAtUtc = ended,
             CommandApplyLatencyP50Ms = p50,
             CommandApplyLatencyP95Ms = p95,
+            CommandApplyLatencyP99Ms = p99,
             Disconnections = _disconnections,
             Errors = _errors,
             AnswerThroughputPerSec = throughput,
             CommandsIssued = issuedCount,
             CommandsApplied = _commandLatenciesMs.Count,
-            AnswersSubmitted = _answers
+            AnswersSubmitted = _answers,
+            ReconnectResyncLatencyP95Ms = reconnectP95
         };
     }
 
@@ -157,6 +171,8 @@ public static class RunSummaryWriter
             "## Metrics",
             $"- Command→apply latency p50: {m.CommandApplyLatencyP50Ms:F1} ms",
             $"- Command→apply latency p95: {m.CommandApplyLatencyP95Ms:F1} ms",
+            $"- Command→apply latency p99: {m.CommandApplyLatencyP99Ms:F1} ms",
+            $"- Reconnect resync latency p95: {m.ReconnectResyncLatencyP95Ms:F1} ms",
             $"- Disconnections: {m.Disconnections}",
             $"- Errors: {m.Errors}",
             $"- Answer throughput: {m.AnswerThroughputPerSec:F3} answers/sec",
