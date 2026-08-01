@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Nuotti.Backend.Commands;
 using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Models;
+using Nuotti.Backend.Participants;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Eventing;
@@ -113,8 +114,12 @@ public sealed class CapturingEventBus : IEventBus
 /// <summary>
 /// QuizHub with its Context, Groups and Clients settable, which the base class does not allow.
 /// </summary>
-public sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, ISessionCommandProcessor processor)
-    : QuizHub(new NullLogger<QuizHub>(), log, sessions, processor)
+public sealed class TestableQuizHub(
+    ILogStreamer log,
+    ISessionStore sessions,
+    ISessionCommandProcessor processor,
+    IParticipantIdentityStore participants)
+    : QuizHub(new NullLogger<QuizHub>(), log, sessions, processor, participants)
 {
     public void SetContext(HubCallerContext ctx) => Context = ctx;
     public void SetGroups(IGroupManager groups) => Groups = groups;
@@ -128,6 +133,8 @@ public static class Harness
 
     public static InMemoryIdempotencyStore IdempotencyStore()
         => new(Options.Create(new NuottiOptions()));
+
+    public static InMemoryParticipantIdentityStore Participants() => new();
 
     /// <summary>
     /// A hub wired to a real processor over in-memory stores, publishing to <paramref name="bus"/>.
@@ -146,7 +153,7 @@ public static class Harness
             state,
             IdempotencyStore(),
             bus,
-            NullLogger<SessionCommandProcessor>.Instance));
+            NullLogger<SessionCommandProcessor>.Instance), Participants());
     }
 
     /// <summary>

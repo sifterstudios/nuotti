@@ -70,13 +70,24 @@ public static class GameReducer
                     Array.Resize(ref tallies, needed);
                 }
 
-                // Increment selected choice tally.
-                checked { tallies[idx] += 1; }
-
-                // Upsert per-audience last answer
+                // Upsert per-audience last answer. A revise moves the tally to the final choice.
                 var answers = state.Answers.Count == 0
                     ? new Dictionary<string, int>()
                     : new Dictionary<string, int>(state.Answers);
+                if (answers.TryGetValue(answer.AudienceId, out var previousIdx))
+                {
+                    if (previousIdx == idx)
+                    {
+                        return (state, null);
+                    }
+
+                    if (previousIdx >= 0 && previousIdx < tallies.Length && tallies[previousIdx] > 0)
+                    {
+                        tallies[previousIdx] -= 1;
+                    }
+                }
+
+                checked { tallies[idx] += 1; }
                 answers[answer.AudienceId] = idx;
 
                 var updated = state with

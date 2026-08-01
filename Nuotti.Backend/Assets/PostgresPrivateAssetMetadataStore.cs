@@ -41,6 +41,26 @@ public sealed class PostgresPrivateAssetMetadataStore(NpgsqlDataSource dataSourc
                 reader.GetFieldValue<DateTimeOffset>(3)) : null;
     }
 
+    public async Task<IReadOnlyList<PrivateCatalogEntry>> ListEntriesAsync(string workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        await using var command = dataSource.CreateCommand("""
+            SELECT id,title,artist,created_by,created_at FROM nuotti_private_catalog_entry
+            WHERE workspace_id=$1
+            ORDER BY title
+            """);
+        command.Parameters.AddWithValue(workspaceId);
+        var list = new List<PrivateCatalogEntry>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new(reader.GetString(0), workspaceId, reader.GetString(1), reader.GetString(2),
+                reader.GetString(3), reader.GetFieldValue<DateTimeOffset>(4)));
+        }
+        return list;
+    }
+
     public async Task<(PrivateAssetRevision Revision, string ObjectKey)?> CreateDraftAsync(
         string workspaceId, string catalogEntryId, string assetType, string contentType, long declaredSize,
         AssetProvenance provenance, string userId, CancellationToken cancellationToken = default)

@@ -296,6 +296,46 @@ public class GameReducerTests
     }
 
     [Fact]
+    public void AnswerSubmitted_revise_moves_tally_to_final_choice()
+    {
+        var state = new GameStateSnapshot(
+            sessionCode: "S",
+            phase: Phase.Guessing,
+            songIndex: 1,
+            currentSong: null,
+            choices: new[] { "A", "B", "C" },
+            hintIndex: 0,
+            tallies: new[] { 0, 0, 0 },
+            scores: null,
+            songStartedAtUtc: null);
+
+        (state, var err) = GameReducer.Reduce(state, new AnswerSubmitted("aud-1", 0)
+        {
+            AudienceId = "aud-1",
+            ChoiceIndex = 0,
+            SessionCode = state.SessionCode,
+            EmittedAtUtc = DateTime.UtcNow,
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+        Assert.Null(err);
+
+        (state, err) = GameReducer.Reduce(state, new AnswerSubmitted("aud-1", 2)
+        {
+            AudienceId = "aud-1",
+            ChoiceIndex = 2,
+            SessionCode = state.SessionCode,
+            EmittedAtUtc = DateTime.UtcNow,
+            CorrelationId = Guid.Empty,
+            CausedByCommandId = Guid.Empty
+        });
+
+        Assert.Null(err);
+        Assert.Equal(new[] { 0, 0, 1 }, state.Tallies);
+        Assert.Equal(2, state.Answers["aud-1"]);
+    }
+
+    [Fact]
     public void AnswerSubmitted_ignored_when_not_Guessing()
     {
         var state = new GameStateSnapshot(

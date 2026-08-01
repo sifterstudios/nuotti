@@ -319,7 +319,7 @@ try
     {
         // Development compatibility only. Paired Windows agents use outbound HTTPS polling above.
         await connection.StartAsync(cts.Token);
-        await connection.InvokeAsync("Join", session, "engine", null, cancellationToken: cts.Token);
+        await connection.InvokeAsync("Join", session, "engine", null, null, cancellationToken: cts.Token);
         var initLat = (player as IHasLatency)?.OutputLatencyMs ?? 0d;
         await connection.InvokeAsync("EngineStatusChanged", session, new EngineStatusChanged(EngineStatus.Ready, initLat), cancellationToken: cts.Token);
         _ = RunHeartbeatAsync(cts.Token);

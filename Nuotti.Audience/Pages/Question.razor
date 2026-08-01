@@ -34,9 +34,9 @@
                      aria-describedby="answer-instructions">
                     <div id="answer-instructions" class="sr-only">
                         Choose one of the following @q.Options.Length options to answer the question.
-                        @if (_hasAnswered)
+                        @if (_selectedChoice is not null)
                         {
-                            <span>You have already submitted your answer.</span>
+                            <span>Current choice is option @(_selectedChoice.Value + 1). You may revise until Lock.</span>
                         }
                     </div>
                     @for (var i = 0; i < q.Options.Length; i++)
@@ -52,7 +52,7 @@
                                        FullWidth="true"
                                        StartIcon="@icon"
                                        OnClick="@(() => Submit(idx))"
-                                       Disabled="@_hasAnswered"
+                                       Disabled="@IsLocked"
                                        Class="@($"option-button option-{idx + 1} slide-up")"
                                        id="@($"option-{idx + 1}")"
                                        aria-label="@($"Option {idx + 1}: {q.Options[idx]}")"
@@ -69,9 +69,13 @@
                                 </div>
                             </MudButton>
                             <div id="@($"option-{idx + 1}-status")" class="sr-only">
-                                @if (_hasAnswered)
+                                @if (_selectedChoice == idx)
                                 {
-                                    <span>Answer submitted</span>
+                                    <span>Currently selected</span>
+                                }
+                                else if (IsLocked)
+                                {
+                                    <span>Locked</span>
                                 }
                                 else
                                 {
@@ -82,7 +86,18 @@
                     }
                 </div>
 
-                @if (_hasAnswered)
+                @if (Hub.HasPendingAnswer)
+                {
+                    <MudAlert Severity="Severity.Warning"
+                              Class="mt-4"
+                              Variant="Variant.Filled"
+                              Icon="@Material.Filled.CloudOff"
+                              role="status"
+                              aria-live="polite">
+                        Waiting to send…
+                    </MudAlert>
+                }
+                else if (_selectedChoice is int selected)
                 {
                     <MudAlert Severity="Severity.Success"
                               Class="mt-4"
@@ -90,7 +105,7 @@
                               Icon="@Material.Filled.CheckCircle"
                               role="status"
                               aria-live="polite">
-                        Answer submitted! Waiting for others...
+                        Answer @(selected + 1) held. You can revise until Lock.
                     </MudAlert>
                 }
             </div>
@@ -444,12 +459,13 @@
 
 @code {
     private string fileUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
-    private bool _hasAnswered = false;
+    private int? _selectedChoice;
     private bool _showDevPanel = false;
     private bool _showDevTools = false;
     private List<string> _participantsList = new();
     private bool _isWaiting => Hub.CurrentQuestion is null;
     private DateTime _lastSubmissionAttempt = DateTime.MinValue;
+    private bool IsLocked => Hub.CurrentGameState?.Phase is Phase.Lock or Phase.Reveal or Phase.Play or Phase.Intermission or Phase.Finished;
 
     protected override async Task OnInitializedAsync()
     {
@@ -470,7 +486,7 @@
 
     private async void OnQuestionPushed(QuestionPushed _)
     {
-        _hasAnswered = false; // Reset for new question
+        _selectedChoice = Hub.MyAnswerChoiceIndex; // may restore after reconnect mid-round
         await InvokeAsync(StateHasChanged);
     }
 
@@ -500,7 +516,7 @@
         // This is a simplified version - in a real implementation, you'd need to track
         // the player's answer and compare it with the correct answer from the game state
         // For now, we'll trigger confetti if the player submitted an answer
-        if (_hasAnswered)
+        if (_selectedChoice is not null)
         {
             // Simulate checking if the answer was correct (you'd get this from the server)
             var isCorrect = Random.Shared.NextDouble() > 0.5; // 50% chance for demo
@@ -538,7 +554,7 @@
 
     private async Task Submit(int index)
     {
-        if (_hasAnswered) return;
+        if (IsLocked) return;
 
         // Anti-spam: Debounce rapid submissions
         var timeSinceLastAttempt = DateTime.Now - _lastSubmissionAttempt;
@@ -548,6 +564,7 @@
         }
 
         _lastSubmissionAttempt = DateTime.Now;
+        _selectedChoice = index;
 
         try
         {
@@ -555,12 +572,12 @@
             await Feedback.TriggerHapticFeedbackAsync(HapticType.Medium);
 
             await Hub.SubmitAnswerAsync(index);
-            _hasAnswered = true;
 
             // Pulse animation on the submitted button
             await Feedback.TriggerPulseAnimationAsync($"option-{index + 1}");
 
-            Snackbar.Add("Answer submitted successfully!", Severity.Success);
+            Snackbar.Add(Hub.HasPendingAnswer ? "Waiting to send…" : "Answer held on server.",
+                Hub.HasPendingAnswer ? Severity.Warning : Severity.Success);
         }
         catch (Exception ex)
         {

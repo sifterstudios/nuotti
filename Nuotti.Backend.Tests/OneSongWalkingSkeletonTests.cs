@@ -130,8 +130,8 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
             .WithUrl(new Uri(client.BaseAddress!, "/hub"), o => o.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler())
             .Build();
         await audienceHub.StartAsync();
-        await audienceHub.InvokeAsync("Join", session, "audience", "walker-1");
-        await audienceHub.InvokeAsync("SubmitAnswer", session, 0);
+        await audienceHub.InvokeAsync("Join", session, "audience", "walker-1", "device-walk-1");
+        await audienceHub.InvokeAsync("SubmitAnswer", session, 0, Guid.Empty);
 
         var stateStore = _factory.Services.GetRequiredService<IGameStateStore>();
         if (!stateStore.TryGet(session, out var mid) || mid!.Answers.Count == 0)

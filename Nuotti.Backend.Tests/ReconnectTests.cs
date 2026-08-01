@@ -86,7 +86,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
         });
 
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "audience", "TestUser");
+        await _connection.InvokeAsync("Join", session, "audience", "TestUser", "dev-TestUser");
 
         // Disconnect
         await _connection.StopAsync();
@@ -94,7 +94,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Reconnect and rejoin
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "audience", "TestUser");
+        await _connection.InvokeAsync("Join", session, "audience", "TestUser", "dev-TestUser");
 
         // Verify reconnection succeeded
         Assert.Equal(HubConnectionState.Connected, _connection.State);
@@ -118,7 +118,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Connect and join
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "projector", "projector");
+        await _connection.InvokeAsync("Join", session, "projector", "projector", null);
 
         // Start game (this will broadcast GameStateChanged)
         var start = new StartGame
@@ -141,7 +141,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Reconnect and rejoin
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "projector", "projector");
+        await _connection.InvokeAsync("Join", session, "projector", "projector", null);
 
         // Fetch latest state via /status endpoint (simulating resync)
         var statusResp = await _httpClient.GetAsync($"/status/{session}");
@@ -166,7 +166,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Initial connection
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "audience", "User1");
+        await _connection.InvokeAsync("Join", session, "audience", "User1", "dev-User1");
         Assert.Equal(HubConnectionState.Connected, _connection.State);
 
         // Disconnect and reconnect multiple times
@@ -175,7 +175,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
             await _connection.StopAsync();
             await Task.Delay(100);
             await _connection.StartAsync();
-            await _connection.InvokeAsync("Join", session, "audience", "User1");
+            await _connection.InvokeAsync("Join", session, "audience", "User1", "dev-User1");
             await Task.Delay(100);
         }
 
@@ -192,7 +192,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Connect and join
         await _connection!.StartAsync();
-        await _connection.InvokeAsync("Join", session, "projector", "projector");
+        await _connection.InvokeAsync("Join", session, "projector", "projector", null);
 
         // Start game
         var start = new StartGame
@@ -222,7 +222,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Reconnect and verify can fetch latest state
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "projector", "projector");
+        await _connection.InvokeAsync("Join", session, "projector", "projector", null);
 
         var status3 = await _httpClient.GetAsync($"/status/{session}");
         var snapshot3 = await status3.Content.ReadFromJsonAsync<GameStateSnapshot>(ContractsJson.RestOptions);
@@ -246,7 +246,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Connect as audience
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "audience", "TestUser");
+        await _connection.InvokeAsync("Join", session, "audience", "TestUser", "dev-TestUser");
 
         // Start game
         var start = new StartGame
@@ -264,7 +264,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
 
         // Reconnect and rejoin
         await _connection.StartAsync();
-        await _connection.InvokeAsync("Join", session, "audience", "TestUser");
+        await _connection.InvokeAsync("Join", session, "audience", "TestUser", "dev-TestUser");
 
         // Fetch latest state to resync
         var statusResp = await _httpClient.GetAsync($"/status/{session}");

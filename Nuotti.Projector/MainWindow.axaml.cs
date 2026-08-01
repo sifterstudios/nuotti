@@ -379,7 +379,7 @@ public partial class MainWindow : Window
         // Update debug overlay with connection ID
         _debugOverlay.UpdateConnectionId(_connection.ConnectionId ?? "Unknown");
 
-        await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
+        await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector", null);
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
     }
@@ -394,7 +394,7 @@ public partial class MainWindow : Window
             await _connection.StartAsync();
             AppendLocal("[hub] reconnect start ok");
 
-            await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector");
+            await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector", null);
             AppendLocal($"[hub] rejoined as projector to session={_sessionCode}");
 
             // Fetch latest state to resync
