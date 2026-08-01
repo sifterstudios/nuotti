@@ -39,7 +39,7 @@ public class HintEditorTests : MudTestContext
         public string GetDefaultPath() => "test";
     }
 
-    [Fact]
+    [Fact(Skip = "Setlist now loads from the Backend workspace API and no longer persists hint order through IManifestService. Rewrite against the new page rather than deleting: the rewritten Setlist currently has no coverage at all.")]
     public void Reordering_Hints_Persists_In_Saved_Manifest()
     {
         var manifest = new CapturingManifestService();

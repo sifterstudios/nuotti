@@ -26,7 +26,7 @@ public class SetlistValidationTests : MudTestContext
         public string GetDefaultPath() => "test";
     }
 
-    [Fact]
+    [Fact(Skip = "Setlist now loads from the Backend workspace API and no longer uses IManifestService, so it no longer validates titles or blocks a manifest save. Rewrite against the new page rather than deleting: the rewritten Setlist currently has no coverage at all.")]
     public void EmptyTitle_ShouldShowError_AndBlockSave()
     {
         var fake = new FakeManifestService();

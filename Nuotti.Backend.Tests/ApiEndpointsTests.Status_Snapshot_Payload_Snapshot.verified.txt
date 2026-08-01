@@ -33,5 +33,10 @@
     player-1: 10,
     player-2: 8
   },
+  scoresFinalized: false,
+  guessingWindowSeconds: 30,
+  guessingWindowDeadlineUtc: null,
+  guessingWindowOpenedAtUtc: null,
+  scoringPolicy: null,
   songStartedAtUtc: null
 }

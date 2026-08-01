@@ -33,7 +33,7 @@ public class SetlistPlayStopTests : MudTestContext
         }
     }
 
-    [Fact]
+    [Fact(Skip = "Setlist now loads from the Backend workspace API and no longer drives playback from a manifest file path via /api/play/dev. Rewrite against the new page rather than deleting: the rewritten Setlist currently has no coverage at all.")]
     public async Task Play_sends_correct_fileUrl_to_backend_and_Stop_is_enabled_when_playing()
     {
         // Arrange a real temp file so availability check passes
@@ -98,7 +98,7 @@ public class SetlistPlayStopTests : MudTestContext
         Assert.False(stopBtn.HasAttribute("disabled"));
     }
 
-    [Fact]
+    [Fact(Skip = "Setlist now loads from the Backend workspace API and no longer checks local file existence to enable playback. Rewrite against the new page rather than deleting: the rewritten Setlist currently has no coverage at all.")]
     public void Play_disabled_if_file_missing_or_engine_missing()
     {
         var manifest = new PerformerManifest

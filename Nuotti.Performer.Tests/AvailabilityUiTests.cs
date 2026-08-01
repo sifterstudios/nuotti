@@ -19,7 +19,7 @@ public class AvailabilityUiTests : MudTestContext
         public string GetDefaultPath() => "test";
     }
 
-    [Fact]
+    [Fact(Skip = "Setlist now loads from the Backend workspace API and no longer uses IManifestService, so file-availability flagging is not something the page does any more. Rewrite against the new page rather than deleting: the rewritten Setlist currently has no coverage at all.")]
     public void MissingFiles_AreFlagged()
     {
         // Arrange: create a song with a non-existing file path
