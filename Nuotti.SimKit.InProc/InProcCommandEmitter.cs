@@ -1,5 +1,6 @@
 using Nuotti.Backend.Commands;
 using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Protocol;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;
 

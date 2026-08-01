@@ -28,16 +28,22 @@ jobs:
       - name: Build
         run: dotnet build --no-restore
 
-      - name: Run Load Tests (Baseline 200 audiences)
-        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Load&Load=baseline" --verbosity normal --logger:"trx;LogFileName=load-baseline.trx"
+      - name: Run Burst250 Load Gate
+        run: dotnet test Nuotti.Backend.Tests/Nuotti.Backend.Tests.csproj --no-build --filter "Category=Load" --verbosity normal --logger:"trx;LogFileName=load-burst250.trx"
+        continue-on-error: true
+
+      - name: Run Isolation Suite
+        run: dotnet test Nuotti.Backend.Tests/Nuotti.Backend.Tests.csproj --no-build --filter "Category=Isolation" --verbosity normal --logger:"trx;LogFileName=isolation.trx"
+
+      - name: Run Schedule/Trace Seams
+        run: dotnet test Nuotti.SimKit.Tests/Nuotti.SimKit.Tests.csproj --no-build --filter "FullyQualifiedName~ScheduleAndTrace" --verbosity normal --logger:"trx;LogFileName=schedules.trx"
+
+      - name: Run Browser Matrix Shape
+        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Browser" --verbosity normal --logger:"trx;LogFileName=browser-matrix.trx"
         continue-on-error: true
 
       - name: Run Chaos Tests (Disconnects)
-        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Chaos" --verbosity normal --logger:"trx;LogFileName=chaos-tests.trx"
-        continue-on-error: true
-
-      - name: Run Stress Tests (500 audiences)
-        run: dotnet test tests/Nuotti.E2E/Nuotti.E2E.csproj --no-build --filter "Category=Load&Load=stress" --verbosity normal --logger:"trx;LogFileName=load-stress.trx"
+        run: dotnet test Nuotti.SimKit.Tests/Nuotti.SimKit.Tests.csproj --no-build --filter "FullyQualifiedName~Chaos" --verbosity normal --logger:"trx;LogFileName=chaos-tests.trx"
         continue-on-error: true
 
       - name: Upload test results
@@ -47,6 +53,8 @@ jobs:
           name: load-chaos-results-${{ github.run_number }}
           path: |
             **/TestResults/**/*.trx
+            **/minimized-replay*.txt
+            **/runs/**/report.*
           retention-days: 90
 
       - name: Upload test logs on failure
@@ -80,7 +88,9 @@ jobs:
           echo "Nightly run completed. Check artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test Categories" >> $GITHUB_STEP_SUMMARY
-          echo "- Baseline Load (200 audiences)" >> $GITHUB_STEP_SUMMARY
-          echo "- Chaos (Disconnects)" >> $GITHUB_STEP_SUMMARY
-          echo "- Stress (500 audiences)" >> $GITHUB_STEP_SUMMARY
+          echo "- Burst250 load gate (Category=Load)" >> $GITHUB_STEP_SUMMARY
+          echo "- Two-Workspace isolation (Category=Isolation)" >> $GITHUB_STEP_SUMMARY
+          echo "- Schedule/trace seams" >> $GITHUB_STEP_SUMMARY
+          echo "- Browser matrix shape (Category=Browser)" >> $GITHUB_STEP_SUMMARY
+          echo "- Chaos disconnects" >> $GITHUB_STEP_SUMMARY
 

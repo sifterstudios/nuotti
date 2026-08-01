@@ -5,6 +5,7 @@ using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Protocol;
 using Nuotti.SimKit.Hub;
 
 namespace Nuotti.SimKit.InProc;
