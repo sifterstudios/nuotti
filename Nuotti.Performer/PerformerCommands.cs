@@ -87,6 +87,18 @@ public sealed class PerformerCommands
         await SendAsync("next-round", cmd, ct);
     }
 
+    public async Task EndGameAsync(CancellationToken ct = default)
+    {
+        EnsureSession();
+        var cmd = new EndGame
+        {
+            SessionCode = _state.SessionCode!,
+            IssuedByRole = Role.Performer,
+            IssuedById = "performer-ui"
+        };
+        await SendAsync("end-game", cmd, ct);
+    }
+
     public async Task PlaySongAsync(SongId songId, CancellationToken ct = default)
     {
         EnsureSession();

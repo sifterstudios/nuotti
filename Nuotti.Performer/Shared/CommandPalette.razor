@@ -48,10 +48,11 @@
         _all = new List<PaletteAction>
         {
             new("start", "Start Set", async () => await StartSetAsync(), () => State.Phase is Phase.Lobby or Phase.Finished, "S"),
-            new("next", "Next Song", async () => await NextSongAsync(), () => State.Phase is Phase.Guessing && State.EngineCount > 0, "N"),
+            new("next", "Next Song", async () => await NextSongAsync(), () => State.Phase is Phase.Intermission or Phase.Guessing, "N"),
             new("hint", "Give Hint", async () => await GiveHintAsync(), () => State.Phase is Phase.Start or Phase.Hint or Phase.Guessing, "H"),
             new("lock", "Lock Answers", async () => await LockAnswersAsync(), () => State.Phase is Phase.Guessing, "L"),
             new("reveal", "Reveal", async () => await RevealAsync(), () => State.Phase is Phase.Lock && State.SelectedCorrectIndex.HasValue, "R"),
+            new("endgame", "End Game", async () => await Commands.EndGameAsync(), () => State.Phase is Phase.Intermission, "G"),
             new("end", "End Song", async () => await EndSongAsync(), () => State.Phase is Phase.Play && State.EngineCount > 0, "E"),
         };
         Filter();

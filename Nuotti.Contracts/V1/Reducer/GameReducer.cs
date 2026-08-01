@@ -182,6 +182,15 @@ public static class GameReducer
             {
                 return (state with { Catalog = catalogUpdated.Catalog }, null);
             }
+            case CurrentSongSet songSet:
+            {
+                return (state with
+                {
+                    CurrentSong = songSet.Song,
+                    SongIndex = songSet.SongIndex,
+                    HintIndex = 0
+                }, null);
+            }
             case QuestionOffered offered:
             {
                 // Re-offering the same choices is a no-op. QuestionPushed skips idempotency by

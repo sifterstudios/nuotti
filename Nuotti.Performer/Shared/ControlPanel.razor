@@ -80,6 +80,14 @@
                 End Song (E)
             </MudButton>
         </MudItem>
+        <MudItem xs="12" sm="6" md="4" lg="2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" FullWidth="true"
+                       data-testid="btn-end-game"
+                       StartIcon="@Material.Filled.Flag"
+                       OnClick="@(e => EndGame(e))" Disabled="@(!CanEndGame)">
+                End Game
+            </MudButton>
+        </MudItem>
     </MudGrid>
 </MudPaper>
 
@@ -149,7 +157,7 @@
     // State helpers
     bool HasSelection => State.SelectedCorrectIndex.HasValue;
     bool CanStartSet => State.Phase is Phase.Lobby or Phase.Finished;
-    bool CanNextSong => State.Phase is Phase.Guessing && State.EngineCount > 0; // NextRound requires Engine
+    bool CanNextSong => State.Phase is Phase.Intermission or Phase.Guessing;
     bool CanGiveHint => State.Phase is Phase.Guessing;
     bool CanOpenWindow => State.Phase is Phase.Start or Phase.Hint;
     bool CanLock => State.Phase is Phase.Guessing;
@@ -157,6 +165,7 @@
     bool CanPrepare => State.Phase is Phase.Reveal;
     bool CanStartPlayback => State.Phase is Phase.Reveal && !string.IsNullOrWhiteSpace(State.VenueAssetRevisionId);
     bool CanEndSong => State.Phase is Phase.Play && State.EngineCount > 0; // Stop requires Engine
+    bool CanEndGame => State.Phase is Phase.Intermission;
 
     // Debounce: prevent double-triggers within 500ms for all flow buttons
     readonly Dictionary<string, DateTime> _lastInvoke = new();
@@ -207,6 +216,12 @@
         {
             await Commands.NextSongAsync(songId);
         }
+    }
+
+    async Task EndGame(MouseEventArgs _)
+    {
+        if (Debounced(nameof(EndGame))) return;
+        await Commands.EndGameAsync();
     }
 
     async Task GiveHint(MouseEventArgs _)

@@ -190,6 +190,7 @@ var auditLogger = new Serilog.LoggerConfiguration()
     .CreateLogger();
 builder.Services.AddSingleton<Serilog.ILogger>(provider => auditLogger);
 builder.Services.AddSingleton<Nuotti.Backend.Audit.AuditLogService>();
+builder.Services.AddSingleton<Nuotti.Backend.Retention.ISessionResultsStore, Nuotti.Backend.Retention.InMemorySessionResultsStore>();
 
 // Command processing: the only path by which a session's state changes.
 builder.Services.AddSingleton<ISessionCommandProcessor, SessionCommandProcessor>();
