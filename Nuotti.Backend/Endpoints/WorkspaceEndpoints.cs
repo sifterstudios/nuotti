@@ -42,13 +42,16 @@ public static class WorkspaceEndpoints
         });
 
         app.MapPost("/v1/workspaces", async (
-            HttpContext http, CreateWorkspaceRequest request, IWorkspaceAccessStore store, CancellationToken ct) =>
+            HttpContext http, CreateWorkspaceRequest request, IWorkspaceAccessStore store,
+            Nuotti.Backend.Governance.ProductionGovernance governance, CancellationToken ct) =>
         {
             var principal = await WorkspaceHttpAccess.AuthenticateAsync(http, store, ct);
             if (principal is null) return Results.Unauthorized();
             if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120)
                 return Invalid("name", "Workspace name must be between 1 and 120 characters.");
-            return Results.Ok(await store.CreateWorkspaceAsync(principal, request.Name, ct));
+            var created = await store.CreateWorkspaceAsync(principal, request.Name, ct);
+            governance.GrantLaunchEntitlements(created.WorkspaceId);
+            return Results.Ok(created);
         });
 
         app.MapPost("/v1/workspaces/{workspaceId}/select", async (

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Nuotti.Contracts.V1.Governance;
 
 namespace Nuotti.Backend.Telemetry;
 
@@ -22,7 +23,7 @@ public static class BackendActivitySource
         {
             activity.SetTag("command.name", commandName);
             activity.SetTag("command.id", commandId.ToString());
-            activity.SetTag("session.code", session);
+            activity.SetTag("session.code", SafeTelemetryIdentifiers.CorrelateSession(session));
             activity.SetTag("nuotti.command_type", "phase_change");
         }
         return activity;
@@ -37,7 +38,7 @@ public static class BackendActivitySource
         if (activity != null)
         {
             activity.SetTag("event.type", eventType);
-            activity.SetTag("session.code", session);
+            activity.SetTag("session.code", SafeTelemetryIdentifiers.CorrelateSession(session));
             if (correlationId.HasValue)
             {
                 activity.SetTag("correlation.id", correlationId.Value.ToString());
@@ -57,9 +58,8 @@ public static class BackendActivitySource
         {
             activity.SetTag("event.type", eventType);
             activity.SetTag("subscriber.name", subscriberName);
-            activity.SetTag("session.code", session);
+            activity.SetTag("session.code", SafeTelemetryIdentifiers.CorrelateSession(session));
         }
         return activity;
     }
 }
-

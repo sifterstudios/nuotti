@@ -1,6 +1,8 @@
 using Nuotti.Backend.Assets;
 using Nuotti.Backend.Exception;
+using Nuotti.Backend.Governance;
 using Nuotti.Backend.Workspaces;
+using Nuotti.Contracts.V1.Governance;
 using Nuotti.Contracts.V1.Enum;
 
 namespace Nuotti.Backend.Endpoints;
@@ -121,11 +123,18 @@ public static class PrivateAssetEndpoints
 
         app.MapPost("/v1/workspaces/{workspaceId}/revisions/{revisionId}/download", async (
             HttpContext http, string workspaceId, string revisionId, IWorkspaceAccessStore access,
-            IPrivateAssetMetadataStore metadata, IPrivateAssetObjectStore objects, CancellationToken ct) =>
+            IPrivateAssetMetadataStore metadata, IPrivateAssetObjectStore objects,
+            ProductionGovernance governance, CancellationToken ct) =>
         {
             var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
             if (selected.Principal is null) return Results.Unauthorized();
             if (selected.Access is null) return Results.NotFound();
+            if (governance.Takedowns.IsBlocked(workspaceId, revisionId))
+                return Results.Json(new { title = "Takedown enforced", detail = "Asset download is blocked by an enforced takedown." },
+                    statusCode: StatusCodes.Status403Forbidden);
+            if (!governance.Entitlements.IsAllowed(workspaceId, EntitlementKind.AssetDownload))
+                return Results.Json(new { title = "Not entitled", detail = "Asset download requires an active entitlement." },
+                    statusCode: StatusCodes.Status403Forbidden);
             var revision = await metadata.GetAsync(workspaceId, revisionId, ct);
             if (revision?.Status != AssetRevisionStatus.Published || RightsExpired(revision.Provenance)) return Results.NotFound();
             var key = await metadata.GetObjectKeyAsync(workspaceId, revisionId, ct);

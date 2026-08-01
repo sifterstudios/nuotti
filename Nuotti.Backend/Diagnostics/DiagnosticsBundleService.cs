@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
+using Nuotti.Contracts.V1.Governance;
 using ServiceDefaults;
 
 namespace Nuotti.Backend.Diagnostics;
@@ -253,6 +254,46 @@ public class DiagnosticsBundleService
         }
 
         return Path.Combine(Path.GetTempPath(), fileName);
+    }
+
+    /// <summary>
+    /// Creates a support ZIP from bounded, redacted evidence (production diagnostics seam).
+    /// </summary>
+    public async Task<string> CreateBoundedBundleAsync(
+        BoundedSupportEvidence evidence,
+        string? workspaceId,
+        CancellationToken cancellationToken = default)
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var safeWorkspace = string.IsNullOrWhiteSpace(workspaceId)
+            ? "workspace"
+            : SafeTelemetryIdentifiers.CorrelateWorkspace(workspaceId).Replace(':', '-');
+        var fileName = $"nuotti-support-{safeWorkspace}-{timestamp}.zip";
+        var zipPath = Path.Combine(Path.GetTempPath(), fileName);
+
+        await using var zipStream = File.Create(zipPath);
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Create);
+
+        var manifest = archive.CreateEntry("manifest.txt");
+        await using (var stream = manifest.Open())
+        await using (var writer = new StreamWriter(stream))
+            await writer.WriteAsync(evidence.RenderManifest(workspaceId ?? "anon"));
+
+        foreach (var item in evidence.Items)
+        {
+            var entry = archive.CreateEntry($"evidence/{SanitizeEntryName(item.Name)}.txt");
+            await using var stream = entry.Open();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(item.Content);
+        }
+
+        return zipPath;
+    }
+
+    static string SanitizeEntryName(string name)
+    {
+        var cleaned = new string(name.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '_').ToArray());
+        return string.IsNullOrWhiteSpace(cleaned) ? "item" : cleaned;
     }
 }
 

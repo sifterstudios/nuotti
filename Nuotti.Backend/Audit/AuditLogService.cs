@@ -49,6 +49,32 @@ public class AuditLogService
     }
 
     /// <summary>
+    /// Logs a governance / entitlement / diagnostics boundary action.
+    /// </summary>
+    public void LogGovernanceAction(string action, string workspaceId, string actorId, string detail)
+    {
+        using (LogContext.PushProperty("audit.type", "governance_action"))
+        using (LogContext.PushProperty("audit.action", action))
+        using (LogContext.PushProperty("audit.workspace_id", SafeWorkspace(workspaceId)))
+        using (LogContext.PushProperty("audit.actor_id", SafeActor(actorId)))
+        using (LogContext.PushProperty("audit.detail", detail))
+        {
+            _auditLogger.Information(
+                "Governance action: Action={Action}, Workspace={WorkspaceId}, Actor={ActorId}, Detail={Detail}",
+                action,
+                SafeWorkspace(workspaceId),
+                SafeActor(actorId),
+                detail);
+        }
+    }
+
+    static string SafeWorkspace(string workspaceId)
+        => Nuotti.Contracts.V1.Governance.SafeTelemetryIdentifiers.CorrelateWorkspace(workspaceId);
+
+    static string SafeActor(string actorId)
+        => Nuotti.Contracts.V1.Governance.SafeTelemetryIdentifiers.CorrelateActor(actorId);
+
+    /// <summary>
     /// Logs an event being published.
     /// </summary>
     public void LogEventPublished<TEvent>(TEvent evt)
