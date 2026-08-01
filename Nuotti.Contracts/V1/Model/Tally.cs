@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Model;
+namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>
 /// Aggregated vote/answer count for a specific choice.

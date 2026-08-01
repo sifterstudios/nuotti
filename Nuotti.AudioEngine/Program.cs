@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -116,7 +116,7 @@ player.Error += (_, ex) =>
 IAudioDeviceEnumerator deviceEnumerator = new BasicAudioDeviceEnumerator();
 
 // Log backend and device info on startup
-Log.Information("AudioEngine backend: {BackendType}, OutputBackend={OutputBackend}, OutputDevice={OutputDevice}, PreferredPlayer={PreferredPlayer}", 
+Log.Information("AudioEngine backend: {BackendType}, OutputBackend={OutputBackend}, OutputDevice={OutputDevice}, PreferredPlayer={PreferredPlayer}",
     backendType, engineOptions.OutputBackend ?? "default", engineOptions.OutputDevice ?? "default", engineOptions.PreferredPlayer);
 
 try

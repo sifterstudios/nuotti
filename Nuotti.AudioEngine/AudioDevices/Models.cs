@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.AudioDevices;
+namespace Nuotti.AudioEngine.AudioDevices;
 
 public sealed record DeviceInfo(string Id, string Name, int Channels);
 

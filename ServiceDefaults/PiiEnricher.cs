@@ -21,12 +21,12 @@ public class PiiEnricher : ILogEventEnricher
         foreach (var prop in logEvent.Properties.ToList())
         {
             var propName = prop.Key.ToLowerInvariant();
-            
+
             // Check if property name suggests PII
             if (propertiesToRedact.Any(p => propName.Contains(p, StringComparison.OrdinalIgnoreCase)))
             {
                 var originalValue = prop.Value.ToString("l", null);
-                
+
                 // Remove quotes that Serilog adds
                 var cleanValue = originalValue.Trim('"');
 
@@ -35,7 +35,7 @@ public class PiiEnricher : ILogEventEnricher
                 {
                     redacted = PiiRedactor.RedactPlayerName(cleanValue);
                 }
-                else if (propName.Contains("path", StringComparison.OrdinalIgnoreCase) || 
+                else if (propName.Contains("path", StringComparison.OrdinalIgnoreCase) ||
                          propName.Contains("file", StringComparison.OrdinalIgnoreCase) ||
                          propName.Contains("url", StringComparison.OrdinalIgnoreCase))
                 {

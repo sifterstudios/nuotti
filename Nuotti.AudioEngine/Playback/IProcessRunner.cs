@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 namespace Nuotti.AudioEngine.Playback;
 
 public interface IProcessHandle : IDisposable

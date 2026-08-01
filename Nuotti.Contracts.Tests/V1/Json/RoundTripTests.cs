@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message.Phase;
@@ -89,7 +89,7 @@ public class RoundTripTests
             IssuedAtUtc = fixedNow
         });
 
-        yield return Case(new RevealAnswer(SongRef("song-42", "Song", "Artist"),0)
+        yield return Case(new RevealAnswer(SongRef("song-42", "Song", "Artist"), 0)
         {
             CommandId = guid,
             SessionCode = "SESS-42",

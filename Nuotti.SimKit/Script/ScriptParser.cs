@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 namespace Nuotti.SimKit.Script;

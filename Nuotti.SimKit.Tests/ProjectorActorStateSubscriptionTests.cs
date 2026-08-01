@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
 using Nuotti.SimKit.Hub;

@@ -13,7 +13,7 @@ public class PiiRedactionTests
         var redacted = PiiRedactor.RedactPlayerName("John Doe");
         Assert.StartsWith("J", redacted);
         Assert.Contains("*", redacted);
-        
+
         var shortName = PiiRedactor.RedactPlayerName("A");
         Assert.Equal("A***", shortName);
     }
@@ -31,7 +31,7 @@ public class PiiRedactionTests
     {
         var redacted = PiiRedactor.RedactFilePath(@"C:\Users\John\Documents\song.mp3");
         Assert.Equal("song.mp3", redacted);
-        
+
         var unixPath = PiiRedactor.RedactFilePath("/home/user/music/track.wav");
         Assert.Equal("track.wav", unixPath);
     }

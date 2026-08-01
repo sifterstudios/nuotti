@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
@@ -21,7 +21,7 @@ public static class ProblemResults
 
     public static IResult Forbidden(string title, string detail, ReasonCode reason = ReasonCode.None, string? field = null, Guid? correlationId = null)
         => Json(new NuottiProblem(title, 403, detail, reason, field, correlationId), 403);
-    
+
     /// <summary>
     /// Emits an already-built problem, using the status it carries. This is how a rejected
     /// CommandResult becomes an HTTP response.
@@ -31,7 +31,7 @@ public static class ProblemResults
 
     static IResult Json(object value, int statusCode)
         => Results.Json(value, ContractsJson.RestOptions, statusCode: statusCode);
-    
+
     public static IResult WrongRoleTriedExecutingResult(Role role)
     {
         return Forbidden(
@@ -61,12 +61,12 @@ public sealed class ProblemHandlingMiddleware(RequestDelegate next)
 
             var (status, title, detail, reason, field) = MapException(ex);
             var problem = new NuottiProblem(title, status, detail, reason, field, correlationId);
-            
+
             // Log error with full context: status, path, reason, correlation ID, timestamp
             var logger = context.RequestServices.GetRequiredService<ILogger<ProblemHandlingMiddleware>>();
-            logger.LogError(ex, 
-                "Request failed. Status={Status}, Path={Path}, Reason={Reason}, CorrelationId={CorrelationId}, Timestamp={Timestamp}", 
-                status, 
+            logger.LogError(ex,
+                "Request failed. Status={Status}, Path={Path}, Reason={Reason}, CorrelationId={CorrelationId}, Timestamp={Timestamp}",
+                status,
                 context.Request.Path,
                 reason,
                 correlationId,

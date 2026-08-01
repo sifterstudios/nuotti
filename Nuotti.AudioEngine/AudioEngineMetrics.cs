@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -13,7 +13,7 @@ public sealed class AudioEngineMetrics
     private bool _isPlaying;
     private double _avgRttMs;
     private long _rttCount;
-    
+
     // Playback telemetry
     private long _playbackStartCount;
     private long _playbackStopCount;
@@ -41,7 +41,7 @@ public sealed class AudioEngineMetrics
         {
             _isPlaying = false;
             _playbackStopCount++;
-            
+
             // Record track duration if we have a start time
             if (_currentPlaybackStartTime.HasValue)
             {
@@ -86,7 +86,7 @@ public sealed class AudioEngineMetrics
             var averageTrackDurationSeconds = _trackDurationsSeconds.Count > 0
                 ? _trackDurationsSeconds.Average()
                 : (double?)null;
-            
+
             var failureRate = _playbackStartCount > 0
                 ? (double)_playbackFailureCount / _playbackStartCount
                 : 0.0;
@@ -220,9 +220,9 @@ public static class MetricsHost
             else if (string.Equals(path, "/about", StringComparison.OrdinalIgnoreCase))
             {
                 var info = ServiceDefaults.VersionInfo.GetVersionInfo("Nuotti.AudioEngine");
-                var json = System.Text.Json.JsonSerializer.Serialize(info, new System.Text.Json.JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+                var json = System.Text.Json.JsonSerializer.Serialize(info, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
                 });
                 var bytes = Encoding.UTF8.GetBytes(json);
                 await writer.WriteLineAsync("HTTP/1.1 200 OK");

@@ -70,7 +70,7 @@ public class NameValidationService
     private string FilterProfanity(string name)
     {
         var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var filteredWords = words.Select(word => 
+        var filteredWords = words.Select(word =>
             ProfanityList.Contains(word) ? new string('*', word.Length) : word);
         return string.Join(" ", filteredWords);
     }

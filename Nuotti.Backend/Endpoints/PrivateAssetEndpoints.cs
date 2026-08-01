@@ -234,8 +234,10 @@ public static class PrivateAssetEndpoints
             || !uses.Any(x => compatibleUses.Contains(x, StringComparer.Ordinal))) return null;
         var normalizedProvenance = provenance with
         {
-            Source = provenance.Source.Trim(), RightsBasis = provenance.RightsBasis.Trim(),
-            Territory = provenance.Territory.Trim().ToUpperInvariant(), PermittedUses = uses!,
+            Source = provenance.Source.Trim(),
+            RightsBasis = provenance.RightsBasis.Trim(),
+            Territory = provenance.Territory.Trim().ToUpperInvariant(),
+            PermittedUses = uses!,
             SupportingDocumentReference = provenance.SupportingDocumentReference!.Trim()
         };
         return request with { AssetType = assetType, ContentType = contentType!, Provenance = normalizedProvenance };

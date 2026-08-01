@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Backend.Sessions;
+namespace Nuotti.Backend.Sessions;
 
 public interface ISessionStore
 {

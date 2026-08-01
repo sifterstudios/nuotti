@@ -159,7 +159,7 @@ public sealed class PostgresWorkspaceAccessStore(NpgsqlDataSource dataSource, Ti
         var raw = WorkspaceTokens.New();
         var expires = _time.GetUtcNow().AddMinutes(15);
         state.Links[WorkspaceTokens.Hash(raw)] = new WorkspaceLinkState
-            { Email = email, WorkspaceId = workspaceId, ExpiresAt = expires };
+        { Email = email, WorkspaceId = workspaceId, ExpiresAt = expires };
         return new IssuedMagicLink(raw, expires);
     }
 

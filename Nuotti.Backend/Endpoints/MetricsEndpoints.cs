@@ -14,9 +14,9 @@ internal static class MetricsEndpoints
         {
             return Results.Json(
                 metrics.Snapshot(sessionStore),
-                new System.Text.Json.JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
                 },
                 contentType: "application/json");
         })

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Message;
 namespace Nuotti.AudioEngine;
 

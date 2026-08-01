@@ -11,24 +11,24 @@ namespace Nuotti.Projector.Views;
 public abstract partial class PhaseViewBase : UserControl
 {
     protected readonly ResponsiveTypographyService TypographyService = new();
-    
+
     protected PhaseViewBase()
     {
         InitializeComponent();
         // Subscribe to size changes to update font sizes
         SizeChanged += OnSizeChanged;
     }
-    
+
     /// <summary>
     /// Realise a ViewSpec into controls. Views bind; they do not derive.
     /// </summary>
     public abstract void Apply(ViewSpec spec);
-    
+
     protected virtual void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
     }
-    
+
     /// <summary>
     /// Gets the window size by traversing up the visual tree.
     /// </summary>
@@ -47,7 +47,7 @@ public abstract partial class PhaseViewBase : UserControl
         // Fallback to control's bounds if window not found
         return new WindowSize(Bounds.Width, Bounds.Height);
     }
-    
+
     /// <summary>
     /// Called when the view size changes. Override to update font sizes.
     /// </summary>
@@ -55,7 +55,7 @@ public abstract partial class PhaseViewBase : UserControl
     {
         UpdateResponsiveFontSizes();
     }
-    
+
     /// <summary>
     /// Called when the view is attached to the visual tree. Override to update font sizes.
     /// </summary>
@@ -65,7 +65,7 @@ public abstract partial class PhaseViewBase : UserControl
         // Update font sizes once attached to get accurate window size
         UpdateResponsiveFontSizes();
     }
-    
+
     /// <summary>
     /// Override this method to update font sizes for controls in derived views.
     /// </summary>

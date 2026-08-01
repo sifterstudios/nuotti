@@ -1,4 +1,4 @@
-﻿using Nuotti.SimKit.Script;
+using Nuotti.SimKit.Script;
 using Xunit;
 namespace Nuotti.SimKit.Tests;
 

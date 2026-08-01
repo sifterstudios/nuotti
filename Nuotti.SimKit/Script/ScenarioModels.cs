@@ -1,4 +1,4 @@
-﻿using Nuotti.SimKit.Actors;
+using Nuotti.SimKit.Actors;
 namespace Nuotti.SimKit.Script;
 
 /// <summary>

@@ -10,18 +10,18 @@ public class ThemingApiService : IDisposable
     private HubConnection? _connection;
     private readonly string _backendUrl;
     private bool _isConnected = false;
-    
+
     public event Action<ThemeVariant>? ThemeChangeRequested;
     public event Action<TallyDisplayMode>? TallyModeChangeRequested;
     public event Action<ProjectorStyleSettings>? StyleSettingsChanged;
-    
+
     public bool IsConnected => _isConnected;
-    
+
     public ThemingApiService(string backendUrl)
     {
         _backendUrl = backendUrl;
     }
-    
+
     public async Task ConnectAsync()
     {
         try
@@ -30,19 +30,19 @@ public class ThemingApiService : IDisposable
                 .WithUrl($"{_backendUrl}/projectorStyleHub")
                 .WithAutomaticReconnect()
                 .Build();
-            
+
             // Subscribe to theming events
             _connection.On<string>("ThemeChanged", OnThemeChanged);
             _connection.On<string>("TallyModeChanged", OnTallyModeChanged);
             _connection.On<ProjectorStyleSettings>("StyleSettingsChanged", OnStyleSettingsChanged);
-            
+
             _connection.Reconnecting += OnReconnecting;
             _connection.Reconnected += OnReconnected;
             _connection.Closed += OnConnectionClosed;
-            
+
             await _connection.StartAsync();
             _isConnected = true;
-            
+
             Console.WriteLine("[theming-api] Connected to theming API");
         }
         catch (Exception ex)
@@ -51,7 +51,7 @@ public class ThemingApiService : IDisposable
             _isConnected = false;
         }
     }
-    
+
     public async Task DisconnectAsync()
     {
         if (_connection != null)
@@ -72,7 +72,7 @@ public class ThemingApiService : IDisposable
             }
         }
     }
-    
+
     public async Task RegisterProjectorAsync(string sessionCode)
     {
         if (_connection?.State == HubConnectionState.Connected)
@@ -88,7 +88,7 @@ public class ThemingApiService : IDisposable
             }
         }
     }
-    
+
     public async Task SendCurrentStyleAsync(ProjectorStyleSettings currentStyle)
     {
         if (_connection?.State == HubConnectionState.Connected)
@@ -103,7 +103,7 @@ public class ThemingApiService : IDisposable
             }
         }
     }
-    
+
     private void OnThemeChanged(string themeName)
     {
         var themeVariant = themeName.ToLowerInvariant() switch
@@ -113,48 +113,48 @@ public class ThemingApiService : IDisposable
             "default" => ThemeVariant.Default,
             _ => ThemeVariant.Default
         };
-        
+
         Console.WriteLine($"[theming-api] Theme change requested: {themeName}");
         ThemeChangeRequested?.Invoke(themeVariant);
     }
-    
+
     private void OnTallyModeChanged(string tallyMode)
     {
-        var mode = Enum.TryParse<TallyDisplayMode>(tallyMode, true, out var parsedMode) 
-            ? parsedMode 
+        var mode = Enum.TryParse<TallyDisplayMode>(tallyMode, true, out var parsedMode)
+            ? parsedMode
             : TallyDisplayMode.Animated;
-        
+
         Console.WriteLine($"[theming-api] Tally mode change requested: {tallyMode}");
         TallyModeChangeRequested?.Invoke(mode);
     }
-    
+
     private void OnStyleSettingsChanged(ProjectorStyleSettings settings)
     {
         Console.WriteLine($"[theming-api] Style settings changed");
         StyleSettingsChanged?.Invoke(settings);
     }
-    
+
     private Task OnReconnecting(Exception? exception)
     {
         Console.WriteLine("[theming-api] Reconnecting...");
         _isConnected = false;
         return Task.CompletedTask;
     }
-    
+
     private Task OnReconnected(string? connectionId)
     {
         Console.WriteLine($"[theming-api] Reconnected with ID: {connectionId}");
         _isConnected = true;
         return Task.CompletedTask;
     }
-    
+
     private Task OnConnectionClosed(Exception? exception)
     {
         Console.WriteLine($"[theming-api] Connection closed: {exception?.Message ?? "Normal closure"}");
         _isConnected = false;
         return Task.CompletedTask;
     }
-    
+
     public void Dispose()
     {
         _ = Task.Run(async () => await DisconnectAsync());

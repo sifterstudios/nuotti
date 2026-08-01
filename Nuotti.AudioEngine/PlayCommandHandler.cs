@@ -1,4 +1,4 @@
-﻿using Nuotti.AudioEngine.Playback;
+using Nuotti.AudioEngine.Playback;
 using Nuotti.Contracts.V1.Message;
 namespace Nuotti.AudioEngine;
 

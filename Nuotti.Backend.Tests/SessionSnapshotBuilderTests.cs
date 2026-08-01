@@ -50,7 +50,7 @@ public sealed class SessionSnapshotBuilderTests
         var policy = new ScoringPolicyReference("standard", 1);
         var warning = await builder.BuildAsync("ws", [new(revision.RevisionId)], policy, new HashSet<string>());
         Assert.False(warning.Preflight.CanCreate);
-        var code = Assert.Single(warning.Preflight.Findings.Where(x => x.Severity == ReadinessSeverity.Warning)).Code;
+        var code = Assert.Single(warning.Preflight.Findings, x => x.Severity == ReadinessSeverity.Warning).Code;
         Assert.True((await builder.BuildAsync("ws", [new(revision.RevisionId)], policy, new HashSet<string>([code]))).Preflight.CanCreate);
         var blocked = await builder.BuildAsync("ws", [new("missing")], policy, new HashSet<string>(["song.1.revision-missing"]));
         Assert.False(blocked.Preflight.CanCreate);

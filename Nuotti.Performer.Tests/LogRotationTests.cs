@@ -15,12 +15,12 @@ public class LogRotationTests
         // Arrange
         var tempPath = Path.Combine(Path.GetTempPath(), "NuottiLogRotationTest", Guid.NewGuid().ToString("N"));
         Environment.SetEnvironmentVariable("APPDATA", tempPath);
-        
+
         try
         {
             // Act
             var logDir = LogFileHelper.GetLogDirectory("TestService");
-            
+
             // Assert
             Assert.True(Directory.Exists(logDir));
             Assert.Contains("Nuotti", logDir);
@@ -41,12 +41,12 @@ public class LogRotationTests
         // Arrange
         var tempPath = Path.Combine(Path.GetTempPath(), "NuottiLogRotationTest", Guid.NewGuid().ToString("N"));
         Environment.SetEnvironmentVariable("APPDATA", tempPath);
-        
+
         try
         {
             // Act
             var logPath = LogFileHelper.GetLogFilePath("TestService");
-            
+
             // Assert
             Assert.Contains("TestService", logPath);
             Assert.Contains(DateTime.UtcNow.ToString("yyyyMMdd"), logPath);

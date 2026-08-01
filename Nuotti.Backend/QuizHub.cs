@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Commands;
 using Nuotti.Backend.Participants;
 using Nuotti.Backend.RateLimiting;

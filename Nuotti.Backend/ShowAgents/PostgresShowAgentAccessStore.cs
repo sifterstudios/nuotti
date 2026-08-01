@@ -18,7 +18,7 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
         do code = ShowAgentTokens.PairingCode(); while (state.Pairings.ContainsKey(ShowAgentTokens.Hash(code)));
         var expires = _time.GetUtcNow().AddMinutes(10);
         state.Pairings[ShowAgentTokens.Hash(code)] = new ShowAgentPairingDocument
-            { WorkspaceId = workspaceId, SessionCode = sessionCode, IssuedBy = issuedBy, ExpiresAt = expires };
+        { WorkspaceId = workspaceId, SessionCode = sessionCode, IssuedBy = issuedBy, ExpiresAt = expires };
         return new ShowAgentPairingCode(code, expires);
     }, cancellationToken);
 
@@ -34,8 +34,11 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
             var scope = Scope(pairing.WorkspaceId, pairing.SessionCode);
             var agent = new ShowAgentDocument
             {
-                Id = $"agent_{Guid.NewGuid():N}", Name = name.Trim(), WorkspaceId = pairing.WorkspaceId,
-                SessionCode = pairing.SessionCode, CredentialHash = ShowAgentTokens.Hash(credential),
+                Id = $"agent_{Guid.NewGuid():N}",
+                Name = name.Trim(),
+                WorkspaceId = pairing.WorkspaceId,
+                SessionCode = pairing.SessionCode,
+                CredentialHash = ShowAgentTokens.Hash(credential),
                 CommandStartSequence = state.LastSequenceByScope.GetValueOrDefault(scope)
             };
             if (state.AgentByScope.TryGetValue(scope, out var oldId)) state.Agents[oldId].Revoked = true;
@@ -221,18 +224,22 @@ internal sealed class ShowAgentAccessDocument
 internal sealed class ShowAgentPairingDocument
 {
     public string WorkspaceId { get; set; } = ""; public string SessionCode { get; set; } = "";
-    public string IssuedBy { get; set; } = ""; public DateTimeOffset ExpiresAt { get; set; } public bool Used { get; set; }
+    public string IssuedBy { get; set; } = ""; public DateTimeOffset ExpiresAt { get; set; }
+    public bool Used { get; set; }
 }
 internal sealed class ShowAgentDocument
 {
     public string Id { get; set; } = ""; public string Name { get; set; } = ""; public string WorkspaceId { get; set; } = "";
     public string SessionCode { get; set; } = ""; public string CredentialHash { get; set; } = ""; public bool Revoked { get; set; }
     public long CommandStartSequence { get; set; }
-    public ShowAgentConnectionState State { get; set; } public string? Detail { get; set; } public DateTimeOffset? LastSeenAt { get; set; }
+    public ShowAgentConnectionState State { get; set; }
+    public string? Detail { get; set; }
+    public DateTimeOffset? LastSeenAt { get; set; }
 }
 internal sealed class ShowAgentTokenDocument { public string AgentId { get; set; } = ""; public DateTimeOffset ExpiresAt { get; set; } }
 internal sealed class ShowAgentCommandDocument
 {
-    public long Sequence { get; set; } public string MessageType { get; set; } = ""; public JsonElement Payload { get; set; }
+    public long Sequence { get; set; }
+    public string MessageType { get; set; } = ""; public JsonElement Payload { get; set; }
 }
 internal sealed class ShowAgentAttemptDocument { public DateTimeOffset StartedAt { get; set; } public int Count { get; set; } }

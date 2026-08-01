@@ -13,7 +13,7 @@ public class LocalizeExtension : MarkupExtension
 {
     public string Key { get; set; } = string.Empty;
     public object[]? Args { get; set; }
-    
+
     public override object ProvideValue(IServiceProvider serviceProvider)
     {
         // For now, return a simple binding that can be updated later
@@ -28,17 +28,17 @@ public class LocalizeExtension : MarkupExtension
 public static class LocalizationExtensions
 {
     private static LocalizationService? _localizationService;
-    
+
     public static void Initialize(LocalizationService localizationService)
     {
         _localizationService = localizationService;
     }
-    
+
     public static string Localize(this string key, params object[] args)
     {
         return _localizationService?.GetString(key, args) ?? $"[{key}]";
     }
-    
+
     public static string LocalizePlural(this string baseKey, int count, params object[] args)
     {
         return _localizationService?.GetPluralString(baseKey, count, args) ?? $"[{baseKey}]";

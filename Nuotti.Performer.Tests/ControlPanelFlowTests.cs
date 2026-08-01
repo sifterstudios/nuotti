@@ -1,4 +1,4 @@
-﻿using Bunit;
+using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -87,7 +87,7 @@ public class ControlPanelFlowTests : MudTestContext
         // Assert: only one POST to next-round
         var posts = handler.Requests.Where(r => r.Method == HttpMethod.Post).ToList();
         var nextPosts = posts.Where(r => r.RequestUri!.AbsolutePath.Contains("/v1/message/phase/next-round/")).ToList();
-        Assert.Equal(1, nextPosts.Count);
+        Assert.Single(nextPosts);
     }
 
     [Fact]

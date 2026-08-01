@@ -13,24 +13,24 @@ public class AudioEnforcementService : IDisposable
     private readonly HashSet<string> _reportedViolations = new(); // Track reported violations to avoid spam
     private bool _isMonitoring = false;
     private bool _audioDetected = false;
-    
+
     public event Action<AudioViolation>? AudioViolationDetected;
-    
+
     public bool IsAudioBlocked => _isMonitoring;
     public bool HasDetectedAudio => _audioDetected;
-    
+
     public AudioEnforcementService()
     {
         // Initialize blocked process list
         InitializeBlockedProcesses();
-        
+
         // Start monitoring every 5 seconds
-        _monitoringTimer = new Timer(MonitorAudioProcesses, null, 
+        _monitoringTimer = new Timer(MonitorAudioProcesses, null,
             TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5));
-        
+
         _isMonitoring = true;
     }
-    
+
     private void InitializeBlockedProcesses()
     {
         // Common audio processes that should not be running on a projector
@@ -56,22 +56,22 @@ public class AudioEnforcementService : IDisposable
             "obs32"
         });
     }
-    
+
     private void MonitorAudioProcesses(object? state)
     {
         if (!_isMonitoring) return;
-        
+
         try
         {
             var runningProcesses = Process.GetProcesses();
             var violations = new List<AudioViolation>();
-            
+
             foreach (var process in runningProcesses)
             {
                 try
                 {
                     var processName = process.ProcessName.ToLowerInvariant();
-                    
+
                     // Check if this is a blocked audio process
                     if (_blockedAudioProcesses.Contains(processName))
                     {
@@ -82,15 +82,15 @@ public class AudioEnforcementService : IDisposable
                             ProcessId = process.Id,
                             Description = $"Audio-capable process '{process.ProcessName}' is running"
                         });
-                        
+
                         _audioDetected = true;
                     }
-                    
+
                     // Check for audio-related window titles (basic heuristic)
                     if (!string.IsNullOrEmpty(process.MainWindowTitle))
                     {
                         var title = process.MainWindowTitle.ToLowerInvariant();
-                        if (title.Contains("music") || title.Contains("audio") || 
+                        if (title.Contains("music") || title.Contains("audio") ||
                             title.Contains("sound") || title.Contains("player") ||
                             title.Contains("spotify") || title.Contains("youtube"))
                         {
@@ -102,7 +102,7 @@ public class AudioEnforcementService : IDisposable
                                 WindowTitle = process.MainWindowTitle,
                                 Description = $"Window with audio-related title: '{process.MainWindowTitle}'"
                             });
-                            
+
                             _audioDetected = true;
                         }
                     }
@@ -117,13 +117,13 @@ public class AudioEnforcementService : IDisposable
                     process.Dispose();
                 }
             }
-            
+
             // Report violations (with deduplication to avoid spam)
             foreach (var violation in violations)
             {
                 // Create a unique key for this violation
                 var violationKey = $"{violation.ProcessName}_{violation.ProcessId}";
-                
+
                 // Only report if we haven't seen this violation before
                 if (!_reportedViolations.Contains(violationKey))
                 {
@@ -131,11 +131,11 @@ public class AudioEnforcementService : IDisposable
                     AudioViolationDetected?.Invoke(violation);
                 }
             }
-            
+
             // Clean up reported violations for processes that no longer exist
             // (so we can report them again if they restart)
             var currentProcessIds = new HashSet<int>(violations.Select(v => v.ProcessId));
-            _reportedViolations.RemoveWhere(key => 
+            _reportedViolations.RemoveWhere(key =>
             {
                 var parts = key.Split('_');
                 if (parts.Length == 2 && int.TryParse(parts[1], out var processId))
@@ -144,7 +144,7 @@ public class AudioEnforcementService : IDisposable
                 }
                 return false;
             });
-            
+
             // Platform-specific audio system checks
             CheckPlatformAudioSystems();
         }
@@ -153,7 +153,7 @@ public class AudioEnforcementService : IDisposable
             Console.WriteLine($"[audio-enforcement] Monitoring error: {ex.Message}");
         }
     }
-    
+
     private void CheckPlatformAudioSystems()
     {
         try
@@ -176,12 +176,12 @@ public class AudioEnforcementService : IDisposable
             Console.WriteLine($"[audio-enforcement] Platform audio check error: {ex.Message}");
         }
     }
-    
+
     private void CheckWindowsAudioSystems()
     {
         // Check for Windows audio services
         var audioServices = new[] { "AudioSrv", "AudioEndpointBuilder", "Audiosrv" };
-        
+
         foreach (var serviceName in audioServices)
         {
             try
@@ -199,12 +199,12 @@ public class AudioEnforcementService : IDisposable
             }
         }
     }
-    
+
     private void CheckLinuxAudioSystems()
     {
         // Check for common Linux audio systems
         var audioProcesses = new[] { "pulseaudio", "pipewire", "alsa", "jack" };
-        
+
         foreach (var processName in audioProcesses)
         {
             try
@@ -225,12 +225,12 @@ public class AudioEnforcementService : IDisposable
             }
         }
     }
-    
+
     private void CheckMacOSAudioSystems()
     {
         // Check for macOS audio processes
         var audioProcesses = new[] { "coreaudiod", "Audio MIDI Setup" };
-        
+
         foreach (var processName in audioProcesses)
         {
             try
@@ -251,7 +251,7 @@ public class AudioEnforcementService : IDisposable
             }
         }
     }
-    
+
     public void AddBlockedProcess(string processName)
     {
         if (!_blockedAudioProcesses.Contains(processName.ToLowerInvariant()))
@@ -259,24 +259,24 @@ public class AudioEnforcementService : IDisposable
             _blockedAudioProcesses.Add(processName.ToLowerInvariant());
         }
     }
-    
+
     public void RemoveBlockedProcess(string processName)
     {
         _blockedAudioProcesses.Remove(processName.ToLowerInvariant());
     }
-    
+
     public void StartMonitoring()
     {
         _isMonitoring = true;
         Console.WriteLine("[audio-enforcement] Audio monitoring started");
     }
-    
+
     public void StopMonitoring()
     {
         _isMonitoring = false;
         Console.WriteLine("[audio-enforcement] Audio monitoring stopped");
     }
-    
+
     public AudioEnforcementReport GenerateReport()
     {
         return new AudioEnforcementReport
@@ -289,7 +289,7 @@ public class AudioEnforcementService : IDisposable
             LastCheckTime = DateTime.UtcNow
         };
     }
-    
+
     public void Dispose()
     {
         _monitoringTimer?.Dispose();

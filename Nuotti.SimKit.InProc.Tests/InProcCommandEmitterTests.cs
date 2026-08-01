@@ -89,7 +89,9 @@ public class InProcCommandEmitterTests
 
         var act = async () => await emitter.EmitAsync(new SubmitAnswer(null, 0)
         {
-            SessionCode = "dev", IssuedByRole = Role.Audience, IssuedById = "aud-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Audience,
+            IssuedById = "aud-1"
         });
 
         await act.Should().ThrowAsync<NotSupportedException>();
@@ -117,7 +119,9 @@ public class InProcCommandEmitterTests
 
         await emitter.EmitAsync(new CreateSession("dev")
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         // Before the script runs, the session sits in Lobby (GameReducer.Initial). Only the

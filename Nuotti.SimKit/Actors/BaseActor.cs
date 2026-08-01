@@ -1,4 +1,4 @@
-﻿using Nuotti.SimKit.Hub;
+using Nuotti.SimKit.Hub;
 namespace Nuotti.SimKit.Actors;
 
 public abstract class BaseActor : IActor

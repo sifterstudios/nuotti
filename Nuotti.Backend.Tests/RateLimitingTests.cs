@@ -1,4 +1,4 @@
-﻿using Nuotti.Backend.RateLimiting;
+using Nuotti.Backend.RateLimiting;
 namespace Nuotti.Backend.Tests;
 
 public class RateLimitingTests

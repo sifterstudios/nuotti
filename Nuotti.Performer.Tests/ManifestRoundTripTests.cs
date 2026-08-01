@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 namespace Nuotti.Performer.Tests;
 
 public class ManifestRoundTripTests

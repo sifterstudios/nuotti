@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Nuotti.Contracts.V1.Model;
 using System.Net;
 using System.Net.Http.Json;

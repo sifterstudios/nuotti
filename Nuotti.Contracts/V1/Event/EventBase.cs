@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Message;
+namespace Nuotti.Contracts.V1.Message;
 
 /// <summary>
 /// Base type for all events. Encapsulates event identity and tracing details.

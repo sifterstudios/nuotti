@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback.PortAudio;
+namespace Nuotti.AudioEngine.Playback.PortAudio;
 
 /// <summary>
 /// Simulated PortAudio engine that logs writes and sleeps for the duration to mimic real-time playback.

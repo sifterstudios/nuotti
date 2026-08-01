@@ -1,4 +1,4 @@
-﻿using MudBlazor;
+using MudBlazor;
 using Nuotti.Performer.Shared;
 namespace Nuotti.Performer.Services;
 

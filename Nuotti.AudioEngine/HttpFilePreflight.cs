@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using System.Net;
 namespace Nuotti.AudioEngine;
@@ -117,10 +117,10 @@ public sealed class HttpFilePreflight : ISourcePreflight
                     var p = NuottiProblem.UnprocessableEntity("Source unreachable", ex.Message, ReasonCode.None, "url");
                     return new PreflightResult(false, null, p);
                 }
-                default:
-                    // Should not happen due to TryNormalize
-                    var pdef = NuottiProblem.BadRequest("Unsupported scheme", "Only http(s) and file:// are supported", ReasonCode.None, "url");
-                    return new PreflightResult(false, null, pdef);
+            default:
+                // Should not happen due to TryNormalize
+                var pdef = NuottiProblem.BadRequest("Unsupported scheme", "Only http(s) and file:// are supported", ReasonCode.None, "url");
+                return new PreflightResult(false, null, pdef);
         }
     }
 }

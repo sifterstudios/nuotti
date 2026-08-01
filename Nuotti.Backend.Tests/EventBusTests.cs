@@ -1,4 +1,4 @@
-﻿using Nuotti.Backend.Eventing;
+using Nuotti.Backend.Eventing;
 using Nuotti.Contracts.V1.Eventing;
 namespace Nuotti.Backend.Tests;
 
@@ -18,7 +18,7 @@ public class EventBusTests
 
         Assert.Equal(2, hits);
     }
-    private static readonly string[] expected = new[]{"A","B","C"};
+    private static readonly string[] expected = new[] { "A", "B", "C" };
 
     [Fact]
     public async Task Publish_InvokesInSubscriptionOrder()

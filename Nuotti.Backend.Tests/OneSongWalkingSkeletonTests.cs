@@ -55,11 +55,16 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/asset-uploads", member.SessionToken,
             new
             {
-                assetType = "backing-track", contentType = "audio/wav", size = bytes.LongLength,
+                assetType = "backing-track",
+                contentType = "audio/wav",
+                size = bytes.LongLength,
                 provenance = new
                 {
-                    source = "owned", rightsBasis = "original recording", territory = "NO",
-                    permittedUses = new[] { "backing-track" }, rightsExpiresAt = (DateTimeOffset?)null,
+                    source = "owned",
+                    rightsBasis = "original recording",
+                    territory = "NO",
+                    permittedUses = new[] { "backing-track" },
+                    rightsExpiresAt = (DateTimeOffset?)null,
                     supportingDocumentReference = "walk-case"
                 }
             });
@@ -107,7 +112,9 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
 
         await PostPhaseAsync(client, "start-game", session, new StartGame
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
         // Catalog comes from UpdateCatalog for RevealAnswer's SongRef; keep it aligned with the package.
         var manifest = new SetlistManifest
@@ -119,11 +126,15 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
 
         await PostJsonAsync(client, $"/api/pushQuestion/{session}", new QuestionPushed("Who sang it?", ["A", "B", "C"])
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
         await PostPhaseAsync(client, "open-answers", session, new OpenAnswers
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
 
         await using var audienceHub = new HubConnectionBuilder()
@@ -138,7 +149,9 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
         {
             var answer = new SubmitAnswer(null, 0)
             {
-                SessionCode = session, IssuedByRole = Role.Audience, IssuedById = "walker-1"
+                SessionCode = session,
+                IssuedByRole = Role.Audience,
+                IssuedById = "walker-1"
             };
             var answered = await _factory.Services.GetRequiredService<ISessionCommandProcessor>()
                 .ApplyAsync(session, Actor.Verified(Role.Audience, "walker-1"), answer,
@@ -150,16 +163,22 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
         var songId = new SongId("song-1-walkingsong");
         await PostPhaseAsync(client, "give-hint", session, new GiveHint(new Hint(0, "A walking clue", null, songId))
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
         await PostPhaseAsync(client, "lock-answers", session, new LockAnswers
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
         var revealSong = new SongRef(songId, "Walking Song", "The Band");
         await PostPhaseAsync(client, "reveal-answer", session, new RevealAnswer(revealSong, 0)
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
 
         var prepareCorrelation = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");

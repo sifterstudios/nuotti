@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Eventing;
+namespace Nuotti.Contracts.V1.Eventing;
 
 /// <summary>
 /// In-process publish/subscribe event bus abstraction to decouple producers from side-effect handlers.

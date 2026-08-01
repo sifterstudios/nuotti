@@ -24,7 +24,9 @@ public class SessionCommandProcessorTests
 
     static StartGame Start() => new()
     {
-        SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        SessionCode = Session,
+        IssuedByRole = Role.Performer,
+        IssuedById = "perf-1"
     };
 
     static void SeedPhase(IGameStateStore store, PhaseEnum phase)
@@ -114,7 +116,9 @@ public class SessionCommandProcessorTests
         var result = await processor.ApplyAsync(Session, Performer,
             new GiveHint(new Hint(0, "a hint", null, new SongId("song-1")))
             {
-                SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
             });
 
         Assert.Equal(Outcome.Applied, result.Outcome);
@@ -132,7 +136,9 @@ public class SessionCommandProcessorTests
         var result = await processor.ApplyAsync(Session, Performer,
             new GiveHint(new Hint(0, "a hint", null, new SongId("song-1")))
             {
-                SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
             });
 
         Assert.Equal(Outcome.Rejected, result.Outcome);
@@ -159,7 +165,9 @@ public class SessionCommandProcessorTests
         var result = await processor.ApplyAsync(Session, Performer,
             new RevealAnswer(new SongRef(new SongId("song-1"), "T", "A"), 1)
             {
-                SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
             });
 
         Assert.Equal(Outcome.Applied, result.Outcome);
@@ -213,7 +221,9 @@ public class SessionCommandProcessorTests
 
         static CreateSession NewCreate() => new(Session)
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         };
     }
 
@@ -225,7 +235,9 @@ public class SessionCommandProcessorTests
         var result = await processor.ApplyAsync(Session, Performer,
             new PlayTrack("https://example.test/a.mp3")
             {
-                SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
             });
 
         Assert.Equal(Outcome.Applied, result.Outcome);
@@ -242,7 +254,9 @@ public class SessionCommandProcessorTests
         var processor = Harness.Processor(out _, out var bus, idempotency);
         var cmd = new PlayTrack("https://example.test/a.mp3")
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         };
 
         var first = await processor.ApplyAsync(Session, Performer, cmd);
@@ -268,7 +282,9 @@ public class SessionCommandProcessorTests
 
         var result = await processor.ApplyAsync(Session, Performer, new UpdateCatalog(manifest)
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         Assert.Equal(Outcome.Applied, result.Outcome);
@@ -285,7 +301,9 @@ public class SessionCommandProcessorTests
         var result = await processor.ApplyAsync(Session, Performer,
             new UpdateCatalog(new SetlistManifest())
             {
-                SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
             });
 
         Assert.Equal(Outcome.Rejected, result.Outcome);

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Nuotti.AudioEngine.AudioDevices;
 using System.Text.Json;
 using Xunit;
@@ -30,7 +30,7 @@ public class DeviceListParserTests
     {
         var model = new DeviceListResult(
             DefaultDeviceId: "default",
-            Devices: new []
+            Devices: new[]
             {
                 new DeviceInfo("default", "System Default", 2)
             }

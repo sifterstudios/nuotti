@@ -45,10 +45,10 @@ public class ThemeService : IAsyncDisposable
     public async Task InitializeAsync()
     {
         _objRef = DotNetObjectReference.Create(this);
-        
+
         // Check for saved preference, otherwise use system preference
         var savedPreference = await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", "theme-preference");
-        
+
         if (!string.IsNullOrEmpty(savedPreference))
         {
             CurrentVariant = savedPreference switch
@@ -67,7 +67,7 @@ public class ThemeService : IAsyncDisposable
             IsDarkMode = await _jsRuntime.InvokeAsync<bool>("matchMedia", "(prefers-color-scheme: dark)");
             CurrentVariant = IsDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
         }
-        
+
         // Setup listener for system theme changes
         await _jsRuntime.InvokeVoidAsync("nuottiTheme.initialize", _objRef);
     }
@@ -82,7 +82,7 @@ public class ThemeService : IAsyncDisposable
             ThemeVariant.HighContrast => ThemeVariant.Light,
             _ => ThemeVariant.Light
         };
-        
+
         // HighContrast uses light theme base (white background), so IsDarkMode is false
         IsDarkMode = CurrentVariant == ThemeVariant.Dark;
         var preference = CurrentVariant.ToString().ToLowerInvariant();
@@ -112,15 +112,15 @@ public class ThemeService : IAsyncDisposable
         var lightPalette = DesignTokens.LightPalette;
         var darkPalette = DesignTokens.DarkPalette;
         var highContrastPalette = DesignTokens.HighContrastPalette;
-        
+
         // Determine which palettes to use based on current variant
-        var lightPaletteToUse = CurrentVariant == ThemeVariant.HighContrast 
-            ? highContrastPalette 
+        var lightPaletteToUse = CurrentVariant == ThemeVariant.HighContrast
+            ? highContrastPalette
             : lightPalette;
-        
+
         // Dark palette is always normal (HighContrast is light-based)
         var darkPaletteToUse = darkPalette;
-        
+
         return new MudTheme
         {
             PaletteLight = CreatePaletteLight(lightPaletteToUse),
@@ -142,7 +142,7 @@ public class ThemeService : IAsyncDisposable
             }
         };
     }
-    
+
     private static PaletteLight CreatePaletteLight(ColorPalette palette)
     {
         return new PaletteLight
@@ -165,7 +165,7 @@ public class ThemeService : IAsyncDisposable
             Divider = palette.Divider,
         };
     }
-    
+
     private static PaletteDark CreatePaletteDark(ColorPalette palette)
     {
         return new PaletteDark
@@ -188,7 +188,7 @@ public class ThemeService : IAsyncDisposable
             Divider = palette.Divider,
         };
     }
-    
+
 
     public async ValueTask DisposeAsync()
     {

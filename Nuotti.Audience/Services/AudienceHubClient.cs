@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
@@ -32,7 +32,7 @@ public class AudienceHubClient : IAsyncDisposable
 
     public QuestionPushed? CurrentQuestion { get; private set; }
     public GameStateSnapshot? CurrentGameState { get; private set; }
-    
+
     // Track participants in the session
     private readonly List<string> _participants = new();
     public IReadOnlyList<string> Participants => _participants.AsReadOnly();
@@ -58,16 +58,16 @@ public class AudienceHubClient : IAsyncDisposable
     {
         // For Blazor WASM, check configuration for backend URL
         // This can be set via appsettings.json or environment-specific config
-        var backendUrl = _configuration["services:backend:https:0"] 
+        var backendUrl = _configuration["services:backend:https:0"]
                         ?? _configuration["services:backend:http:0"]
                         ?? _configuration["BackendUrl"];
-        
+
         if (!string.IsNullOrWhiteSpace(backendUrl))
         {
             Log($"[Audience] Using backend URL from configuration: {backendUrl}");
             return backendUrl.TrimEnd('/');
         }
-        
+
         // Fallback to same origin as the static site host
         // This works when WASM app and backend are behind the same reverse proxy
         var uri = new Uri(_nav.Uri);
@@ -75,7 +75,7 @@ public class AudienceHubClient : IAsyncDisposable
         Log($"[Audience] Using fallback backend URL (same origin): {fallbackUrl}");
         return fallbackUrl;
     }
-    
+
     void Log(string message)
     {
         Debug.WriteLine(message);
@@ -123,7 +123,7 @@ public class AudienceHubClient : IAsyncDisposable
             _connection.On<JoinedAudience>("JoinedAudience", j =>
             {
                 Log($"[Audience] JoinedAudience: {j.ConnectionId} {j.Name}");
-                
+
                 // Add participant to the list if not already present
                 var name = string.IsNullOrWhiteSpace(j.Name) ? $"Guest {j.ConnectionId.Substring(0, 4)}" : j.Name;
                 if (!_participants.Contains(name))
@@ -131,7 +131,7 @@ public class AudienceHubClient : IAsyncDisposable
                     _participants.Add(name);
                     ParticipantsChanged?.Invoke();
                 }
-                
+
                 JoinedAudience?.Invoke(j);
             });
 
@@ -201,7 +201,7 @@ public class AudienceHubClient : IAsyncDisposable
     private async Task OnReconnected(string? connectionId)
     {
         Log($"[Audience] Reconnected with connection ID: {connectionId}");
-        
+
         // Restore session state after reconnection
         if (!string.IsNullOrEmpty(SessionCode))
         {
@@ -209,12 +209,12 @@ public class AudienceHubClient : IAsyncDisposable
             {
                 // Rejoin the session with the same device-bound identity
                 await _connection!.InvokeAsync("Join", SessionCode, "audience", AudienceName, DeviceSecret);
-                
+
                 // Fetch current game state and server-held answer
                 await FetchGameStateAsync();
                 await FetchMyAnswerAsync();
                 await FlushPendingAnswerAsync();
-                
+
                 Log($"[Audience] Session state restored for: {SessionCode}");
             }
             catch (Exception ex)
@@ -235,7 +235,7 @@ public class AudienceHubClient : IAsyncDisposable
         await EnsureConnectedAsync();
         SessionCode = sessionCode;
         AudienceName = audienceName;
-        
+
         // Add ourselves to the participants list
         var displayName = string.IsNullOrWhiteSpace(audienceName) ? "You" : audienceName;
         if (!_participants.Contains(displayName))
@@ -243,7 +243,7 @@ public class AudienceHubClient : IAsyncDisposable
             _participants.Add(displayName);
             ParticipantsChanged?.Invoke();
         }
-        
+
         Log($"[Audience] Invoking Join: session={sessionCode} name={audienceName}");
         await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName, DeviceSecret);
         await FetchMyAnswerAsync();
@@ -357,22 +357,22 @@ public class AudienceHubClient : IAsyncDisposable
         {
             Log($"[Audience] Fetching game state for session: {SessionCode}");
             var response = await _http.GetAsync($"{BackendBaseUrl}/status/{SessionCode}");
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                var gameState = System.Text.Json.JsonSerializer.Deserialize<GameStateSnapshot>(json, 
-                    new System.Text.Json.JsonSerializerOptions 
-                    { 
-                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+                var gameState = System.Text.Json.JsonSerializer.Deserialize<GameStateSnapshot>(json,
+                    new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
                     });
-                
+
                 if (gameState != null)
                 {
                     CurrentGameState = gameState;
                     GameStateChanged?.Invoke(gameState);
                 }
-                
+
                 return gameState;
             }
         }

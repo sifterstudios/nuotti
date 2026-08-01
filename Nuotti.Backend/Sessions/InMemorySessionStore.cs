@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
 using System.Collections.Concurrent;
 namespace Nuotti.Backend.Sessions;

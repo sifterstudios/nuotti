@@ -20,13 +20,13 @@ public partial class ScoreboardView : PhaseViewBase
     private readonly StackPanel _scoreboardPanel;
     private readonly ScrollViewer _scoreboardScrollViewer;
     private readonly AnimationService _animationService;
-    
+
     private const int MaxPlayersToShow = 15;
-    
+
     public ScoreboardView()
     {
         InitializeComponent();
-        
+
         _scoreboardTitleText = this.FindControl<TextBlock>("ScoreboardTitleText")!;
         _songInfoText = this.FindControl<TextBlock>("SongInfoText")!;
         _footerText = this.FindControl<TextBlock>("FooterText")!;
@@ -34,7 +34,7 @@ public partial class ScoreboardView : PhaseViewBase
         _scoreboardScrollViewer = this.FindControl<ScrollViewer>("ScoreboardScrollViewer")!;
         _animationService = new AnimationService();
     }
-    
+
     public override void Apply(ViewSpec spec)
     {
         _songInfoText.Text = spec.ScoreboardHeader;
@@ -43,26 +43,26 @@ public partial class ScoreboardView : PhaseViewBase
         UpdateResponsiveFontSizes();
         UpdateScoreboard(spec);
     }
-    
+
     protected override void UpdateResponsiveFontSizes()
     {
         var windowSize = GetWindowSize();
         var safeAreaMargin = 0.05; // 5% default
-        
+
         // Header "Scoreboard" text
         _scoreboardTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.PhaseTitleMin,
             ResponsiveTypographyService.FontSizes.PhaseTitleMax,
             windowSize,
             safeAreaMargin);
-        
+
         // Song info text
         _songInfoText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.BodyMin,
             ResponsiveTypographyService.FontSizes.BodyMax,
             windowSize,
             safeAreaMargin);
-        
+
         // Footer text
         _footerText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.BodyMin,
@@ -70,7 +70,7 @@ public partial class ScoreboardView : PhaseViewBase
             windowSize,
             safeAreaMargin);
     }
-    
+
     private void UpdateScoreboard(ViewSpec spec)
     {
         // Clear existing entries
@@ -86,7 +86,7 @@ public partial class ScoreboardView : PhaseViewBase
                 ResponsiveTypographyService.FontSizes.BodyMax,
                 windowSize,
                 safeAreaMargin);
-            
+
             var noPlayersText = new TextBlock
             {
                 Text = "No players yet...",
@@ -98,7 +98,7 @@ public partial class ScoreboardView : PhaseViewBase
             _scoreboardPanel.Children.Add(noPlayersText);
             return;
         }
-        
+
         var rows = spec.ScoreRows.Take(MaxPlayersToShow).ToList();
 
         for (int i = 0; i < rows.Count; i++)
@@ -106,11 +106,11 @@ public partial class ScoreboardView : PhaseViewBase
             var row = rows[i];
             var playerEntry = CreatePlayerEntry(row.Position, row.Player, row.Score, 0);
             _scoreboardPanel.Children.Add(playerEntry);
-            
+
             // Animate entry appearance
             _ = _animationService.AnimateSlideIn(playerEntry);
         }
-        
+
         // Auto-scroll if there are many players
         if (rows.Count > 8)
         {
@@ -123,15 +123,15 @@ public partial class ScoreboardView : PhaseViewBase
             });
         }
     }
-    
+
     private Border CreatePlayerEntry(int position, string playerName, int score, int change)
     {
         // Determine position styling
         var (bgBrush, textBrush, positionIcon) = GetPositionStyling(position);
-        
+
         // Truncate long names with ellipsis
         var displayName = TruncateName(playerName, 20);
-        
+
         var entry = new Border
         {
             Background = bgBrush,
@@ -141,17 +141,17 @@ public partial class ScoreboardView : PhaseViewBase
             Padding = new Thickness(20, 12),
             Margin = new Thickness(0, 4)
         };
-        
+
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto")
         };
-        
+
         var windowSize = GetWindowSize();
         var safeAreaMargin = 0.05;
-        
+
         // Position
-        var positionFontSize = position <= 3 
+        var positionFontSize = position <= 3
             ? TypographyService.CalculateFontSizeFromWindow(
                 ResponsiveTypographyService.FontSizes.ScorePositionMin * 1.2,
                 ResponsiveTypographyService.FontSizes.ScorePositionMax * 1.2,
@@ -162,7 +162,7 @@ public partial class ScoreboardView : PhaseViewBase
                 ResponsiveTypographyService.FontSizes.ScorePositionMax,
                 windowSize,
                 safeAreaMargin);
-        
+
         var positionText = new TextBlock
         {
             Text = positionIcon ?? position.ToString(),
@@ -173,14 +173,14 @@ public partial class ScoreboardView : PhaseViewBase
             Margin = new Thickness(0, 0, 16, 0)
         };
         Grid.SetColumn(positionText, 0);
-        
+
         // Player name
         var nameFontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.ScoreNameMin,
             ResponsiveTypographyService.FontSizes.ScoreNameMax,
             windowSize,
             safeAreaMargin);
-        
+
         var nameText = new TextBlock
         {
             Text = displayName,
@@ -191,7 +191,7 @@ public partial class ScoreboardView : PhaseViewBase
             TextTrimming = TextTrimming.CharacterEllipsis
         };
         Grid.SetColumn(nameText, 1);
-        
+
         // Score change (if any)
         if (change != 0)
         {
@@ -200,7 +200,7 @@ public partial class ScoreboardView : PhaseViewBase
                 ResponsiveTypographyService.FontSizes.BodyMax,
                 windowSize,
                 safeAreaMargin);
-            
+
             var changeText = new TextBlock
             {
                 Text = change > 0 ? $"+{change}" : change.ToString(),
@@ -213,14 +213,14 @@ public partial class ScoreboardView : PhaseViewBase
             Grid.SetColumn(changeText, 2);
             grid.Children.Add(changeText);
         }
-        
+
         // Total score
         var scoreFontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.ScoreValueMin,
             ResponsiveTypographyService.FontSizes.ScoreValueMax,
             windowSize,
             safeAreaMargin);
-        
+
         var scoreText = new TextBlock
         {
             Text = score.ToString(),
@@ -230,15 +230,15 @@ public partial class ScoreboardView : PhaseViewBase
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         };
         Grid.SetColumn(scoreText, 3);
-        
+
         grid.Children.Add(positionText);
         grid.Children.Add(nameText);
         grid.Children.Add(scoreText);
-        
+
         entry.Child = grid;
         return entry;
     }
-    
+
     private (IBrush BgBrush, IBrush TextBrush, string? Icon) GetPositionStyling(int position)
     {
         return position switch
@@ -249,18 +249,18 @@ public partial class ScoreboardView : PhaseViewBase
             _ => (GetBrush("SurfaceBrush"), GetBrush("TextPrimaryBrush"), null)
         };
     }
-    
+
     private string TruncateName(string name, int maxLength)
     {
         if (name.Length <= maxLength) return name;
         return name.Substring(0, maxLength - 3) + "...";
     }
-    
+
     private IBrush GetBrush(string resourceKey)
     {
         if (Application.Current?.Resources.TryGetResource(resourceKey, Application.Current?.ActualThemeVariant, out var brush) == true && brush is IBrush b)
             return b;
-        
+
         // Fallback colors — Variant B dark stage
         return resourceKey switch
         {
@@ -275,33 +275,33 @@ public partial class ScoreboardView : PhaseViewBase
             _ => Brushes.Gray
         };
     }
-    
+
     private async void StartAutoScroll()
     {
         try
         {
             var maxOffset = _scoreboardScrollViewer.ScrollBarMaximum.Y;
             if (maxOffset <= 0) return;
-            
+
             // Scroll down slowly
             var scrollDuration = TimeSpan.FromSeconds(3);
             var startOffset = _scoreboardScrollViewer.Offset.Y;
             var targetOffset = maxOffset;
-            
+
             var startTime = DateTime.UtcNow;
             while (DateTime.UtcNow - startTime < scrollDuration)
             {
                 var progress = (DateTime.UtcNow - startTime).TotalMilliseconds / scrollDuration.TotalMilliseconds;
                 var currentOffset = startOffset + (targetOffset - startOffset) * progress;
-                
+
                 _scoreboardScrollViewer.Offset = _scoreboardScrollViewer.Offset.WithY(currentOffset);
-                
+
                 await Task.Delay(16); // ~60fps
             }
-            
+
             // Pause at bottom
             await Task.Delay(2000);
-            
+
             // Scroll back to top
             _scoreboardScrollViewer.Offset = _scoreboardScrollViewer.Offset.WithY(0);
         }
@@ -310,7 +310,7 @@ public partial class ScoreboardView : PhaseViewBase
             Console.WriteLine($"Auto-scroll failed: {ex.Message}");
         }
     }
-    
+
     protected override void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);

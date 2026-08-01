@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Model;
+namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>
 /// A single selectable choice in a multiple-choice question

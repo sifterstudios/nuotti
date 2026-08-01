@@ -7,7 +7,7 @@ public class FeedbackService : IAsyncDisposable
     private readonly IJSRuntime _jsRuntime;
     private DotNetObjectReference<FeedbackService>? _objRef;
     private bool _isInitialized = false;
-    
+
     public bool HapticsEnabled { get; private set; } = true;
     public bool AnimationsEnabled { get; private set; } = true;
     public bool ReducedMotion { get; private set; } = false;
@@ -20,21 +20,21 @@ public class FeedbackService : IAsyncDisposable
     public async Task InitializeAsync()
     {
         if (_isInitialized) return;
-        
+
         _objRef = DotNetObjectReference.Create(this);
-        
+
         try
         {
             // Check for reduced motion preference
             ReducedMotion = await _jsRuntime.InvokeAsync<bool>("matchMedia", "(prefers-reduced-motion: reduce)");
             AnimationsEnabled = !ReducedMotion;
-            
+
             // Load user preferences
             await LoadPreferencesAsync();
-            
+
             // Initialize the JavaScript module
             await _jsRuntime.InvokeVoidAsync("nuottiFeedback.initialize", _objRef);
-            
+
             _isInitialized = true;
         }
         catch (Exception)
@@ -47,7 +47,7 @@ public class FeedbackService : IAsyncDisposable
     public async Task TriggerHapticFeedbackAsync(HapticType type = HapticType.Light)
     {
         if (!_isInitialized || !HapticsEnabled) return;
-        
+
         try
         {
             await _jsRuntime.InvokeVoidAsync("nuottiFeedback.haptic", type.ToString().ToLower());
@@ -61,7 +61,7 @@ public class FeedbackService : IAsyncDisposable
     public async Task TriggerConfettiAsync(ConfettiType type = ConfettiType.Success)
     {
         if (!_isInitialized || !AnimationsEnabled) return;
-        
+
         try
         {
             await _jsRuntime.InvokeVoidAsync("nuottiFeedback.confetti", type.ToString().ToLower());
@@ -75,7 +75,7 @@ public class FeedbackService : IAsyncDisposable
     public async Task TriggerPulseAnimationAsync(string elementId)
     {
         if (!_isInitialized || !AnimationsEnabled) return;
-        
+
         try
         {
             await _jsRuntime.InvokeVoidAsync("nuottiFeedback.pulse", elementId);
@@ -89,7 +89,7 @@ public class FeedbackService : IAsyncDisposable
     public async Task TriggerShakeAnimationAsync(string elementId)
     {
         if (!_isInitialized || !AnimationsEnabled) return;
-        
+
         try
         {
             await _jsRuntime.InvokeVoidAsync("nuottiFeedback.shake", elementId);

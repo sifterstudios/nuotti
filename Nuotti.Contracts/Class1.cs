@@ -1,1 +1,1 @@
-﻿// Intentionally left blank: placeholder removed after moving to record-based contracts.
+// Intentionally left blank: placeholder removed after moving to record-based contracts.

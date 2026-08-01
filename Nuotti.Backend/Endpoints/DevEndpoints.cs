@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Workspaces;

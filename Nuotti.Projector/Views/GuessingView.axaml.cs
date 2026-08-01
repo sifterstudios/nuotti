@@ -24,17 +24,17 @@ public partial class GuessingView : PhaseViewBase
     private readonly AnimationService _animationService;
     private string[] _lastCountTexts = [];
     private ProjectorSettings? _settings;
-    
+
     public GuessingView()
     {
         InitializeComponent();
-        
+
         _animationService = new AnimationService();
-        
+
         _songTitleText = this.FindControl<TextBlock>("SongTitleText")!;
         _songArtistText = this.FindControl<TextBlock>("SongArtistText")!;
         _questionText = this.FindControl<TextBlock>("QuestionText")!;
-        
+
         _optionTexts = new[]
         {
             this.FindControl<TextBlock>("OptionAText")!,
@@ -42,7 +42,7 @@ public partial class GuessingView : PhaseViewBase
             this.FindControl<TextBlock>("OptionCText")!,
             this.FindControl<TextBlock>("OptionDText")!
         };
-        
+
         _optionCounts = new[]
         {
             this.FindControl<TextBlock>("OptionACount")!,
@@ -50,7 +50,7 @@ public partial class GuessingView : PhaseViewBase
             this.FindControl<TextBlock>("OptionCCount")!,
             this.FindControl<TextBlock>("OptionDCount")!
         };
-        
+
         _optionBorders = new[]
         {
             this.FindControl<Border>("OptionA")!,
@@ -59,7 +59,7 @@ public partial class GuessingView : PhaseViewBase
             this.FindControl<Border>("OptionD")!
         };
     }
-    
+
     public override void Apply(ViewSpec spec)
     {
         _songTitleText.Text = spec.SongTitle;
@@ -95,31 +95,31 @@ public partial class GuessingView : PhaseViewBase
 
         UpdateResponsiveFontSizes();
     }
-    
-    
+
+
     protected override void UpdateResponsiveFontSizes()
     {
         var windowSize = GetWindowSize();
         var safeAreaMargin = 0.05; // 5% default
-        
+
         _songTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.SongTitleMin,
             ResponsiveTypographyService.FontSizes.SongTitleMax,
             windowSize,
             safeAreaMargin);
-        
+
         _songArtistText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.SongArtistMin,
             ResponsiveTypographyService.FontSizes.SongArtistMax,
             windowSize,
             safeAreaMargin);
-        
+
         _questionText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.QuestionMin,
             ResponsiveTypographyService.FontSizes.QuestionMax,
             windowSize,
             safeAreaMargin);
-        
+
         // Update option text sizes
         foreach (var optionText in _optionTexts)
         {
@@ -129,7 +129,7 @@ public partial class GuessingView : PhaseViewBase
                 windowSize,
                 safeAreaMargin);
         }
-        
+
         // Update option count sizes (slightly smaller than option text)
         foreach (var optionCount in _optionCounts)
         {
@@ -140,32 +140,32 @@ public partial class GuessingView : PhaseViewBase
                 safeAreaMargin);
         }
     }
-    
-    
-    
+
+
+
     private void HighlightLeaders(ViewSpec spec)
     {
         if (spec.Choices.Count == 0) return;
-        
+
         // Get theme brushes
         IBrush? successBrush = null;
         IBrush? defaultBrush = null;
-        
+
         if (Application.Current?.Resources.TryGetResource("SuccessBrush", Application.Current?.ActualThemeVariant, out var successObj) == true && successObj is IBrush s)
             successBrush = s;
         if (Application.Current?.Resources.TryGetResource("OptionBackgroundBrush", Application.Current?.ActualThemeVariant, out var defaultObj) == true && defaultObj is IBrush d)
             defaultBrush = d;
-        
+
         successBrush ??= new SolidColorBrush(Color.Parse("#46B283"));
         defaultBrush ??= new SolidColorBrush(Color.Parse("#F5F5F5"));
-        
+
         // IsLeader is decided by PhasePresenter, which also accounts for hidden tallies and ties.
         for (int i = 0; i < _optionBorders.Length && i < spec.Choices.Count; i++)
         {
             _optionBorders[i].Background = spec.Choices[i].IsLeader ? successBrush : defaultBrush;
         }
     }
-    
+
     protected override void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);

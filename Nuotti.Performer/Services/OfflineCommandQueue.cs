@@ -1,4 +1,4 @@
-﻿using MudBlazor;
+using MudBlazor;
 using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Net;

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Nuotti.AudioEngine.Playback;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
@@ -17,12 +17,12 @@ public class PlayCommandHandlerTests
         player.Started += (_, __) => started = true;
 
         var cmd = new PlayTrack("http://example.com/test.mp3")
-                {
-                    SessionCode = "test",
-                    IssuedByRole = Role.Performer,
-                    IssuedById = "tester"
-                };
-                await handler.HandleAsync(cmd);
+        {
+            SessionCode = "test",
+            IssuedByRole = Role.Performer,
+            IssuedById = "tester"
+        };
+        await handler.HandleAsync(cmd);
 
         started.Should().BeTrue("player should signal start");
         player.IsPlaying.Should().BeTrue();

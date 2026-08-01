@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -111,8 +111,8 @@ public class QuizHubInProcTests
         // Verify groups are separate
         Assert.True(groups.Groups.TryGetValue("session1", out var sess1Group) && sess1Group.Contains("conn-1"));
         Assert.True(groups.Groups.TryGetValue("session2", out var sess2Group) && sess2Group.Contains("conn-2"));
-        Assert.False(sess1Group.Contains("conn-2"));
-        Assert.False(sess2Group.Contains("conn-1"));
+        Assert.DoesNotContain("conn-2", sess1Group);
+        Assert.DoesNotContain("conn-1", sess2Group);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class QuizHubInProcTests
         // Verify only session1 received the event (via event bus, not direct broadcast)
         var session1Events = bus.Published.Where(e => e is AnswerSubmitted a && a.SessionCode == "session1").ToList();
         var session2Events = bus.Published.Where(e => e is AnswerSubmitted a && a.SessionCode == "session2").ToList();
-        
+
         Assert.Single(session1Events);
         Assert.Empty(session2Events);
     }
@@ -190,7 +190,7 @@ public class QuizHubInProcTests
         await hub.Join("test-session", "Audience", name: "Charlie", deviceSecret: "dev-Charlie");
 
         // Verify added to session group and audience role group
-        Assert.True(sessGroup.Contains("conn-aud"));
+        Assert.Contains("conn-aud", sessGroup);
         Assert.True(groups.Groups.TryGetValue("test-session:audience", out var audRoleGroup) && audRoleGroup.Contains("conn-aud"));
 
         // Verify both connections in session group
@@ -338,7 +338,7 @@ public class QuizHubInProcTests
         // Verify added to session and audience role group
         Assert.True(groups.Groups.TryGetValue("test-session", out var sessGroup) && sessGroup.Contains("conn-1"));
         Assert.True(groups.Groups.TryGetValue("test-session:audience", out var roleGroup) && roleGroup.Contains("conn-1"));
-        
+
         // Verify JoinedAudience was broadcast
         Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
         Assert.Contains(groupProxy.Sent, x => x.method == "JoinedAudience");
@@ -407,8 +407,8 @@ public class QuizHubInProcTests
         await hub.Echo("test-session", 1234567890L, 1234567900L);
 
         Assert.True(clients.GroupProxies.TryGetValue("test-session:performer", out var performerGroupProxy));
-        Assert.Contains(performerGroupProxy.Sent, x => 
-            x.method == "Echo" && 
+        Assert.Contains(performerGroupProxy.Sent, x =>
+            x.method == "Echo" &&
             x.args[0] is long clientTicks && clientTicks == 1234567890L &&
             x.args[1] is long engineTicks && engineTicks == 1234567900L);
     }

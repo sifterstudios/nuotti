@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback;
+namespace Nuotti.AudioEngine.Playback;
 
 public sealed class NoopPlayer : IAudioPlayer
 {

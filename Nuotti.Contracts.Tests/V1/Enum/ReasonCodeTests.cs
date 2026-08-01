@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using System.Text.Json;
 using Assert = Xunit.Assert;

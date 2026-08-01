@@ -13,7 +13,7 @@ internal static class AboutEndpoints
         {
             var info = VersionInfo.GetVersionInfo("Nuotti.Backend");
             var features = FeatureFlags.GetAll(configuration);
-            
+
             // Return extended about info with feature flags
             var aboutInfo = new
             {
@@ -24,10 +24,10 @@ internal static class AboutEndpoints
                 runtime = info.Runtime,
                 features = features
             };
-            
-            return Results.Json(aboutInfo, new System.Text.Json.JsonSerializerOptions 
-            { 
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase 
+
+            return Results.Json(aboutInfo, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             },
             contentType: "application/json");
         })

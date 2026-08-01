@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Nuotti.AudioEngine.Playback;
 using Nuotti.AudioEngine.Tests.Fakes;
 using System;

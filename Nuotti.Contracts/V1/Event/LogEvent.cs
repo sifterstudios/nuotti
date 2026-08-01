@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Event;
+namespace Nuotti.Contracts.V1.Event;
 
 public record LogEvent(
     DateTimeOffset Timestamp,

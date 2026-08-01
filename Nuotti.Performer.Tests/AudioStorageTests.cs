@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Xunit;
 namespace Nuotti.Performer.Tests;
 

@@ -1,4 +1,4 @@
-﻿using Nuotti.AudioEngine.Playback;
+using Nuotti.AudioEngine.Playback;
 using Xunit;
 namespace Nuotti.AudioEngine.Tests;
 

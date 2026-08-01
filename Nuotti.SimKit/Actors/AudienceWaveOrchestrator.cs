@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Time;
 namespace Nuotti.SimKit.Actors;
 

@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Xunit;
 namespace Nuotti.Performer.Tests;

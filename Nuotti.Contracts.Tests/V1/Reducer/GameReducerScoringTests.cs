@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Reducer;
@@ -92,7 +92,11 @@ public class GameReducerScoringTests
         });
 
         // Back to Guessing with two choices again (simulate the same choices for simplicity)
-        state = state with { Phase = Phase.Guessing, Choices = ["A", "B"], Tallies = [0, 0]
+        state = state with
+        {
+            Phase = Phase.Guessing,
+            Choices = ["A", "B"],
+            Tallies = [0, 0]
         };
 
         // Song 2 answers: only p1 correct

@@ -1,4 +1,4 @@
-﻿using System.Timers;
+using System.Timers;
 using Timer = System.Timers.Timer;
 namespace Nuotti.AudioEngine.Playback;
 

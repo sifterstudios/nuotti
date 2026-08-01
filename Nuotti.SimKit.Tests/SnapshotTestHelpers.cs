@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Model;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Xunit.Sdk;

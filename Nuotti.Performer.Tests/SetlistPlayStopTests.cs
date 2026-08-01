@@ -1,4 +1,4 @@
-﻿using Bunit;
+using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using Nuotti.Contracts.V1.Enum;
@@ -103,7 +103,7 @@ public class SetlistPlayStopTests : MudTestContext
     {
         var manifest = new PerformerManifest
         {
-            Songs = [ new PerformerManifest.SongEntry { Title = "Missing", File = Path.Combine(Path.GetTempPath(), Guid.NewGuid()+".mp3") } ]
+            Songs = [new PerformerManifest.SongEntry { Title = "Missing", File = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".mp3") }]
         };
         Services.AddSingleton<IManifestService>(new FakeManifestService(manifest));
 

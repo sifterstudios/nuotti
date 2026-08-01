@@ -82,12 +82,17 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
                 return Task.FromResult<PrivateAssetRevision?>(null);
             var published = stored.Revision with
             {
-                Status = AssetRevisionStatus.Published, StoredSize = storedSize,
-                Sha256 = sha256.ToLowerInvariant(), PublishedAt = _time.GetUtcNow()
+                Status = AssetRevisionStatus.Published,
+                StoredSize = storedSize,
+                Sha256 = sha256.ToLowerInvariant(),
+                PublishedAt = _time.GetUtcNow()
             };
             _revisions[revisionId] = stored with
             {
-                Revision = published, ObjectKey = sealedObjectKey, FinalizingAt = null, FinalizationToken = null
+                Revision = published,
+                ObjectKey = sealedObjectKey,
+                FinalizingAt = null,
+                FinalizationToken = null
             };
             return Task.FromResult<PrivateAssetRevision?>(published);
         }
@@ -107,7 +112,9 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
             var token = Guid.NewGuid().ToString("N");
             _revisions[revisionId] = stored with
             {
-                Revision = finalizing, FinalizingAt = _time.GetUtcNow(), FinalizationToken = token
+                Revision = finalizing,
+                FinalizingAt = _time.GetUtcNow(),
+                FinalizationToken = token
             };
             return Task.FromResult<PrivateAssetFinalizationClaim?>(new(finalizing, token));
         }
@@ -123,7 +130,8 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
                 && stored.FinalizationToken == claimToken)
                 _revisions[revisionId] = stored with
                 {
-                    Revision = stored.Revision with { Status = AssetRevisionStatus.Draft }, FinalizingAt = null,
+                    Revision = stored.Revision with { Status = AssetRevisionStatus.Draft },
+                    FinalizingAt = null,
                     FinalizationToken = null
                 };
         }

@@ -1,4 +1,4 @@
-﻿using Nuotti.Backend.Audit;
+using Nuotti.Backend.Audit;
 using Nuotti.Backend.Telemetry;
 using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
@@ -32,7 +32,7 @@ public sealed class InMemoryEventBus : IEventBus
     readonly ConcurrentDictionary<Type, List<Delegate>> _handlers = new();
     readonly ConcurrentDictionary<Type, object> _locks = new();
     private readonly AuditLogService? _auditService;
-    
+
     public InMemoryEventBus(AuditLogService? auditService = null)
     {
         _auditService = auditService;
@@ -66,18 +66,18 @@ public sealed class InMemoryEventBus : IEventBus
     {
         var type = typeof(TEvent);
         var eventTypeName = type.Name;
-        
+
         // Extract session code and correlation ID from event if available
         string? session = null;
         Guid? correlationId = null;
-        
+
         // Use reflection to check for common properties
         var sessionProp = type.GetProperty("SessionCode");
         if (sessionProp != null && sessionProp.GetValue(evt) is string sessionValue)
         {
             session = sessionValue;
         }
-        
+
         var correlationProp = type.GetProperty("CorrelationId");
         if (correlationProp != null && correlationProp.GetValue(evt) is Guid correlationValue)
         {

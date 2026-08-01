@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Performer;
+namespace Nuotti.Performer;
 
 public interface IManifestService
 {

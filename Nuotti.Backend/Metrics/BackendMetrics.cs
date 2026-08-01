@@ -16,7 +16,7 @@ public sealed class BackendMetrics
     private readonly List<double> _commandLatenciesMs = new();
     private int _totalAnswersSubmitted;
     private DateTimeOffset _lastAnswerTime = DateTimeOffset.MinValue;
-    
+
     public DateTimeOffset StartedAtUtc => _startedAtUtc;
     public TimeSpan Uptime => DateTimeOffset.UtcNow - _startedAtUtc;
 
@@ -80,7 +80,7 @@ public sealed class BackendMetrics
             }
             sorted = _commandLatenciesMs.ToArray();
         }
-        
+
         Array.Sort(sorted);
         var p50 = Percentile(sorted, 50);
         var p95 = Percentile(sorted, 95);
@@ -120,7 +120,7 @@ public sealed class BackendMetrics
     {
         var (p50, p95) = GetLatencyPercentiles();
         var connections = sessionStore != null ? GetActiveConnectionsPerRole(sessionStore) : new Dictionary<string, int>();
-        
+
         return new MetricsSnapshot(
             UptimeSeconds: Math.Max(0, Uptime.TotalSeconds),
             AnswersPerMinute: GetAnswersPerMinute(),
@@ -137,10 +137,10 @@ public sealed class BackendMetrics
     public string ToJson(ISessionStore? sessionStore = null)
     {
         var snap = Snapshot(sessionStore);
-        return JsonSerializer.Serialize(snap, new JsonSerializerOptions 
-        { 
-            WriteIndented = false, 
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+        return JsonSerializer.Serialize(snap, new JsonSerializerOptions
+        {
+            WriteIndented = false,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
     }
 }

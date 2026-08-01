@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR;
 using Nuotti.Contracts.V1.Event;
 
 namespace Nuotti.Backend;

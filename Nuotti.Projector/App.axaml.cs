@@ -31,10 +31,10 @@ public partial class App : Application
             Debug.WriteLine("[App] Creating MainWindow...");
             desktop.MainWindow = new MainWindow(presenter, contentSafety, localization, settings);
             Debug.WriteLine($"[App] MainWindow created. WindowState={desktop.MainWindow.WindowState}, IsVisible={desktop.MainWindow.IsVisible}");
-            
+
             desktop.MainWindow.Show();
             Debug.WriteLine($"[App] MainWindow.Show() called. WindowState={desktop.MainWindow.WindowState}, IsVisible={desktop.MainWindow.IsVisible}");
-            
+
             // Ensure window is visible and on-screen
             if (desktop.MainWindow.WindowState == WindowState.Minimized)
             {
@@ -44,11 +44,11 @@ public partial class App : Application
 
             // No hardcoded placement here: SettingsService restores the saved monitor, size and
             // fullscreen state, and overriding it made those settings look broken.
-            
+
             // Bring window to front
             desktop.MainWindow.Activate();
             Debug.WriteLine("[App] MainWindow.Activate() called");
-            
+
             Debug.WriteLine($"[App] Final state - WindowState={desktop.MainWindow.WindowState}, IsVisible={desktop.MainWindow.IsVisible}, Position={desktop.MainWindow.Position}");
         }
         else

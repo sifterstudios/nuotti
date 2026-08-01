@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Model;
+namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>
 /// A hint shown or played to/for participants, ordered by index.

@@ -33,12 +33,12 @@ public enum TextType
 public class ResponsiveFontSizeConverter : IValueConverter
 {
     private static readonly ResponsiveTypographyService _typographyService = new();
-    
+
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value == null)
             return 16.0; // Default fallback
-        
+
         // Get window size
         WindowSize windowSize;
         if (value is Window window)
@@ -57,7 +57,7 @@ public class ResponsiveFontSizeConverter : IValueConverter
         {
             return 16.0; // Default fallback
         }
-        
+
         // Get text type from parameter
         TextType textType = TextType.Body;
         if (parameter is TextType type)
@@ -68,7 +68,7 @@ public class ResponsiveFontSizeConverter : IValueConverter
         {
             textType = parsedType;
         }
-        
+
         // Get safe area margin (default 5%)
         double safeAreaMargin = 0.05;
         if (parameter is Tuple<TextType, double> tuple)
@@ -76,7 +76,7 @@ public class ResponsiveFontSizeConverter : IValueConverter
             textType = tuple.Item1;
             safeAreaMargin = tuple.Item2;
         }
-        
+
         // Calculate font size based on text type
         return textType switch
         {
@@ -137,7 +137,7 @@ public class ResponsiveFontSizeConverter : IValueConverter
                 safeAreaMargin)
         };
     }
-    
+
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         // One-way converter, no conversion back

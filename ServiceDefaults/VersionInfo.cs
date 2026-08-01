@@ -16,14 +16,14 @@ public static class VersionInfo
         var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
             ?? "unknown";
-        
+
         var fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version
             ?? assembly.GetName().Version?.ToString()
             ?? "unknown";
 
         // Try to extract git commit from AssemblyMetadata or version string
         var gitCommit = ExtractGitCommit(informationalVersion, assembly);
-        
+
         // Try to extract build time from AssemblyMetadata
         var buildTime = ExtractBuildTime(assembly);
 
@@ -42,7 +42,7 @@ public static class VersionInfo
         var metadata = assembly.GetCustomAttributes<AssemblyMetadataAttribute>();
         foreach (var attr in metadata)
         {
-            if (string.Equals(attr.Key, "GitCommit", StringComparison.OrdinalIgnoreCase) || 
+            if (string.Equals(attr.Key, "GitCommit", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(attr.Key, "GitSha", StringComparison.OrdinalIgnoreCase))
             {
                 return attr.Value;

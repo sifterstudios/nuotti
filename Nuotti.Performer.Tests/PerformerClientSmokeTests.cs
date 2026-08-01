@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Nuotti.Backend;
 using System.Collections.Concurrent;
 using Xunit;
@@ -38,7 +38,7 @@ public class PerformerClientSmokeTests(WebApplicationFactory<QuizHub> factory) :
         await client.EnsureConnectedAsync();
         await Task.Delay(50);
         Assert.True(client.IsConnected);
-        Assert.True(events.Contains(true));
+        Assert.Contains(true, events);
     }
 
     sealed class OriginInjectingHandler(string origin, HttpMessageHandler inner) : DelegatingHandler(inner)

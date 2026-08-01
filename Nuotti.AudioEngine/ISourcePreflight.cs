@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Model;
 namespace Nuotti.AudioEngine;
 
 public interface ISourcePreflight

@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback.PortAudio;
+namespace Nuotti.AudioEngine.Playback.PortAudio;
 
 /// <summary>
 /// Abstraction for a PortAudio-backed output engine. Allows swapping between a simulated engine and a real one.

@@ -323,18 +323,18 @@ public sealed class SessionCommandProcessor(
 
             // NextRound must set CurrentSong/SongIndex before the generic IPhaseChange arm.
             case NextRound nextRound:
-            {
-                var (song, index) = ResolveSong(state, nextRound.SongId);
-                return new Effects([
-                    Phase(state.Phase, nextRound.TargetPhase, session, command, correlation),
+                {
+                    var (song, index) = ResolveSong(state, nextRound.SongId);
+                    return new Effects([
+                        Phase(state.Phase, nextRound.TargetPhase, session, command, correlation),
                     new CurrentSongSet(song, index)
                     {
                         SessionCode = session,
                         CausedByCommandId = command.CommandId,
                         CorrelationId = correlation
                     }
-                ]);
-            }
+                    ]);
+                }
 
             case IPhaseChange phaseChange:
                 return new Effects([

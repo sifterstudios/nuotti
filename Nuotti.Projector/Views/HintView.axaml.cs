@@ -20,14 +20,14 @@ public partial class HintView : PhaseViewBase
     private readonly TextBlock _hintCountText;
     private readonly StackPanel _hintsPanel;
     private readonly AnimationService _animationService;
-    
+
     private readonly List<string> _displayedHints = new();
     private int _lastHintIndex = -1;
-    
+
     public HintView()
     {
         InitializeComponent();
-        
+
         _hintTitleText = this.FindControl<TextBlock>("HintTitleText")!;
         _songTitleText = this.FindControl<TextBlock>("SongTitleText")!;
         _byText = this.FindControl<TextBlock>("ByText")!;
@@ -36,7 +36,7 @@ public partial class HintView : PhaseViewBase
         _hintsPanel = this.FindControl<StackPanel>("HintsPanel")!;
         _animationService = new AnimationService();
     }
-    
+
     public override void Apply(ViewSpec spec)
     {
         _songTitleText.Text = spec.SongTitle;
@@ -51,38 +51,38 @@ public partial class HintView : PhaseViewBase
 
         UpdateResponsiveFontSizes();
     }
-    
+
     protected override void UpdateResponsiveFontSizes()
     {
         var windowSize = GetWindowSize();
         var safeAreaMargin = 0.05; // 5% default
-        
+
         // Header "Hint Time!"
         _hintTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.PhaseTitleMin,
             ResponsiveTypographyService.FontSizes.PhaseTitleMax,
             windowSize,
             safeAreaMargin);
-        
+
         // Song info
         _songTitleText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.SongTitleMin,
             ResponsiveTypographyService.FontSizes.SongTitleMax,
             windowSize,
             safeAreaMargin);
-        
+
         _byText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.BodyMin,
             ResponsiveTypographyService.FontSizes.BodyMax,
             windowSize,
             safeAreaMargin);
-        
+
         _songArtistText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.SongArtistMin,
             ResponsiveTypographyService.FontSizes.SongArtistMax,
             windowSize,
             safeAreaMargin);
-        
+
         // Hint count
         _hintCountText.FontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.BodyMin,
@@ -90,7 +90,7 @@ public partial class HintView : PhaseViewBase
             windowSize,
             safeAreaMargin);
     }
-    
+
     private void UpdateHints(ViewSpec spec)
     {
         // Hint text is derived by PhasePresenter; this only renders what it was handed.
@@ -111,7 +111,7 @@ public partial class HintView : PhaseViewBase
         }
     }
 
-    
+
     private Border CreateHintElement(int hintNumber, string hintText)
     {
         var hintBorder = new Border
@@ -123,12 +123,12 @@ public partial class HintView : PhaseViewBase
             Padding = new Thickness(24, 16),
             Margin = new Thickness(0, 8)
         };
-        
+
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*")
         };
-        
+
         // Hint number badge
         var numberBadge = new Border
         {
@@ -139,16 +139,16 @@ public partial class HintView : PhaseViewBase
             Margin = new Thickness(0, 0, 16, 0),
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top
         };
-        
+
         var windowSize = GetWindowSize();
         var safeAreaMargin = 0.05;
-        
+
         var numberFontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.BodyMin,
             ResponsiveTypographyService.FontSizes.BodyMax,
             windowSize,
             safeAreaMargin);
-        
+
         var numberText = new TextBlock
         {
             Text = hintNumber.ToString(),
@@ -158,17 +158,17 @@ public partial class HintView : PhaseViewBase
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         };
-        
+
         numberBadge.Child = numberText;
         Grid.SetColumn(numberBadge, 0);
-        
+
         // Hint text
         var hintFontSize = TypographyService.CalculateFontSizeFromWindow(
             ResponsiveTypographyService.FontSizes.OptionMin,
             ResponsiveTypographyService.FontSizes.OptionMax,
             windowSize,
             safeAreaMargin);
-        
+
         var hintTextBlock = new TextBlock
         {
             Text = hintText,
@@ -179,26 +179,26 @@ public partial class HintView : PhaseViewBase
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
         };
         Grid.SetColumn(hintTextBlock, 1);
-        
+
         grid.Children.Add(numberBadge);
         grid.Children.Add(hintTextBlock);
         hintBorder.Child = grid;
-        
+
         return hintBorder;
     }
-    
+
     private int GetEstimatedTotalHints(GameStateSnapshot state)
     {
         // In a real implementation, this would come from the song's hint count
         // For now, estimate based on common patterns
         return 3; // Most songs have 2-4 hints
     }
-    
+
     private IBrush GetBrush(string resourceKey)
     {
         if (Application.Current?.Resources.TryGetResource(resourceKey, Application.Current?.ActualThemeVariant, out var brush) == true && brush is IBrush b)
             return b;
-        
+
         // Fallback colors — Variant B dark stage
         return resourceKey switch
         {
@@ -209,7 +209,7 @@ public partial class HintView : PhaseViewBase
             _ => Brushes.Gray
         };
     }
-    
+
     protected override void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);

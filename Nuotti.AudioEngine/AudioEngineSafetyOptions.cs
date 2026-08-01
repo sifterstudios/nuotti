@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine;
+namespace Nuotti.AudioEngine;
 
 public sealed class AudioEngineSafetyOptions
 {

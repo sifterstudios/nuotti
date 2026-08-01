@@ -95,7 +95,9 @@ public class SingleSongAllParticipantsTests
         // The performer's script, phase commands emitted the same way HTTP would send them.
         await emitter.EmitAsync(new CreateSession(Session)
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         });
 
         // Not a phase-endpoint command; applied directly, exactly as ApiEndpoints' manifest route
@@ -106,7 +108,9 @@ public class SingleSongAllParticipantsTests
         };
         var updateCatalog = new UpdateCatalog(manifest)
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         };
         var catalogResult = await backend.Processor.ApplyAsync(Session, Actor.Claimed(updateCatalog), updateCatalog);
         catalogResult.Outcome.Should().Be(Outcome.Applied);
@@ -114,7 +118,9 @@ public class SingleSongAllParticipantsTests
 
         await emitter.EmitAsync(new StartGame
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         });
 
         // QuestionPushed is not a phase-endpoint command either (see file-level comment): applied
@@ -122,33 +128,45 @@ public class SingleSongAllParticipantsTests
         // Sent before OpenAnswers so Choices is already on the snapshot the moment Guessing opens.
         var questionPushed = new QuestionPushed("Who sang it?", ["A", "B", "C"])
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         };
         var questionResult = await backend.Processor.ApplyAsync(Session, Actor.Claimed(questionPushed), questionPushed);
         questionResult.Outcome.Should().Be(Outcome.Applied);
 
         await emitter.EmitAsync(new OpenAnswers
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         });
         await emitter.EmitAsync(new LockAnswers
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         });
         await emitter.EmitAsync(new RevealAnswer(songRef, CorrectChoiceIndex: 0)
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         });
 
         // Not phase-endpoint commands either; applied directly, exactly as /api/play and /api/stop do.
         var playTrack = new PlayTrack(songRef.Id.Value)
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         };
         await backend.Processor.ApplyAsync(Session, Actor.Claimed(playTrack), playTrack);
         var stopTrack = new StopTrack
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = issuedBy
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = issuedBy
         };
         await backend.Processor.ApplyAsync(Session, Actor.Claimed(stopTrack), stopTrack);
 

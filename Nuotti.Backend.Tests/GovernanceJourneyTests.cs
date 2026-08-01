@@ -49,11 +49,16 @@ public sealed class GovernanceJourneyTests(WebApplicationFactory<QuizHub> baseFa
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/asset-uploads", owner.SessionToken,
             new
             {
-                assetType = "backing-track", contentType = "audio/wav", size = bytes.LongLength,
+                assetType = "backing-track",
+                contentType = "audio/wav",
+                size = bytes.LongLength,
                 provenance = new
                 {
-                    source = "owned", rightsBasis = "original", territory = "NO",
-                    permittedUses = new[] { "backing-track" }, rightsExpiresAt = (DateTimeOffset?)null,
+                    source = "owned",
+                    rightsBasis = "original",
+                    territory = "NO",
+                    permittedUses = new[] { "backing-track" },
+                    rightsExpiresAt = (DateTimeOffset?)null,
                     supportingDocumentReference = "gov-case"
                 }
             });

@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using ServiceDefaults;

@@ -21,14 +21,14 @@ public class MetricsEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub
     {
         var client = _factory.CreateClient();
         var resp = await client.GetAsync("/metrics");
-        
+
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         Assert.Equal("application/json", resp.Content.Headers.ContentType?.MediaType);
-        
+
         var json = await resp.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
-        
+
         // Verify expected keys exist
         Assert.True(root.TryGetProperty("uptimeSeconds", out _));
         Assert.True(root.TryGetProperty("answersPerMinute", out _));
@@ -36,7 +36,7 @@ public class MetricsEndpointsTests : IClassFixture<WebApplicationFactory<QuizHub
         Assert.True(root.TryGetProperty("commandApplyLatencyP95Ms", out _));
         Assert.True(root.TryGetProperty("totalAnswersSubmitted", out _));
         Assert.True(root.TryGetProperty("activeConnections", out _));
-        
+
         // Verify types
         Assert.Equal(JsonValueKind.Number, root.GetProperty("uptimeSeconds").ValueKind);
         Assert.Equal(JsonValueKind.Number, root.GetProperty("answersPerMinute").ValueKind);

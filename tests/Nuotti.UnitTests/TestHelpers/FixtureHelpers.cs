@@ -15,7 +15,7 @@ public static class FixtureHelpers
     {
         var basePath = Path.Combine(AppContext.BaseDirectory, "Fixtures");
         var filePath = Path.Combine(basePath, fileName);
-        
+
         if (!File.Exists(filePath))
         {
             throw new FileNotFoundException($"Fixture file not found: {filePath}");

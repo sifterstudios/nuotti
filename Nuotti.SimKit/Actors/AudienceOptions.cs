@@ -1,4 +1,4 @@
-﻿namespace Nuotti.SimKit.Actors;
+namespace Nuotti.SimKit.Actors;
 
 public sealed record AudienceOptions
 {

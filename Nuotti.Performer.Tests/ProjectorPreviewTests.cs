@@ -1,4 +1,4 @@
-﻿using Bunit;
+using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;

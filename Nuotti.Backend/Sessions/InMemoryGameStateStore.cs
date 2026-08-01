@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Nuotti.Contracts.V1.Model;
 
 namespace Nuotti.Backend.Sessions;

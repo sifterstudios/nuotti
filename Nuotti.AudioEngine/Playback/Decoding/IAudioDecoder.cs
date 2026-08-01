@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback.Decoding;
+namespace Nuotti.AudioEngine.Playback.Decoding;
 
 public interface IAudioDecoder
 {

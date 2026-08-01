@@ -18,7 +18,9 @@ public class InProcHubClientTests
         var emitter = new InProcCommandEmitter(backend.Processor);
         await emitter.EmitAsync(new CreateSession(session)
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
         return backend;
     }
@@ -38,7 +40,9 @@ public class InProcHubClientTests
         var emitter = new InProcCommandEmitter(backend.Processor);
         await emitter.EmitAsync(new StartGame
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         received.Should().NotBeEmpty();
@@ -52,7 +56,9 @@ public class InProcHubClientTests
         var emitterOther = new InProcCommandEmitter(backend.Processor);
         await emitterOther.EmitAsync(new CreateSession("other")
         {
-            SessionCode = "other", IssuedByRole = Role.Performer, IssuedById = "perf-2"
+            SessionCode = "other",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-2"
         });
 
         var factory = new InProcHubClientFactory(backend, "dev");
@@ -65,7 +71,9 @@ public class InProcHubClientTests
 
         await emitterOther.EmitAsync(new StartGame
         {
-            SessionCode = "other", IssuedByRole = Role.Performer, IssuedById = "perf-2"
+            SessionCode = "other",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-2"
         });
 
         // The real hub sends to Clients.Group(session); the in-proc client must filter the
@@ -89,7 +97,9 @@ public class InProcHubClientTests
         var emitter = new InProcCommandEmitter(backend.Processor);
         await emitter.EmitAsync(new StartGame
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         received.Should().BeEmpty();
@@ -109,7 +119,9 @@ public class InProcHubClientTests
 
         await backend.Bus.PublishAsync(new PlayTrack("file:///song.mp3")
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         }, CancellationToken.None);
 
         plays.Should().HaveCount(1);
@@ -127,7 +139,9 @@ public class InProcHubClientTests
 
         await new InProcCommandEmitter(backend.Processor).EmitAsync(new StartGame
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         received.Should().BeEmpty();
@@ -148,7 +162,9 @@ public class InProcHubClientTests
 
         await new InProcCommandEmitter(backend.Processor).EmitAsync(new StartGame
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         // Subscribed while started, stopped afterwards: proves the gate is read at delivery
@@ -168,11 +184,15 @@ public class InProcHubClientTests
         var emitter = new InProcCommandEmitter(backend.Processor);
         await emitter.EmitAsync(new StartGame
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
         await emitter.EmitAsync(new OpenAnswers
         {
-            SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = "dev",
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         });
 
         var act = async () => await client.SubmitAnswerAsync("dev", 0);

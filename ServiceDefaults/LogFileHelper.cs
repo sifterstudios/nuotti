@@ -18,7 +18,7 @@ public static class LogFileHelper
             Directory.CreateDirectory(logDir);
             return logDir;
         }
-        
+
         // Fallback: use home directory
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var homeLogDir = Path.Combine(home, "Nuotti", "Logs", serviceName);

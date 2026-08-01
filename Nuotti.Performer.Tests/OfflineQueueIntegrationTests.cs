@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;

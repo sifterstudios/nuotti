@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Enum;
+namespace Nuotti.Contracts.V1.Enum;
 
 /// <summary>
 /// Status reported by the Audio Engine.

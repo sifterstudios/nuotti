@@ -10,7 +10,7 @@ public class SettingsService
 {
     private readonly string _settingsPath;
     private ProjectorSettings? _cachedSettings;
-    
+
     public SettingsService()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -18,12 +18,12 @@ public class SettingsService
         Directory.CreateDirectory(appFolder);
         _settingsPath = Path.Combine(appFolder, "settings.json");
     }
-    
+
     public async Task<ProjectorSettings> LoadSettingsAsync()
     {
         if (_cachedSettings != null)
             return _cachedSettings;
-            
+
         try
         {
             if (File.Exists(_settingsPath))
@@ -40,18 +40,18 @@ public class SettingsService
         {
             _cachedSettings = new ProjectorSettings();
         }
-        
+
         return _cachedSettings;
     }
-    
+
     public async Task SaveSettingsAsync(ProjectorSettings settings)
     {
         _cachedSettings = settings;
         try
         {
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
+            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+            {
+                WriteIndented = true
             });
             await File.WriteAllTextAsync(_settingsPath, json);
         }
@@ -61,7 +61,7 @@ public class SettingsService
             Console.WriteLine($"Failed to save settings: {ex.Message}");
         }
     }
-    
+
     public ProjectorSettings GetCachedSettings()
     {
         return _cachedSettings ?? new ProjectorSettings();

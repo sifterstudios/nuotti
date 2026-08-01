@@ -1,4 +1,4 @@
-﻿using Json.Schema;
+using Json.Schema;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Model;
 using System.Text;

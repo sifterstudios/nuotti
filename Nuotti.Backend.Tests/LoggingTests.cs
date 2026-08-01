@@ -15,7 +15,7 @@ public class LoggingTests : IClassFixture<WebApplicationFactory<QuizHub>>
         _factory = factory.WithWebHostBuilder(builder =>
         {
             // Ensure log level is configurable
-            builder.ConfigureAppConfiguration((_, config )=>
+            builder.ConfigureAppConfiguration((_, config) =>
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {

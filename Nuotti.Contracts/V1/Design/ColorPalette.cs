@@ -10,67 +10,67 @@ public class ColorPalette
     /// Primary brand color — neon cyan (stage accent).
     /// </summary>
     public string Primary { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Secondary brand color — deep teal panel.
     /// </summary>
     public string Secondary { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Tertiary accent color — soft teal.
     /// </summary>
     public string Tertiary { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Informational color — cyan.
     /// </summary>
     public string Info { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Success color - green.
     /// </summary>
     public string Success { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Warning color - amber.
     /// </summary>
     public string Warning { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Error color - pink-red.
     /// </summary>
     public string Error { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Background color for the application.
     /// </summary>
     public string Background { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Surface color for cards and elevated elements.
     /// </summary>
     public string Surface { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Primary text color for body content.
     /// </summary>
     public string TextPrimary { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Secondary text color for less prominent content.
     /// </summary>
     public string TextSecondary { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Divider color for separating elements.
     /// </summary>
     public string Divider { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Optional header background color.
     /// </summary>
     public string? Header { get; set; }
-    
+
     /// <summary>
     /// Optional option/choice background color.
     /// </summary>

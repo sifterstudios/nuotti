@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Message.Phase;
+namespace Nuotti.Contracts.V1.Message.Phase;
 
 /// <summary>
 /// Marker interface for commands that can only be executed in specific session phases.

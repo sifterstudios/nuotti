@@ -13,12 +13,16 @@ public class EngineActorReactionTests
 {
     static PlayTrack APlayTrack() => new("file:///song.mp3")
     {
-        SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        SessionCode = "dev",
+        IssuedByRole = Role.Performer,
+        IssuedById = "perf-1"
     };
 
     static StopTrack AStopTrack() => new()
     {
-        SessionCode = "dev", IssuedByRole = Role.Performer, IssuedById = "perf-1"
+        SessionCode = "dev",
+        IssuedByRole = Role.Performer,
+        IssuedById = "perf-1"
     };
 
     [Fact]

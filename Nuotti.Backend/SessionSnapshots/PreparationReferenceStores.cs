@@ -34,9 +34,11 @@ public sealed class InMemoryLyricTrackRevisionStore(TimeProvider? timeProvider =
         }
     }
     public Task<LyricTrackRevision?> GetAsync(string workspaceId, string revisionId,
-        CancellationToken cancellationToken = default) { lock (_gate) return Task.FromResult(_revisions.FirstOrDefault(x => x.WorkspaceId == workspaceId && x.RevisionId == revisionId)); }
+        CancellationToken cancellationToken = default)
+    { lock (_gate) return Task.FromResult(_revisions.FirstOrDefault(x => x.WorkspaceId == workspaceId && x.RevisionId == revisionId)); }
     public Task<LyricTrackRevision?> GetCurrentAsync(string workspaceId, string catalogEntryId,
-        CancellationToken cancellationToken = default) { lock (_gate) return Task.FromResult(_revisions.LastOrDefault(x => x.WorkspaceId == workspaceId && x.CatalogEntryId == catalogEntryId)); }
+        CancellationToken cancellationToken = default)
+    { lock (_gate) return Task.FromResult(_revisions.LastOrDefault(x => x.WorkspaceId == workspaceId && x.CatalogEntryId == catalogEntryId)); }
     internal static string Digest(string lrc, long offsetMs) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
         System.Text.Encoding.UTF8.GetBytes($"{offsetMs}\n{lrc}"))).ToLowerInvariant();
 }

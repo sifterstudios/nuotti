@@ -147,7 +147,7 @@ public sealed class VenueAssetCacheTests
     static CloudSnapshotAsset Asset(byte[] bytes, bool required) => new("rev-1", "backing-track",
         Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), bytes.Length, required);
     static PlayTrack Play(string file) => new(file)
-        { SessionCode = "SHOW", IssuedById = "performer", IssuedByRole = Nuotti.Contracts.V1.Enum.Role.Performer };
+    { SessionCode = "SHOW", IssuedById = "performer", IssuedByRole = Nuotti.Contracts.V1.Enum.Role.Performer };
     static CloudSessionSnapshot Snapshot(string id, params CloudSnapshotAsset[] assets) => new(id, "ws", "SHOW", 1, assets);
     static string Temp() { var path = Path.Combine(Path.GetTempPath(), $"nuotti-cache-{Guid.NewGuid():N}"); Directory.CreateDirectory(path); return path; }
     sealed class BytesHandler(byte[] bytes, bool omitLength = false) : HttpMessageHandler

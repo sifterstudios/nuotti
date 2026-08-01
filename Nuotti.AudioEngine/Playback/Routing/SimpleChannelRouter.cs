@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback.Routing;
+namespace Nuotti.AudioEngine.Playback.Routing;
 
 public sealed class SimpleChannelRouter : IChannelRouter
 {

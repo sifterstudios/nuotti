@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
@@ -18,7 +18,8 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         var session = "rest-api-session-1";
         var client = _factory.CreateClient();
 
-        var payload = new QuestionPushed("What?", ["A", "B"]) {
+        var payload = new QuestionPushed("What?", ["A", "B"])
+        {
             SessionCode = session,
             IssuedByRole = Role.Performer,
             IssuedById = "perf-1"
@@ -34,7 +35,8 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         var session = "rest-api-session-2";
         var client = _factory.CreateClient();
 
-        var payload = new QuestionPushed("What?", ["A", "B"]) {
+        var payload = new QuestionPushed("What?", ["A", "B"])
+        {
             SessionCode = session,
             IssuedByRole = Role.Audience,
             IssuedById = "aud-1"
@@ -148,7 +150,7 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         var client = _factory.CreateClient();
         var resp = await client.PostAsync("/api/sessions/test-session", null);
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        
+
         var session = await resp.Content.ReadFromJsonAsync<SessionCreated>(ContractsJson.RestOptions);
         Assert.NotEqual(default(SessionCreated), session);
         Assert.NotNull(session.SessionCode);
@@ -171,7 +173,7 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
 
         var resp = await client.GetAsync($"/api/sessions/{session}/counts");
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        
+
         var json = await resp.Content.ReadAsStringAsync();
         Assert.NotNull(json);
         Assert.Contains("performer", json);
@@ -210,7 +212,7 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         // Get status
         var resp = await client.GetAsync($"/status/{session}");
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        
+
         var snapshot = await resp.Content.ReadFromJsonAsync<GameStateSnapshot>(ContractsJson.RestOptions);
         Assert.NotNull(snapshot);
         Assert.Equal(session, snapshot!.SessionCode);
@@ -241,7 +243,7 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         var client = _factory.CreateClient();
         var resp = await client.GetAsync("/health/live");
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        
+
         var json = await resp.Content.ReadAsStringAsync();
         Assert.Contains("live", json);
     }
@@ -260,7 +262,7 @@ public class ApiEndpointsTests(WebApplicationFactory<QuizHub> factory) : IClassF
         var client = _factory.CreateClient();
         var resp = await client.GetAsync("/health/ready");
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        
+
         var json = await resp.Content.ReadAsStringAsync();
         Assert.Contains("ready", json);
     }

@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.SimKit.Actors;
@@ -21,7 +21,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.StartSet } ]
+            Steps = [new ScriptStep { Kind = StepKind.StartSet }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -38,7 +38,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.NextSong, SongId = "song-1" } ]
+            Steps = [new ScriptStep { Kind = StepKind.NextSong, SongId = "song-1" }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -54,7 +54,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.GiveHint, SongId = "song-2", HintIndex = 1, HintText = "lyric", PerformerInstructions = "whistle" } ]
+            Steps = [new ScriptStep { Kind = StepKind.GiveHint, SongId = "song-2", HintIndex = 1, HintText = "lyric", PerformerInstructions = "whistle" }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -73,7 +73,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.LockAnswers } ]
+            Steps = [new ScriptStep { Kind = StepKind.LockAnswers }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -87,7 +87,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.RevealAnswer, SongId = "song-3", Title = "Title", Artist = "Artist" } ]
+            Steps = [new ScriptStep { Kind = StepKind.RevealAnswer, SongId = "song-3", Title = "Title", Artist = "Artist" }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -102,7 +102,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.EndSong, SongId = "song-4" } ]
+            Steps = [new ScriptStep { Kind = StepKind.EndSong, SongId = "song-4" }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -117,7 +117,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.Play, SongId = "song-5" } ]
+            Steps = [new ScriptStep { Kind = StepKind.Play, SongId = "song-5" }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();
@@ -132,7 +132,7 @@ public class ScriptMappingTests
         var actor = CreateActor();
         var script = new ScriptModel
         {
-            Steps = [ new ScriptStep { Kind = StepKind.Stop, SongId = "song-6" } ]
+            Steps = [new ScriptStep { Kind = StepKind.Stop, SongId = "song-6" }]
         };
 
         var cmd = actor.BuildCommandsFromScript(script).Single();

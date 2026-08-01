@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 namespace Nuotti.SimKit.Tests;
 
 public class SimKitDocsExamplesTests

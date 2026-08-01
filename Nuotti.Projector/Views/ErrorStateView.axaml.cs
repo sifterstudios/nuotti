@@ -13,16 +13,16 @@ public partial class ErrorStateView : UserControl
     private readonly TextBlock _errorDetails;
     private readonly Border _errorDetailsContainer;
     private readonly Button _detailsButton;
-    
+
     private bool _detailsVisible = false;
-    
+
     public event Action? RetryRequested;
     public event Action? BackToLobbyRequested;
-    
+
     public ErrorStateView()
     {
         InitializeComponent();
-        
+
         _errorIcon = this.FindControl<TextBlock>("ErrorIcon")!;
         _errorTitle = this.FindControl<TextBlock>("ErrorTitle")!;
         _errorMessage = this.FindControl<TextBlock>("ErrorMessage")!;
@@ -30,7 +30,7 @@ public partial class ErrorStateView : UserControl
         _errorDetailsContainer = this.FindControl<Border>("ErrorDetailsContainer")!;
         _detailsButton = this.FindControl<Button>("DetailsButton")!;
     }
-    
+
     public void ShowError(ErrorType errorType, string message, string? details = null)
     {
         switch (errorType)
@@ -38,29 +38,29 @@ public partial class ErrorStateView : UserControl
             case ErrorType.NetworkConnection:
                 ShowNetworkError(message, details);
                 break;
-                
+
             case ErrorType.SessionNotFound:
                 ShowSessionError(message, details);
                 break;
-                
+
             case ErrorType.InvalidData:
                 ShowDataError(message, details);
                 break;
-                
+
             case ErrorType.ThemeError:
                 ShowThemeError(message, details);
                 break;
-                
+
             case ErrorType.FontError:
                 ShowFontError(message, details);
                 break;
-                
+
             case ErrorType.Generic:
             default:
                 ShowGenericError(message, details);
                 break;
         }
-        
+
         if (!string.IsNullOrEmpty(details))
         {
             _errorDetails.Text = details;
@@ -71,16 +71,16 @@ public partial class ErrorStateView : UserControl
             _detailsButton.IsVisible = false;
         }
     }
-    
+
     private void ShowNetworkError(string message, string? details)
     {
         _errorIcon.Text = "🌐";
         _errorTitle.Text = "Connection Problem";
-        _errorMessage.Text = message.IsNullOrEmpty() 
+        _errorMessage.Text = message.IsNullOrEmpty()
             ? "Unable to connect to the game server. Please check your network connection."
             : message;
     }
-    
+
     private void ShowSessionError(string message, string? details)
     {
         _errorIcon.Text = "🔍";
@@ -89,7 +89,7 @@ public partial class ErrorStateView : UserControl
             ? "The game session could not be found. It may have ended or the session code is incorrect."
             : message;
     }
-    
+
     private void ShowDataError(string message, string? details)
     {
         _errorIcon.Text = "📄";
@@ -98,7 +98,7 @@ public partial class ErrorStateView : UserControl
             ? "There was a problem with the game data. Some information may be missing or corrupted."
             : message;
     }
-    
+
     private void ShowThemeError(string message, string? details)
     {
         _errorIcon.Text = "🎨";
@@ -107,7 +107,7 @@ public partial class ErrorStateView : UserControl
             ? "There was a problem loading the display theme. The app may not look as expected."
             : message;
     }
-    
+
     private void ShowFontError(string message, string? details)
     {
         _errorIcon.Text = "🔤";
@@ -116,7 +116,7 @@ public partial class ErrorStateView : UserControl
             ? "Some fonts could not be loaded. Text may appear different than expected."
             : message;
     }
-    
+
     private void ShowGenericError(string message, string? details)
     {
         _errorIcon.Text = "⚠️";
@@ -125,24 +125,24 @@ public partial class ErrorStateView : UserControl
             ? "We encountered an unexpected error. Please try again."
             : message;
     }
-    
+
     private void OnRetryClick(object? sender, RoutedEventArgs e)
     {
         RetryRequested?.Invoke();
     }
-    
+
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
         BackToLobbyRequested?.Invoke();
     }
-    
+
     private void OnDetailsClick(object? sender, RoutedEventArgs e)
     {
         _detailsVisible = !_detailsVisible;
         _errorDetailsContainer.IsVisible = _detailsVisible;
         _detailsButton.Content = _detailsVisible ? "🔼 Hide Details" : "🔍 Show Details";
     }
-    
+
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);

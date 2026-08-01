@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using System.Text.Json;
 using Xunit;
 namespace Nuotti.AudioEngine.Tests;

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using Nuotti.Performer.Pages;
 using Xunit;

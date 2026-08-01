@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 namespace Nuotti.Contracts.V1.Enum;
 
 /// <summary>
@@ -47,5 +47,5 @@ public enum Phase
     ///  Session/round is complete, shows winners.
     /// </summary>
     Finished,
-    
+
 }

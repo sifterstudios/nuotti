@@ -1,4 +1,4 @@
-﻿using JetBrains.Annotations;
+using JetBrains.Annotations;
 using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
@@ -8,7 +8,7 @@ namespace Nuotti.Contracts.Tests.V1.Message.Phase;
 [TestSubject(typeof(LockAnswers))]
 public class LockAnswersTest
 {
-    
+
     static LockAnswers CreateSample()
         => new LockAnswers()
         {

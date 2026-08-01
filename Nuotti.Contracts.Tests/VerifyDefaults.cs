@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.Tests;
+namespace Nuotti.Contracts.Tests;
 
 public static class VerifyDefaults
 {

@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.AudioDevices;
+namespace Nuotti.AudioEngine.AudioDevices;
 
 public interface IAudioDeviceEnumerator
 {

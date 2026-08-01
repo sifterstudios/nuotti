@@ -9,6 +9,6 @@ public class MonitorInfo
     public int X { get; set; }
     public int Y { get; set; }
     public bool IsPrimary { get; set; }
-    
+
     public string DisplayName => $"{Name} ({Width}x{Height}){(IsPrimary ? " - Primary" : "")}";
 }

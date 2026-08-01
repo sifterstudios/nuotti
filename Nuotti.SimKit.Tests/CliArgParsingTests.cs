@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using static Nuotti.SimKit.Program;
 
 namespace Nuotti.SimKit.Tests;
@@ -55,11 +55,11 @@ public class CliArgParsingTests
     }
 
     [Theory]
-    [InlineData("--audiences","-1")]
-    [InlineData("--jitter","-0.1")]
-    [InlineData("--disconnect-rate","1.1")]
-    [InlineData("--disconnect-rate","-0.1")]
-    [InlineData("--preset","unknown")]
+    [InlineData("--audiences", "-1")]
+    [InlineData("--jitter", "-0.1")]
+    [InlineData("--disconnect-rate", "1.1")]
+    [InlineData("--disconnect-rate", "-0.1")]
+    [InlineData("--preset", "unknown")]
     public void Invalid_values_fail(string name, string value)
     {
         var args = new[] { "run", "--backend", "http://x", "--session", "dev", name, value };
@@ -72,7 +72,7 @@ public class CliArgParsingTests
     [Fact]
     public void Instant_flag_overrides_speed_in_effective_use_but_parsing_keeps_both()
     {
-        var args = new[] { "run", "--backend", "http://x", "--session", "dev", "--speed","3", "--instant" };
+        var args = new[] { "run", "--backend", "http://x", "--session", "dev", "--speed", "3", "--instant" };
         var ok = TryParseRunArgs(args, out var parsed, out var error);
         Assert.True(ok, error);
         Assert.NotNull(parsed);

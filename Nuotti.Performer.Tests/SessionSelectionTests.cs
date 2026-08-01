@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Nuotti.Backend;
 using Xunit;
 namespace Nuotti.Performer.Tests;

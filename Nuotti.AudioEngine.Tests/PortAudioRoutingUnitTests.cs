@@ -1,4 +1,4 @@
-﻿using Nuotti.AudioEngine.Playback;
+using Nuotti.AudioEngine.Playback;
 using Nuotti.AudioEngine.Playback.Decoding;
 using Nuotti.AudioEngine.Playback.Routing;
 using System;

@@ -89,15 +89,21 @@ public sealed class AudienceIdentityCatalogGuessingTests(WebApplicationFactory<Q
         var state = _factory.Services.GetRequiredService<IGameStateStore>();
         await PostPhaseAsync(client, "start-game", session, new StartGame
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
         await PostJsonAsync(client, $"/api/pushQuestion/{session}", new QuestionPushed("Guess?", ["A", "B", "C"])
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
         await PostPhaseAsync(client, "open-answers", session, new OpenAnswers
         {
-            SessionCode = session, IssuedByRole = Role.Performer, IssuedById = member.Principal.UserId
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = member.Principal.UserId
         });
 
         var commandId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");

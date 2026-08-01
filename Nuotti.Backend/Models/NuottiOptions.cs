@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Backend.Models;
+namespace Nuotti.Backend.Models;
 
 /// <summary>
 /// Strongly-typed configuration options for the Backend.

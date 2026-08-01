@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Message.Phase;
+namespace Nuotti.Contracts.V1.Message.Phase;
 
 /// <summary>
 /// Locks audience answers.

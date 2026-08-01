@@ -1,4 +1,4 @@
-﻿using Nuotti.SimKit.Metrics;
+using Nuotti.SimKit.Metrics;
 using System.Text.Json;
 using Xunit;
 namespace Nuotti.SimKit.Tests;

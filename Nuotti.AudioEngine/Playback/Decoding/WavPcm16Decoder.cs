@@ -1,4 +1,4 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
 using System.Text;
 namespace Nuotti.AudioEngine.Playback.Decoding;
 

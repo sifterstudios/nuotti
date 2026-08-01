@@ -32,7 +32,9 @@ public class QuestionPushedEffectsTests
         var pushResult = await processor.ApplyAsync(Session, Performer,
             new QuestionPushed("Which song?", ["a", "b", "c"])
             {
-                SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
             });
 
         Assert.Equal(Outcome.Applied, pushResult.Outcome);
@@ -69,7 +71,9 @@ public class QuestionPushedEffectsTests
         var processor = Harness.Processor(out _, out var bus, idempotency);
         var cmd = new QuestionPushed("Which song?", ["a", "b"])
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         };
 
         var first = await processor.ApplyAsync(Session, Performer, cmd);
@@ -125,7 +129,9 @@ public class QuestionPushedEffectsTests
         store.Set(Session, GameReducer.Initial(Session) with { Phase = PhaseEnum.Guessing });
         var pushed = new QuestionPushed("Which song?", [])
         {
-            SessionCode = Session, IssuedByRole = Role.Performer, IssuedById = "perf-1"
+            SessionCode = Session,
+            IssuedByRole = Role.Performer,
+            IssuedById = "perf-1"
         };
 
         var result = await processor.ApplyAsync(Session, Performer, pushed);

@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback;
+namespace Nuotti.AudioEngine.Playback;
 
 /// <summary>
 /// Optional interface for players that can report a current output latency measurement.

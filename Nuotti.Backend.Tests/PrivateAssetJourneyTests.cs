@@ -75,7 +75,9 @@ public sealed class PrivateAssetJourneyTests(WebApplicationFactory<QuizHub> base
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/asset-uploads", member.SessionToken,
             new
             {
-                assetType = "backing-track", contentType = "audio/wav", size = 10,
+                assetType = "backing-track",
+                contentType = "audio/wav",
+                size = 10,
                 provenance = new { source = "licensed", rightsBasis = "venue licence", territory = "NO", permittedUses = new[] { "backing-track" }, rightsExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1), supportingDocumentReference = "expired-case" }
             });
         Assert.Equal(HttpStatusCode.BadRequest, expiredUpload.StatusCode);
@@ -83,7 +85,9 @@ public sealed class PrivateAssetJourneyTests(WebApplicationFactory<QuizHub> base
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/asset-uploads", member.SessionToken,
             new
             {
-                assetType = "backing-track", contentType = "audio/wav", size = 10,
+                assetType = "backing-track",
+                contentType = "audio/wav",
+                size = 10,
                 provenance = new { source = "licensed", rightsBasis = "venue licence", territory = "NO", permittedUses = new[] { "anything-goes" }, rightsExpiresAt = (DateTimeOffset?)null, supportingDocumentReference = "bad-use" }
             });
         Assert.Equal(HttpStatusCode.BadRequest, arbitraryUse.StatusCode);
@@ -147,7 +151,9 @@ public sealed class PrivateAssetJourneyTests(WebApplicationFactory<QuizHub> base
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/asset-uploads", owner.SessionToken,
             new
             {
-                assetType = "image", contentType = "image/png", size = 4,
+                assetType = "image",
+                contentType = "image/png",
+                size = 4,
                 provenance = new { source = "commissioned", rightsBasis = "owned", territory = "NO", permittedUses = new[] { "visual-hint" }, rightsExpiresAt = (DateTimeOffset?)null, supportingDocumentReference = "case-7" }
             });
 

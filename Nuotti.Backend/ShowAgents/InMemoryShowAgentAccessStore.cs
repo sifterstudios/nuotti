@@ -58,8 +58,11 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
             var scope = Scope(pairing.WorkspaceId, pairing.SessionCode);
             var agent = new Agent
             {
-                Id = $"agent_{Guid.NewGuid():N}", Name = name.Trim(), WorkspaceId = pairing.WorkspaceId,
-                SessionCode = pairing.SessionCode, CredentialHash = ShowAgentTokens.Hash(credential),
+                Id = $"agent_{Guid.NewGuid():N}",
+                Name = name.Trim(),
+                WorkspaceId = pairing.WorkspaceId,
+                SessionCode = pairing.SessionCode,
+                CredentialHash = ShowAgentTokens.Hash(credential),
                 CommandStartSequence = _lastSequenceByScope.GetValueOrDefault(scope)
             };
             if (_agentByScope.TryGetValue(scope, out var previous)) _agents[previous].Revoked = true;

@@ -1,4 +1,4 @@
-﻿using MudBlazor.Services;
+using MudBlazor.Services;
 using Nuotti.Performer;
 using Nuotti.Performer.Endpoints;
 using Nuotti.Performer.Services;

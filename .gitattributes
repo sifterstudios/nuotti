@@ -11,6 +11,12 @@
 
 *.cs text eol=crlf
 
+# Verify snapshot files. VerifyChecks.Run enforces these once a .gitattributes exists, and the
+# snapshots must stay LF regardless of the C# rule above or every one of them would churn.
+*.verified.txt text eol=lf working-tree-encoding=UTF-8
+*.verified.xml text eol=lf working-tree-encoding=UTF-8
+*.verified.json text eol=lf working-tree-encoding=UTF-8
+
 # Windows-only tooling that genuinely wants CRLF on disk.
 *.ps1 text eol=crlf
 *.cmd text eol=crlf

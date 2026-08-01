@@ -12,14 +12,14 @@ public class ContentSafetyService
     private int _maxPlayerNameLength = 50;
     private int _maxSongTitleLength = 100;
     private int _maxArtistNameLength = 80;
-    
+
     // Patterns for potentially dangerous content
     private readonly Regex _htmlTagPattern = new(@"<[^>]*>", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly Regex _scriptPattern = new(@"<script[^>]*>.*?</script>", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
     private readonly Regex _urlPattern = new(@"https?://[^\s<>""']+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly Regex _excessiveWhitespacePattern = new(@"\s{3,}", RegexOptions.Compiled);
     private readonly Regex _controlCharPattern = new(@"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", RegexOptions.Compiled);
-    
+
     // Common injection patterns
     private readonly string[] _suspiciousPatterns = new[]
     {
@@ -40,19 +40,19 @@ public class ContentSafetyService
         "confirm(",
         "prompt("
     };
-    
+
     public ContentSafetyResult SanitizeText(string? input, ContentType contentType = ContentType.General)
     {
         if (string.IsNullOrEmpty(input))
         {
             return new ContentSafetyResult(string.Empty, false, "Empty input");
         }
-        
+
         var maxLength = GetMaxLengthForType(contentType);
         var sanitized = input;
         var warnings = new List<string>();
         bool wasModified = false;
-        
+
         // Step 1: Length clamping
         if (sanitized.Length > maxLength)
         {
@@ -60,7 +60,7 @@ public class ContentSafetyService
             warnings.Add($"Content truncated to {maxLength} characters");
             wasModified = true;
         }
-        
+
         // Step 2: Remove control characters
         var controlCharMatch = _controlCharPattern.Match(sanitized);
         if (controlCharMatch.Success)
@@ -69,7 +69,7 @@ public class ContentSafetyService
             warnings.Add("Control characters removed");
             wasModified = true;
         }
-        
+
         // Step 3: HTML/Script sanitization
         if (_scriptPattern.IsMatch(sanitized))
         {
@@ -77,14 +77,14 @@ public class ContentSafetyService
             warnings.Add("Script tags removed for security");
             wasModified = true;
         }
-        
+
         if (_htmlTagPattern.IsMatch(sanitized))
         {
             sanitized = _htmlTagPattern.Replace(sanitized, "");
             warnings.Add("HTML tags removed");
             wasModified = true;
         }
-        
+
         // Step 4: Check for suspicious patterns
         foreach (var pattern in _suspiciousPatterns)
         {
@@ -95,7 +95,7 @@ public class ContentSafetyService
                 wasModified = true;
             }
         }
-        
+
         // Step 5: URL sanitization (optional - might be too aggressive for some content)
         if (contentType != ContentType.SongTitle && contentType != ContentType.ArtistName)
         {
@@ -110,7 +110,7 @@ public class ContentSafetyService
                 wasModified = true;
             }
         }
-        
+
         // Step 6: Normalize whitespace
         if (_excessiveWhitespacePattern.IsMatch(sanitized))
         {
@@ -118,10 +118,10 @@ public class ContentSafetyService
             warnings.Add("Excessive whitespace normalized");
             wasModified = true;
         }
-        
+
         // Step 7: Trim and final cleanup
         sanitized = sanitized.Trim();
-        
+
         // Step 8: Ensure we don't return empty strings for required content
         if (string.IsNullOrWhiteSpace(sanitized) && !string.IsNullOrWhiteSpace(input))
         {
@@ -129,80 +129,80 @@ public class ContentSafetyService
             warnings.Add("Content was completely filtered, placeholder added");
             wasModified = true;
         }
-        
+
         return new ContentSafetyResult(sanitized, wasModified, string.Join("; ", warnings));
     }
-    
+
     public ContentSafetyResult SanitizeChoice(string? choice, int index)
     {
         var result = SanitizeText(choice, ContentType.Choice);
-        
+
         // Ensure choices have some content
         if (string.IsNullOrWhiteSpace(result.SafeContent))
         {
             result = new ContentSafetyResult($"Choice {index + 1}", true, "Empty choice replaced with placeholder");
         }
-        
+
         return result;
     }
-    
+
     public ContentSafetyResult SanitizePlayerName(string? playerName)
     {
         var result = SanitizeText(playerName, ContentType.PlayerName);
-        
+
         // Ensure player names have some content
         if (string.IsNullOrWhiteSpace(result.SafeContent))
         {
             result = new ContentSafetyResult("Anonymous", true, "Empty player name replaced with 'Anonymous'");
         }
-        
+
         return result;
     }
-    
+
     public ContentSafetyResult SanitizeSongTitle(string? title)
     {
         var result = SanitizeText(title, ContentType.SongTitle);
-        
+
         // Ensure song titles have some content
         if (string.IsNullOrWhiteSpace(result.SafeContent))
         {
             result = new ContentSafetyResult("Unknown Song", true, "Empty song title replaced with 'Unknown Song'");
         }
-        
+
         return result;
     }
-    
+
     public ContentSafetyResult SanitizeArtistName(string? artist)
     {
         var result = SanitizeText(artist, ContentType.ArtistName);
-        
+
         // Artist can be empty, but if it exists, it should be clean
         return result;
     }
-    
+
     public ContentSafetyResult SanitizeHint(string? hint)
     {
         var result = SanitizeText(hint, ContentType.General);
-        
+
         // Hints can be empty
         return result;
     }
-    
+
     public bool IsContentSafe(string? input)
     {
         if (string.IsNullOrEmpty(input))
             return true;
-        
+
         // Quick safety check without modification
         return !_scriptPattern.IsMatch(input) &&
                !_suspiciousPatterns.Any(pattern => input.Contains(pattern, StringComparison.OrdinalIgnoreCase)) &&
                !_controlCharPattern.IsMatch(input);
     }
-    
+
     public ContentSafetyReport GenerateReport(Dictionary<string, string> content)
     {
         var report = new ContentSafetyReport();
-        
+
         foreach (var kvp in content)
         {
             var result = SanitizeText(kvp.Value);
@@ -211,10 +211,10 @@ public class ContentSafetyService
                 report.ModifiedContent[kvp.Key] = result;
             }
         }
-        
+
         return report;
     }
-    
+
     private int GetMaxLengthForType(ContentType contentType)
     {
         return contentType switch
@@ -227,7 +227,7 @@ public class ContentSafetyService
             _ => _maxStringLength
         };
     }
-    
+
     // Configuration methods
     public void SetMaxLength(ContentType contentType, int maxLength)
     {

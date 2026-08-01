@@ -1,4 +1,4 @@
-﻿namespace Nuotti.SimKit.Time;
+namespace Nuotti.SimKit.Time;
 
 public sealed class ImmediateTimeProvider : ITimeProvider
 {

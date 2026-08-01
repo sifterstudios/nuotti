@@ -12,9 +12,9 @@ internal static class AboutEndpoints
         app.MapGet("/about", () =>
         {
             var info = VersionInfo.GetVersionInfo("Nuotti.Performer");
-            return Results.Json(info, new JsonSerializerOptions 
-            { 
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase 
+            return Results.Json(info, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             },
             contentType: "application/json");
         });

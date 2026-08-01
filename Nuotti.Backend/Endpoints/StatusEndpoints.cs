@@ -1,4 +1,4 @@
-﻿using Nuotti.Backend.Sessions;
+using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Model;
 
 namespace Nuotti.Backend.Endpoints;

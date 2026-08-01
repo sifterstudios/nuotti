@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback;
+namespace Nuotti.AudioEngine.Playback;
 
 public interface IAudioPlayer
 {

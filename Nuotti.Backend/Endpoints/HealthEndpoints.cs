@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nuotti.Contracts.V1;
 using System.Text.Json;
@@ -12,7 +12,7 @@ internal static class HealthEndpoints
         // Standardized health check endpoints using ASP.NET Core health checks infrastructure
         // /health/live - liveness probe (app is running)
         // /health/ready - readiness probe (app is ready to accept traffic)
-        
+
         app.MapHealthChecks("/health/live", new HealthCheckOptions
         {
             Predicate = r => r.Tags.Contains("live"),

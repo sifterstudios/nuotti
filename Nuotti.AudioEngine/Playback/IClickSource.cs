@@ -1,4 +1,4 @@
-﻿namespace Nuotti.AudioEngine.Playback;
+namespace Nuotti.AudioEngine.Playback;
 
 /// <summary>
 /// Metronome/click source lifecycle tied to track playback.

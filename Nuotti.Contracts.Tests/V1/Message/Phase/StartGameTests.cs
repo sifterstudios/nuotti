@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message.Phase;
 using System.Text.Json;

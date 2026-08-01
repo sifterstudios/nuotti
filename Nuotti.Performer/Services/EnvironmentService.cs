@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Performer.Services;
+namespace Nuotti.Performer.Services;
 
 public interface IEnvironmentService
 {

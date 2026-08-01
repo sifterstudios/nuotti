@@ -47,7 +47,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
     public async Task Status_Endpoint_Returns_Current_Snapshot_For_Resync()
     {
         var session = "reconnect-status-1";
-        
+
         // Create session and transition to Start phase
         await _httpClient.PostAsync($"/api/sessions/{session}", null);
         var start = new StartGame
@@ -62,7 +62,7 @@ public class ReconnectTests : IClassFixture<WebApplicationFactory<QuizHub>>, IAs
         // Fetch status for resync
         var statusResp = await _httpClient.GetAsync($"/status/{session}");
         Assert.Equal(HttpStatusCode.OK, statusResp.StatusCode);
-        
+
         var snapshot = await statusResp.Content.ReadFromJsonAsync<GameStateSnapshot>(ContractsJson.RestOptions);
         Assert.NotNull(snapshot);
         Assert.Equal(session, snapshot!.SessionCode);

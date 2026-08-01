@@ -31,13 +31,13 @@ public static class FeatureFlags
     {
         var features = new Dictionary<string, bool>();
         var featuresSection = configuration.GetSection("Features");
-        
+
         foreach (var child in featuresSection.GetChildren())
         {
             var enabled = child.Get<bool>();
             features[child.Key] = enabled;
         }
-        
+
         return features;
     }
 }

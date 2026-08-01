@@ -10,19 +10,19 @@ public class ReconnectService
 {
     private readonly HttpClient _httpClient;
     private readonly string _backendUrl;
-    
+
     public ReconnectService(string backendUrl)
     {
         _backendUrl = backendUrl;
         _httpClient = new HttpClient();
     }
-    
+
     public async Task<GameStateSnapshot?> FetchLatestStateAsync(string sessionCode)
     {
         try
         {
             var response = await _httpClient.GetAsync($"{_backendUrl}/status/{sessionCode}");
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var state = await response.Content.ReadFromJsonAsync<GameStateSnapshot>();
@@ -40,7 +40,7 @@ public class ReconnectService
             return null;
         }
     }
-    
+
     public void Dispose()
     {
         _httpClient?.Dispose();

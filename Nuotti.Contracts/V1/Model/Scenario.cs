@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>

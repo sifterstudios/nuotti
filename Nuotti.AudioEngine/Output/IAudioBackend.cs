@@ -1,4 +1,4 @@
-﻿using Nuotti.AudioEngine.Playback;
+using Nuotti.AudioEngine.Playback;
 namespace Nuotti.AudioEngine.Output;
 
 public interface IAudioBackend

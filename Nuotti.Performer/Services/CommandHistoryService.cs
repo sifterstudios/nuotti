@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1;
+using Nuotti.Contracts.V1;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
 using System.Text.Json;

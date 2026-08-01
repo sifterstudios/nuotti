@@ -1,4 +1,4 @@
-﻿namespace Nuotti.Contracts.V1.Model;
+namespace Nuotti.Contracts.V1.Model;
 
 /// <summary>
 /// Lightweight reference to a song used across messages and state.

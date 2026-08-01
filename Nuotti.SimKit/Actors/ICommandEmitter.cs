@@ -1,4 +1,4 @@
-﻿using Nuotti.Contracts.V1.Message;
+using Nuotti.Contracts.V1.Message;
 namespace Nuotti.SimKit.Actors;
 
 public interface ICommandEmitter

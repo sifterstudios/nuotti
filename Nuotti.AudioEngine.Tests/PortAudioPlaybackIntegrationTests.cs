@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using Nuotti.AudioEngine.Output;
 using Nuotti.AudioEngine.Playback;
 using System;

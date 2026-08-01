@@ -14,18 +14,18 @@ public static class ContrastCalculator
     {
         var fgRgb = HexToRgb(foregroundHex);
         var bgRgb = HexToRgb(backgroundHex);
-        
+
         var fgLuminance = CalculateRelativeLuminance(fgRgb);
         var bgLuminance = CalculateRelativeLuminance(bgRgb);
-        
+
         // Contrast ratio = (L1 + 0.05) / (L2 + 0.05)
         // where L1 is the lighter color and L2 is the darker color
         var lighter = Math.Max(fgLuminance, bgLuminance);
         var darker = Math.Min(fgLuminance, bgLuminance);
-        
+
         return (lighter + 0.05) / (darker + 0.05);
     }
-    
+
     /// <summary>
     /// Calculates the relative luminance of an RGB color (0.0 to 1.0).
     /// </summary>
@@ -35,15 +35,15 @@ public static class ContrastCalculator
         double RsRGB = rgb.r / 255.0;
         double GsRGB = rgb.g / 255.0;
         double BsRGB = rgb.b / 255.0;
-        
+
         double R = RsRGB <= 0.03928 ? RsRGB / 12.92 : Math.Pow((RsRGB + 0.055) / 1.055, 2.4);
         double G = GsRGB <= 0.03928 ? GsRGB / 12.92 : Math.Pow((GsRGB + 0.055) / 1.055, 2.4);
         double B = BsRGB <= 0.03928 ? BsRGB / 12.92 : Math.Pow((BsRGB + 0.055) / 1.055, 2.4);
-        
+
         // Relative luminance formula
         return 0.2126 * R + 0.7152 * G + 0.0722 * B;
     }
-    
+
     /// <summary>
     /// Converts a hex color string (e.g., "#FF6B35") to RGB tuple.
     /// </summary>
@@ -51,20 +51,20 @@ public static class ContrastCalculator
     {
         if (string.IsNullOrWhiteSpace(hex))
             throw new ArgumentException("Hex color cannot be null or empty", nameof(hex));
-        
+
         // Remove # if present
         hex = hex.TrimStart('#');
-        
+
         if (hex.Length != 6)
             throw new ArgumentException($"Invalid hex color format: #{hex}", nameof(hex));
-        
+
         int r = Convert.ToInt32(hex.Substring(0, 2), 16);
         int g = Convert.ToInt32(hex.Substring(2, 2), 16);
         int b = Convert.ToInt32(hex.Substring(4, 2), 16);
-        
+
         return (r, g, b);
     }
-    
+
     /// <summary>
     /// Checks if the contrast ratio meets WCAG AA standards for normal text (4.5:1).
     /// </summary>
@@ -72,7 +72,7 @@ public static class ContrastCalculator
     {
         return contrastRatio >= 4.5;
     }
-    
+
     /// <summary>
     /// Checks if the contrast ratio meets WCAG AA standards for large text (3:1).
     /// </summary>
@@ -80,7 +80,7 @@ public static class ContrastCalculator
     {
         return contrastRatio >= 3.0;
     }
-    
+
     /// <summary>
     /// Checks if the contrast ratio meets WCAG AAA standards for normal text (7:1).
     /// </summary>
