@@ -56,7 +56,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
         with:
           install: true
-          cleanup: false
+          # cleanup: false left a buildkit container behind per job - four per run, never
+          # reclaimed, because the builder gets a generated name and so is never reused either.
+          # Nothing is lost by removing it: the layer cache is type=local on the array, not
+          # state inside the container.
+          cleanup: true
           driver-opts: |
             image=moby/buildkit:v0.13.2
 
