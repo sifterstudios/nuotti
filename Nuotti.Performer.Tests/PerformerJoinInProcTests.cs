@@ -66,7 +66,8 @@ public class PerformerJoinInProcTests
         public void SetClients(IHubCallerClients clients) => Clients = clients;
     }
 
-    static InMemorySessionStore CreateSessionStore() => new(Options.Create(new NuottiOptions()));
+    static InMemorySessionStore CreateSessionStore()
+        => new(Options.Create(new NuottiOptions()), new InMemoryGameStateStore());
 
     [Fact]
     public async Task Join_Performer_registers_role_in_session_store()
