@@ -3,14 +3,15 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Nuotti.Backend;
+using Nuotti.Backend.Commands;
 using Nuotti.Backend.Models;
+using Nuotti.Backend.Participants;
 using Nuotti.Backend.Sessions;
 using Nuotti.Contracts.V1.Event;
-using Nuotti.Backend.Commands;
 using Nuotti.Contracts.V1.Message;
-using System.Collections.Concurrent;
 using System.Security.Claims;
 using Xunit;
+
 namespace Nuotti.Performer.Tests;
 
 public class PerformerJoinInProcTests
@@ -19,31 +20,64 @@ public class PerformerJoinInProcTests
     {
         public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
-    sealed class FakeClients : IHubCallerClients { public IClientProxy Caller => new FakeClientProxy(); public IClientProxy All => throw new NotImplementedException(); public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException(); public IClientProxy Client(string connectionId) => new FakeClientProxy(); public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new FakeClientProxy(); public IClientProxy Group(string groupName) => new FakeClientProxy(); public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => new FakeClientProxy(); public IClientProxy Groups(IReadOnlyList<string> groupNames) => new FakeClientProxy(); public IClientProxy Others => new FakeClientProxy(); public IClientProxy OthersInGroup(string groupName) => new FakeClientProxy(); public IClientProxy User(string userId) => new FakeClientProxy(); public IClientProxy Users(IReadOnlyList<string> userIds) => new FakeClientProxy(); }
-    sealed class NoopGroupManager : IGroupManager { public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => Task.CompletedTask; public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => Task.CompletedTask; }
-    sealed class TestContext(string connectionId) : HubCallerContext { public override string ConnectionId { get; } = connectionId; public override string? UserIdentifier => null; public override ClaimsPrincipal? User => null; public override IDictionary<object, object?> Items { get; } = new Dictionary<object, object?>(); public override IFeatureCollection Features { get; } = new FeatureCollection(); public override CancellationToken ConnectionAborted { get; } = CancellationToken.None; public override void Abort() { } }
+    sealed class FakeClients : IHubCallerClients
+    {
+        public IClientProxy Caller => new FakeClientProxy();
+        public IClientProxy All => throw new NotImplementedException();
+        public IClientProxy AllExcept(IReadOnlyList<string> excludedConnectionIds) => throw new NotImplementedException();
+        public IClientProxy Client(string connectionId) => new FakeClientProxy();
+        public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new FakeClientProxy();
+        public IClientProxy Group(string groupName) => new FakeClientProxy();
+        public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => new FakeClientProxy();
+        public IClientProxy Groups(IReadOnlyList<string> groupNames) => new FakeClientProxy();
+        public IClientProxy Others => new FakeClientProxy();
+        public IClientProxy OthersInGroup(string groupName) => new FakeClientProxy();
+        public IClientProxy User(string userId) => new FakeClientProxy();
+        public IClientProxy Users(IReadOnlyList<string> userIds) => new FakeClientProxy();
+    }
+    sealed class NoopGroupManager : IGroupManager
+    {
+        public Task AddToGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+    sealed class TestContext(string connectionId) : HubCallerContext
+    {
+        public override string ConnectionId { get; } = connectionId;
+        public override string? UserIdentifier => null;
+        public override ClaimsPrincipal? User => null;
+        public override IDictionary<object, object?> Items { get; } = new Dictionary<object, object?>();
+        public override IFeatureCollection Features { get; } = new FeatureCollection();
+        public override CancellationToken ConnectionAborted { get; } = CancellationToken.None;
+        public override void Abort() { }
+    }
     sealed class FakeLogStreamer : ILogStreamer { public Task BroadcastAsync(LogEvent evt) => Task.CompletedTask; }
     sealed class NoopProcessor : ISessionCommandProcessor
     {
-        // These tests exercise Join only, which never reaches the processor.
         public Task<CommandResult> ApplyAsync(string session, Actor actor, CommandBase command,
             Guid? correlationId = null, CancellationToken ct = default, string workspaceId = "legacy")
             => Task.FromResult(CommandResult.Applied());
     }
-    sealed class TestableQuizHub(ILogStreamer log, ISessionStore sessions, ISessionCommandProcessor processor) : QuizHub(new NullLogger<QuizHub>(), log, sessions, processor) { public void SetContext(HubCallerContext ctx) => Context = ctx; public void SetGroups(IGroupManager groups) => Groups = groups; public void SetClients(IHubCallerClients clients) => Clients = clients; }
+    sealed class TestableQuizHub(
+        ILogStreamer log, ISessionStore sessions, ISessionCommandProcessor processor, IParticipantIdentityStore participants)
+        : QuizHub(new NullLogger<QuizHub>(), log, sessions, processor, participants)
+    {
+        public void SetContext(HubCallerContext ctx) => Context = ctx;
+        public void SetGroups(IGroupManager groups) => Groups = groups;
+        public void SetClients(IHubCallerClients clients) => Clients = clients;
+    }
 
-    static InMemorySessionStore CreateSessionStore() => new InMemorySessionStore(Options.Create(new NuottiOptions()));
+    static InMemorySessionStore CreateSessionStore() => new(Options.Create(new NuottiOptions()));
 
     [Fact]
     public async Task Join_Performer_registers_role_in_session_store()
     {
         var store = CreateSessionStore();
-        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new NoopProcessor());
+        var hub = new TestableQuizHub(new FakeLogStreamer(), store, new NoopProcessor(), new InMemoryParticipantIdentityStore());
         hub.SetContext(new TestContext("perf-conn-1"));
         hub.SetClients(new FakeClients());
         hub.SetGroups(new NoopGroupManager());
 
-        await hub.Join("sessZ", "Performer");
+        await hub.Join("sessZ", "Performer", null, null);
 
         var counts = store.GetCounts("sessZ");
         Assert.Equal(1, counts.Performer);

@@ -249,9 +249,22 @@ else
     void OnConnectedChanged(bool connected)
     {
         isConnected = connected;
-        LiveState.SetConnection(connected);
-        if (connected)
+        if (!connected)
         {
+            LiveState.SetConnection(false);
+        }
+        else
+        {
+            LiveState.BeginReconciliation();
+            LiveState.SetConnection(true);
+            // Snapshot catch-up arrives via GameStateChanged; mark controls ready once connected.
+            var result = Nuotti.Contracts.V1.Recovery.SessionReconciler.Apply(
+                LiveState.Snapshot,
+                LiveState.Snapshot,
+                Nuotti.Contracts.V1.Protocol.ControlGeneration.Initial,
+                Nuotti.Contracts.V1.Protocol.SessionSequence.None,
+                []);
+            LiveState.CompleteReconciliation(result);
             _ = LiveState.RefreshCountsAsync();
         }
         InvokeAsync(StateHasChanged);

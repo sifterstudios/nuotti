@@ -424,6 +424,24 @@ public partial class MainWindow : Window
             }
 
             _playbackPresenter.ResumeFromHold(_playbackClock.Elapsed);
+            // Prefer anchor reconcile when a playback instance is still active after resync.
+            if (_gameStateService.CurrentState.Phase == Phase.Play)
+            {
+                _playbackPresenter.Reconcile(
+                    new PlaybackAnchor(
+                        "reconnect",
+                        _gameStateService.CurrentState.CurrentSong?.Id.Value ?? "song",
+                        SampleRate: 48_000,
+                        Frame: 0,
+                        EngineMonotonicTimestamp: _playbackClock.Elapsed,
+                        BackendUtcCorrelation: DateTimeOffset.UtcNow,
+                        PlaybackAnchorState.Playing,
+                        Rate: 1,
+                        Sequence: long.MaxValue / 4,
+                        ControlGeneration: 1),
+                    _playbackClock.Elapsed,
+                    DateTimeOffset.UtcNow);
+            }
             _connectionTextBlock.Text = "Connected";
             _reconnectOverlay.Hide();
             RenderCurrent();

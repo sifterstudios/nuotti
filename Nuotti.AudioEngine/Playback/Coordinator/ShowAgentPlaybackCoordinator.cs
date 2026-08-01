@@ -140,18 +140,18 @@ public sealed class ShowAgentPlaybackCoordinator(
         DateTimeOffset backendUtcCorrelation,
         ControlGeneration? expectedGeneration = null)
     {
-        if (State is not (PlaybackLifecycle.Ready or PlaybackLifecycle.Scheduled))
-            return Reject(PlaybackFault.NotPrepared, "Start requires Ready (prepared) state.");
-
-        if (expectedGeneration is { } gen && gen.Value != _activeGeneration.Value && _activeInstanceId is not null)
-            return Reject(PlaybackFault.StaleGeneration, "Stale control generation.");
-
         if (_activeInstanceId == identity.PlaybackInstanceId
             && _activeGeneration.Value == identity.ControlGeneration.Value
             && State is PlaybackLifecycle.Scheduled or PlaybackLifecycle.Playing)
         {
             return new(Outcome.Duplicate, State, PlaybackFault.DuplicateStart, "Duplicate Start.");
         }
+
+        if (State is not (PlaybackLifecycle.Ready or PlaybackLifecycle.Scheduled))
+            return Reject(PlaybackFault.NotPrepared, "Start requires Ready (prepared) state.");
+
+        if (expectedGeneration is { } gen && gen.Value != _activeGeneration.Value && _activeInstanceId is not null)
+            return Reject(PlaybackFault.StaleGeneration, "Stale control generation.");
 
         _activeInstanceId = identity.PlaybackInstanceId;
         _activeGeneration = identity.ControlGeneration;
