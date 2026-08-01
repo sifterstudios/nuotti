@@ -15,6 +15,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -33,6 +38,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -51,6 +61,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -69,6 +84,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -87,6 +107,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -105,6 +130,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -123,6 +153,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   },
   {
@@ -141,6 +176,11 @@
       0
     ],
     "scores": {},
+    "scoresFinalized": false,
+    "guessingWindowSeconds": 30,
+    "guessingWindowDeadlineUtc": null,
+    "guessingWindowOpenedAtUtc": null,
+    "scoringPolicy": null,
     "songStartedAtUtc": null
   }
 ]

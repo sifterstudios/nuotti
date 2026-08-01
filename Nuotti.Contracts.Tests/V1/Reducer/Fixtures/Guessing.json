@@ -8,5 +8,10 @@
   "hintIndex": 0,
   "tallies": [],
   "scores": {},
+  "scoresFinalized": false,
+  "guessingWindowSeconds": 30,
+  "guessingWindowDeadlineUtc": null,
+  "guessingWindowOpenedAtUtc": null,
+  "scoringPolicy": null,
   "songStartedAtUtc": null
 }

@@ -24,5 +24,10 @@
     p1: 10,
     p2: 5
   },
+  ScoresFinalized: false,
+  GuessingWindowSeconds: 30,
+  GuessingWindowDeadlineUtc: null,
+  GuessingWindowOpenedAtUtc: null,
+  ScoringPolicy: null,
   SongStartedAtUtc: DateTimeOffset_1
 }

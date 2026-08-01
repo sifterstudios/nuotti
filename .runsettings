@@ -27,9 +27,11 @@
     <TreatTestAdapterErrorsAsWarnings>false</TreatTestAdapterErrorsAsWarnings>
     <!-- Note: xUnit doesn't support retry in .runsettings. Use deterministic seeds and mark flaky tests with [Trait("Flaky", "true")] -->
   </RunConfiguration>
-  <MSTest>
-    <SettingsFile>$(MSBuildProjectDirectory)\TestSettings.testsettings</SettingsFile>
-    <ForcedLegacyMode>false</ForcedLegacyMode>
-  </MSTest>
+  <!-- There is deliberately no MSTest section. Every test project here uses xUnit, and the one
+       that used to sit here pointed a SettingsFile at TestSettings.testsettings via
+       $(MSBuildProjectDirectory) - an MSBuild property that .runsettings does not expand, at a
+       file that does not exist. Its presence alone made the platform treat every run as legacy
+       testsettings, which cannot be combined with the XPlat Code Coverage collector, so CI's
+       test steps failed before running a single test. -->
 </RunSettings>
 
