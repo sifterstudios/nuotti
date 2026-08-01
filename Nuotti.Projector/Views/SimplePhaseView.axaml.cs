@@ -85,6 +85,22 @@ public partial class SimplePhaseView : PhaseViewBase
 
         _additionalInfoText.IsVisible = !string.IsNullOrEmpty(spec.Simple.Detail);
         _additionalInfoText.Text = spec.Simple.Detail;
+        if (!string.IsNullOrEmpty(spec.ActiveLyricLine))
+        {
+            if (this.TryGetResource("PrimaryBrush", out var brush) && brush is Avalonia.Media.IBrush primary)
+                _additionalInfoText.Foreground = primary;
+            _additionalInfoText.FontWeight = Avalonia.Media.FontWeight.Bold;
+            _additionalInfoText.FontSize = TypographyService.CalculateFontSizeFromWindow(
+                ResponsiveTypographyService.FontSizes.HeadlineMin,
+                ResponsiveTypographyService.FontSizes.HeadlineMax,
+                GetWindowSize(),
+                0.05);
+        }
+        else
+        {
+            _additionalInfoText.ClearValue(TextBlock.ForegroundProperty);
+            _additionalInfoText.FontWeight = Avalonia.Media.FontWeight.Normal;
+        }
     }
 
     protected override void InitializeComponent()

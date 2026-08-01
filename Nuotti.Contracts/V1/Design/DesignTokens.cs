@@ -91,6 +91,29 @@ public static class DesignTokens
     };
     
     /// <summary>
+    /// Projector Variant B — dark stage with accessible cyan (#00FFF5). Selected for venue display.
+    /// Button labels use <see cref="ColorPalette.OnPrimary"/> (dark ink); white-on-cyan fails WCAG.
+    /// </summary>
+    public static ColorPalette ProjectorVariantBPalette => new()
+    {
+        Primary = "#00FFF5",
+        Secondary = "#17363A",
+        Tertiary = "#48C9B0",
+        Info = "#00FFF5",
+        Success = "#5EC99D",
+        Warning = "#FFA040",
+        Error = "#FF6B93",
+        Background = "#05090B",
+        Surface = "#091115",
+        TextPrimary = "#ECFFFF",
+        TextSecondary = "#91A5AA",
+        Divider = "#17363A",
+        Header = "#091115",
+        OptionBackground = "#0C181D",
+        OnPrimary = "#001413"
+    };
+
+    /// <summary>
     /// Border radius for rounded corners (12px).
     /// </summary>
     public const int DefaultBorderRadius = 12;

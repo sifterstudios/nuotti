@@ -111,6 +111,19 @@ public sealed class PlaybackTimelineSynchronizer
             + Scale(_pendingCorrection, correctionProgress);
     }
 
+    /// <summary>
+    /// Re-bases the local clock at a known position after a hold, without requiring a new network anchor.
+    /// </summary>
+    public void ForcePosition(TimeSpan position, TimeSpan localTime, double rate = 1)
+    {
+        _hasAnchor = true;
+        _basePosition = position;
+        _baseLocalTime = localTime;
+        _rate = rate;
+        _pendingCorrection = TimeSpan.Zero;
+        _correctionStartedAt = localTime;
+    }
+
     void SnapTo(PlaybackAnchor anchor, TimeSpan receivedAt, TimeSpan position)
     {
         _hasAnchor = true;

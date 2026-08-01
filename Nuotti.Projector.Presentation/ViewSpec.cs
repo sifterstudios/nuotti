@@ -75,4 +75,7 @@ public sealed record ViewSpec(
     string ScoreboardFooter,
     SimpleSpec Simple,
     bool HasSong,
-    TypographySpec Typography);
+    TypographySpec Typography,
+    string? ActiveLyricLine = null,
+    bool ConnectionDegraded = false,
+    bool EmitsAudio = false);

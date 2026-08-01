@@ -1,16 +1,15 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Nuotti.Projector.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
+             <!-- Projector venue display uses Variant B dark/cyan hierarchy at 1080p and 4K. -->
 
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
 
     <Application.Resources>
-        <!-- Theme Colors - These colors are synchronized with Nuotti.Contracts.V1.Design.DesignTokens -->
-        <!-- Light Theme Colors (Kahoot/Bandle inspired) -->
+        <!-- Theme Colors - synchronized with DesignTokens.ProjectorVariantBPalette -->
         <ResourceDictionary>
             <!-- F15 - Font Resources -->
             <FontFamily x:Key="PrimaryFont">Inter, Segoe UI, SF Pro Display, Ubuntu, Arial, sans-serif</FontFamily>
@@ -18,13 +17,13 @@
             <FontFamily x:Key="DisplayFont">Inter, Segoe UI, SF Pro Display, Ubuntu, Helvetica Neue, Arial, sans-serif</FontFamily>
 
             <ResourceDictionary.ThemeDictionaries>
-                <!-- Light Theme -->
+                <!-- Light Theme (unused on Projector; kept for FluentTheme completeness) -->
                 <ResourceDictionary x:Key="Light">
-                    <Color x:Key="PrimaryColor">#FF6B35</Color>
+                    <Color x:Key="PrimaryColor">#DB3B00</Color>
                     <Color x:Key="SecondaryColor">#004E89</Color>
                     <Color x:Key="TertiaryColor">#1B9AAA</Color>
                     <Color x:Key="InfoColor">#06BEE1</Color>
-                    <Color x:Key="SuccessColor">#46B283</Color>
+                    <Color x:Key="SuccessColor">#40A277</Color>
                     <Color x:Key="WarningColor">#F77F00</Color>
                     <Color x:Key="ErrorColor">#EF476F</Color>
                     <Color x:Key="BackgroundColor">#FAFAFA</Color>
@@ -32,6 +31,7 @@
                     <Color x:Key="TextPrimaryColor">#1A1A1A</Color>
                     <Color x:Key="TextSecondaryColor">#666666</Color>
                     <Color x:Key="DividerColor">#E0E0E0</Color>
+                    <Color x:Key="OnPrimaryColor">#FFFFFF</Color>
 
                     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
                     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
@@ -44,22 +44,24 @@
                     <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
                     <SolidColorBrush x:Key="HeaderBrush" Color="{StaticResource SurfaceColor}" />
                     <SolidColorBrush x:Key="OptionBackgroundBrush" Color="#F5F5F5" />
+                    <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimaryColor}" />
                 </ResourceDictionary>
 
-                <!-- Dark Theme -->
+                <!-- Dark Theme = Projector Variant B -->
                 <ResourceDictionary x:Key="Dark">
-                    <Color x:Key="PrimaryColor">#FF8C61</Color>
-                    <Color x:Key="SecondaryColor">#2E7DAF</Color>
+                    <Color x:Key="PrimaryColor">#00FFF5</Color>
+                    <Color x:Key="SecondaryColor">#17363A</Color>
                     <Color x:Key="TertiaryColor">#48C9B0</Color>
-                    <Color x:Key="InfoColor">#3DD9FF</Color>
+                    <Color x:Key="InfoColor">#00FFF5</Color>
                     <Color x:Key="SuccessColor">#5EC99D</Color>
                     <Color x:Key="WarningColor">#FFA040</Color>
                     <Color x:Key="ErrorColor">#FF6B93</Color>
-                    <Color x:Key="BackgroundColor">#0A0E27</Color>
-                    <Color x:Key="SurfaceColor">#151B3B</Color>
-                    <Color x:Key="TextPrimaryColor">#E8E8E8</Color>
-                    <Color x:Key="TextSecondaryColor">#B0B0B0</Color>
-                    <Color x:Key="DividerColor">#2A2F4F</Color>
+                    <Color x:Key="BackgroundColor">#05090B</Color>
+                    <Color x:Key="SurfaceColor">#091115</Color>
+                    <Color x:Key="TextPrimaryColor">#ECFFFF</Color>
+                    <Color x:Key="TextSecondaryColor">#91A5AA</Color>
+                    <Color x:Key="DividerColor">#17363A</Color>
+                    <Color x:Key="OnPrimaryColor">#001413</Color>
 
                     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
                     <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource SecondaryColor}" />
@@ -71,7 +73,8 @@
                     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
                     <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
                     <SolidColorBrush x:Key="HeaderBrush" Color="{StaticResource SurfaceColor}" />
-                    <SolidColorBrush x:Key="OptionBackgroundBrush" Color="#1F2544" />
+                    <SolidColorBrush x:Key="OptionBackgroundBrush" Color="#0C181D" />
+                    <SolidColorBrush x:Key="OnPrimaryBrush" Color="{StaticResource OnPrimaryColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>

@@ -1,6 +1,7 @@
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Projector.Models;
+using Nuotti.Projector.Presentation.Playback;
 using Nuotti.Projector.Services;
 using System;
 using System.Collections.Generic;
@@ -28,11 +29,18 @@ public sealed class PhasePresenter(
     /// <summary>Option slots the Projector renders.</summary>
     public const int ChoiceSlots = 4;
 
-    public ViewSpec Present(GameStateSnapshot state, ProjectorSettings settings, WindowSize windowSize)
+    public ViewSpec Present(
+        GameStateSnapshot state,
+        ProjectorSettings settings,
+        WindowSize windowSize,
+        ProjectorPlaybackFrame? playback = null)
     {
         var showTallies = !(settings.HideTalliesUntilReveal && state.Phase == Phase.Guessing);
         var songTitle = safety.SanitizeSongTitle(state.SongTitle()).SafeContent;
         var songArtist = safety.SanitizeArtistName(state.SongArtist()).SafeContent;
+        var lyricLine = playback?.ActiveLine?.Text;
+        if (state.Phase == Phase.Play && playback?.Connection == ProjectorConnectionVisual.Holding)
+            lyricLine ??= playback.FallbackMessage;
 
         return new ViewSpec(
             View: ViewFor(state.Phase),
@@ -52,9 +60,12 @@ public sealed class PhasePresenter(
             ScoreboardFooter: state.SongIndex + 1 >= state.Catalog.Count
                 ? "Final Results!"
                 : "Get ready for the next song!",
-            Simple: SimpleFor(state),
+            Simple: SimpleFor(state, lyricLine),
             HasSong: state.CurrentSong is not null,
-            Typography: TypographyFor(windowSize));
+            Typography: TypographyFor(windowSize),
+            ActiveLyricLine: lyricLine,
+            ConnectionDegraded: playback?.Connection == ProjectorConnectionVisual.Holding,
+            EmitsAudio: false);
     }
 
     /// <summary>
@@ -158,14 +169,15 @@ public sealed class PhasePresenter(
 
     /// <summary>
     /// The icon-and-title screen, previously derived inside SimplePhaseView.GetPhaseInfo.
+    /// During Play, the active lyric (or holding fallback) replaces the empty detail line.
     /// </summary>
-    static SimpleSpec SimpleFor(GameStateSnapshot state) => state.Phase switch
+    static SimpleSpec SimpleFor(GameStateSnapshot state, string? lyricLine) => state.Phase switch
     {
         Phase.Start => new("\U0001F680", "Get Ready!", true, $"Song {state.SongIndex + 1}"),
         Phase.Hint => new("\U0001F4A1", "Hint Time", true, $"Hint {state.CurrentHintNumber()}"),
         Phase.Lock => new("\U0001F512", "Time's Up!", true, "No more answers!"),
         Phase.Reveal => new("\U0001F389", "The Answer Is...", true, string.Empty),
-        Phase.Play => new("\U0001F3B5", "Now Playing", true, string.Empty),
+        Phase.Play => new("\U0001F3B5", "Now Playing", true, lyricLine ?? string.Empty),
         Phase.Intermission => new("\U0001F4CA", "Scoreboard", false, "Check your score!"),
         Phase.Finished => new("\U0001F3C6", "Game Over!", false, "Thanks for playing!"),
         _ => new("\U0001F3B5", state.Phase.ToString(), false, string.Empty)

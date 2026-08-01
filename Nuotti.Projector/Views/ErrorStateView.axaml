@@ -72,7 +72,7 @@
                         FontFamily="{StaticResource PrimaryFont}"
                         Padding="20,12"
                         Background="{DynamicResource PrimaryBrush}"
-                        Foreground="White"
+                        Foreground="{DynamicResource OnPrimaryBrush}"
                         CornerRadius="8"
                         Click="OnRetryClick"/>
                 
@@ -82,7 +82,7 @@
                         FontFamily="{StaticResource PrimaryFont}"
                         Padding="20,12"
                         Background="{DynamicResource SecondaryBrush}"
-                        Foreground="White"
+                        Foreground="{DynamicResource TextPrimaryBrush}"
                         CornerRadius="8"
                         Click="OnBackClick"/>
                 
