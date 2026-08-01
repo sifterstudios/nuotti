@@ -6,30 +6,30 @@
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
+[![License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
 
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
   <!-- Replace with your logo (optional). You can keep the text title if no logo yet. -->
-  <!-- <a href="https://github.com/your-org/nuotti">
+  <!-- <a href="https://github.com/sifterstudios/nuotti">
     <img src="docs/images/logo.png" alt="Logo" width="120" height="120">
   </a> -->
 
   <h3 align="center">Nuotti</h3>
 
   <p align="center">
-    A modular, real‑time quiz and show platform built on .NET 9, and Svelte.
+    A modular, real‑time quiz and show platform built on .NET 10, Blazor, and Svelte.
     <br />
     <a href="#about-the-project"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="#getting-started">Get Started</a>
     ·
-    <a href="https://github.com/your-org/nuotti/issues">Report Bug</a>
+    <a href="https://github.com/sifterstudios/nuotti/issues">Report Bug</a>
     ·
-    <a href="https://github.com/your-org/nuotti/issues">Request Feature</a>
+    <a href="https://github.com/sifterstudios/nuotti/issues">Request Feature</a>
   </p>
 </div>
 
@@ -68,33 +68,39 @@ Nuotti is a multi‑project .NET solution for running interactive quizzes and li
 
 Key capabilities suggested by the codebase:
 - Real‑time communication via SignalR hubs (e.g., QuizHub).
-- Session management and event bus with in‑memory implementation.
-- Blazor frontend for the audience experience.
-- A projector/host display app.
-- Simulation kit (CLI) scaffold for automated interactions.
+- Session management and an event bus, with an in‑memory implementation for local development.
+- A Blazor WebAssembly audience app (built with MudBlazor).
+- A projector/host display app (Avalonia desktop).
+- A CLI simulation kit for driving scripted interactions against the backend.
 
-This repository targets .NET 9 and uses modern ASP.NET Core features.
+This repository targets .NET 10 (the SDK version is pinned in `global.json`) and uses modern
+ASP.NET Core features.
 
 ### Built With
 
-- .NET 9 SDK
+- .NET 10 SDK (release candidate — pinned in `global.json`)
 - ASP.NET Core / SignalR
-- Blazor (Server/WASM components present in Audience)
-- C# 13
+- Blazor WebAssembly + MudBlazor (Audience)
+- SvelteKit (the static `web` app)
+- Avalonia (Projector desktop app)
+- .NET Aspire (one‑command local orchestration)
+- C# 14
 
 ### Solution Structure
 
 Top‑level notable projects and folders:
+- Nuotti — .NET Aspire AppHost that orchestrates the full local stack (backend, clients, and backing services).
 - Nuotti.Backend — ASP.NET Core backend with endpoints, sessions, eventing, rate limiting, and hub broadcasting.
-- Nuotti.Audience — Blazor UI for participants.
-- Nuotti.Projector — Display surface for the show/host/projector.
+- Nuotti.Audience — Blazor WebAssembly UI for participants.
+- Nuotti.Projector — Avalonia display surface for the show/host/projector.
 - Nuotti.AudioEngine — Audio playback/engine components.
 - Nuotti.Contracts — Shared messages, models, events, reducers, and web shared types.
-- Nuotti.SimKit — CLI simulator scaffold for scripted interactions against the backend.
-- Nuotti.*.Tests — Test projects for contracts and backend.
-- docs — Documentation and assets (you can add diagrams/logos here).
-
-A handy CLI lives in src/Nuotti.SimKit (duplicated project layout); it currently contains a scaffolded Program.cs.
+- Nuotti.SimKit — CLI simulator (`nuotti-sim`) for scripted interactions against the backend.
+- ServiceDefaults — Shared Aspire service configuration (telemetry, health checks, resilience).
+- web — SvelteKit static web app.
+- tests — Cross‑cutting unit, integration, and end‑to‑end test projects.
+- Nuotti.*.Tests — Per‑project test suites (contracts, backend, projector, and more).
+- docs — Documentation and design notes.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -105,32 +111,44 @@ Follow these instructions to set up a local development environment.
 
 ### Prerequisites
 
-- .NET SDK 9.0 or later
-  - Verify: `dotnet --version` should print 9.x
-- Node.js (optional, only if you plan to adjust web assets in Audience or related tooling)
+- .NET SDK 10 (the exact release‑candidate version is pinned in `global.json`)
+  - Verify: `dotnet --version` should print the pinned 10.x version
+- Node.js 20+ (only if you plan to work on the `web` SvelteKit app)
+- Docker (only if you want the one‑command Aspire stack, which starts Postgres, Redis, and an Azure Storage emulator)
 
 ### Installation
 
 1. Clone the repo
-   - `git clone https://github.com/your-org/nuotti.git`
+   - `git clone https://github.com/sifterstudios/nuotti.git`
    - `cd nuotti`
 2. Ensure the correct .NET SDK is used
-   - This repo provides a global.json; `dotnet --info` should list .NET 9 SDK.
+   - This repo provides a `global.json`; `dotnet --info` should list the pinned .NET 10 SDK.
 3. Restore and build
    - `dotnet restore`
    - `dotnet build Nuotti.sln -c Debug`
 
 ### Running the Stack
 
-You can run projects individually in separate terminals.
+The quickest way to start everything at once is the .NET Aspire AppHost (requires Docker, since it
+also starts Postgres, Redis, and an Azure Storage emulator):
+
+- One‑command local stack:
+  - `dotnet run --project Nuotti`
+  - Open the Aspire dashboard URL printed in the console to reach each service.
+
+Alternatively, run projects individually in separate terminals:
 
 - Backend (API + SignalR hub):
   - `dotnet run --project Nuotti.Backend`
-  - By default this listens on http://localhost:5xxx (see console output).
+  - By default this listens on http://localhost:5240. Run standalone, it uses in‑memory stores, so no database or Docker is required.
 
-- Audience (Blazor app):
+- Web (SvelteKit static app):
+  - `cd web && npm install && npm run dev`
+  - Navigate to the URL shown in the console (typically http://localhost:5173).
+
+- Audience (Blazor WebAssembly app):
   - `dotnet run --project Nuotti.Audience`
-  - Navigate to the URL shown in the console (typically http://localhost:5xxx).
+  - Navigate to the URL shown in the console.
 
 - Performer (Blazor Server app):
   - `dotnet run --project Nuotti.Performer`
@@ -145,8 +163,8 @@ You can run projects individually in separate terminals.
 - Audio Engine:
   - `dotnet run --project Nuotti.AudioEngine`
 
-- Simulator (CLI scaffold):
-  - `dotnet run --project src/Nuotti.SimKit -- run --backend http://localhost:5240 --session dev`
+- Simulator (CLI):
+  - `dotnet run --project Nuotti.SimKit -- run --backend http://localhost:5240 --session dev`
 
 Tip: Use your IDE run configurations (e.g., JetBrains Rider) to start multiple projects.
 
@@ -157,7 +175,7 @@ Tip: Use your IDE run configurations (e.g., JetBrains Rider) to start multiple p
 - Start Backend and Audience.
 - Create or join a session from the Audience app (session code such as "dev").
 - Use the Projector to display the show view.
-- The Simulator can be used to script interactions once its logic is implemented (the current scaffold validates arguments and prints help).
+- The Simulator (`nuotti-sim`) can drive scripted interactions against a running backend, with `baseline`, `load`, and `chaos` presets. Run it with `--help` to see all options.
 
 Developers can explore the eventing model in `Nuotti.Backend/Eventing` and shared contracts in `Nuotti.Contracts/V1` to understand how state changes flow through the system.
 
@@ -167,18 +185,15 @@ Developers can explore the eventing model in `Nuotti.Backend/Eventing` and share
 
 Nuotti can be deployed to production using Docker Compose with pre-built images from GitHub Container Registry.
 
-### Quick Deploy to Unraid
+### Deployment Guide
 
-See [deploy/QUICKSTART.md](deploy/QUICKSTART.md) for a 5-minute setup guide.
-
-### Full Deployment Guide
-
-See [deploy/DEPLOYMENT.md](deploy/DEPLOYMENT.md) for comprehensive deployment documentation including:
+See [deploy/README.md](deploy/README.md) for deployment documentation, including:
 - Unraid setup with Docker Compose
 - Configuration options
-- Cloudflare Tunnel / reverse proxy setup
+- Reverse proxy setup
 - Monitoring and troubleshooting
-- Automatic updates
+
+The Unraid UI walkthrough lives in [deploy/UNRAID-UI-GUIDE.txt](deploy/UNRAID-UI-GUIDE.txt).
 
 ### CI/CD
 
@@ -187,7 +202,7 @@ GitHub Actions automatically builds and publishes Docker images to GHCR on every
 - `ghcr.io/sifterstudios/nuotti-audience:latest`
 - `ghcr.io/sifterstudios/nuotti-web:latest`
 
-Images are multi-platform (amd64/arm64) for maximum compatibility.
+Images are built for `linux/amd64` to match the self‑hosted Unraid runner.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -195,7 +210,7 @@ Images are multi-platform (amd64/arm64) for maximum compatibility.
 
 - [x] Add Docker compose for one‑command startup.
 - [x] CI/CD pipeline (build, test, publish artifacts).
-- [ ] Implement full Simulator logic in Nuotti.SimKit (connect to hub, drive flows).
+- [x] Implement Simulator logic in Nuotti.SimKit (connect to hub, drive flows).
 - [ ] Expand documentation in /docs with diagrams and message flows.
 - [ ] More game modes and audience interactions.
 
@@ -219,13 +234,14 @@ Please consider conventional commits for clear history. For larger changes, open
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+This repository does not yet include a `LICENSE` file, so no license has been formally granted.
+If you would like to use this project, please open an issue to discuss licensing.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
 ## Contact
 
-Project Link: https://github.com/your-org/nuotti
+Project Link: https://github.com/sifterstudios/nuotti
 
 Feel free to open an issue or start a discussion.
 
@@ -241,16 +257,16 @@ Feel free to open an issue or start a discussion.
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- Replace these with your repository links -->
-[contributors-shield]: https://img.shields.io/github/contributors/your-org/nuotti.svg?style=for-the-badge
-[contributors-url]: https://github.com/your-org/nuotti/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/your-org/nuotti.svg?style=for-the-badge
-[forks-url]: https://github.com/your-org/nuotti/network/members
-[stars-shield]: https://img.shields.io/github/stars/your-org/nuotti.svg?style=for-the-badge
-[stars-url]: https://github.com/your-org/nuotti/stargazers
-[issues-shield]: https://img.shields.io/github/issues/your-org/nuotti.svg?style=for-the-badge
-[issues-url]: https://github.com/your-org/nuotti/issues
-[license-shield]: https://img.shields.io/github/license/your-org/nuotti.svg?style=for-the-badge
-[license-url]: https://github.com/your-org/nuotti/blob/main/LICENSE
+[contributors-shield]: https://img.shields.io/github/contributors/sifterstudios/nuotti.svg?style=for-the-badge
+[contributors-url]: https://github.com/sifterstudios/nuotti/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/sifterstudios/nuotti.svg?style=for-the-badge
+[forks-url]: https://github.com/sifterstudios/nuotti/network/members
+[stars-shield]: https://img.shields.io/github/stars/sifterstudios/nuotti.svg?style=for-the-badge
+[stars-url]: https://github.com/sifterstudios/nuotti/stargazers
+[issues-shield]: https://img.shields.io/github/issues/sifterstudios/nuotti.svg?style=for-the-badge
+[issues-url]: https://github.com/sifterstudios/nuotti/issues
+[license-shield]: https://img.shields.io/github/license/sifterstudios/nuotti.svg?style=for-the-badge
+[license-url]: https://github.com/sifterstudios/nuotti#license
 [linkedin-shield]: https://img.shields.io/badge/LinkedIn-Connect-blue?style=for-the-badge&logo=linkedin
 [linkedin-url]: https://www.linkedin.com/
 
@@ -272,9 +288,8 @@ Quick start (Windows):
   - Add -Prune to also prune dangling images.
 
 What this does:
-- Uses deploy/docker-compose.yml (same as CI) plus deploy/docker-compose.override.yml (local-only overrides)
-- Local override swaps env_file paths to in-repo .env.example files so you don’t need Unraid paths
-- For the Web app build, PUBLIC_API_BASE defaults to http://localhost:5210; override by setting an env var PUBLIC_API_BASE or editing deploy/docker-compose.override.yml
+- Uses `deploy/docker-compose.local.yml` to build and run the backend, audience, and web images locally
+- Builds the images with `docker compose build --pull`, then (with `-Up`) starts them detached
 
 Services and URLs after up:
 - API:      http://localhost:5210
@@ -282,6 +297,5 @@ Services and URLs after up:
 - Web:      http://localhost:5380
 
 Troubleshooting:
-- If a port is in use, change the host port mapping in deploy/docker-compose.override.yml
-- If you want to use real secrets, copy each .env.example to .env and point env_file there in the override
-- See container logs: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml logs -f
+- If a port is in use, change the host port mapping in `deploy/docker-compose.local.yml`
+- See container logs: `docker compose -f deploy/docker-compose.local.yml logs -f`
