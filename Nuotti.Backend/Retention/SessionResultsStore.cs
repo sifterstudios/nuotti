@@ -14,7 +14,7 @@ public sealed record SessionShowResult(
 
 public interface ISessionResultsStore
 {
-    static readonly TimeSpan Retention = TimeSpan.FromDays(30);
+    static readonly TimeSpan Retention = Nuotti.Contracts.V1.Governance.RetentionBoundary.SessionResults;
 
     Task SaveAsync(SessionShowResult result, CancellationToken cancellationToken = default);
     Task<SessionShowResult?> GetAsync(string workspaceId, string sessionCode, CancellationToken cancellationToken = default);

@@ -164,6 +164,7 @@ builder.Services.AddSingleton<BackendMetrics>();
 
 // Diagnostics
 builder.Services.AddSingleton<Nuotti.Backend.Diagnostics.DiagnosticsBundleService>();
+builder.Services.AddSingleton<Nuotti.Backend.Governance.ProductionGovernance>();
 
 // Alerting
 builder.Services.AddHttpClient("Alerting");
@@ -239,6 +240,7 @@ app.MapPrivateAssetEndpoints();
 app.MapSongPackageEndpoints();
 app.MapSessionSnapshotEndpoints();
 app.MapRecoveryEndpoints();
+app.MapGovernanceEndpoints();
 app.MapNuottiEndpoints("Nuotti.Backend");
 
 // Force creation of subscribers so they can attach to the bus
@@ -246,6 +248,9 @@ _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
 _ = app.Services.GetRequiredService<LogStreamSubscriber>();
 _ = app.Services.GetRequiredService<ShowAgentCommandSubscriber>();
+
+var productionGovernance = app.Services.GetRequiredService<Nuotti.Backend.Governance.ProductionGovernance>();
+productionGovernance.LogLevelSwitch = app.Services.GetService<LogLevelSwitchService>();
 
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
