@@ -1,4 +1,4 @@
-# .dockerignore for Nuotti root context (Backend + Audience builds)
+# .dockerignore for Nuotti root context (Backend + Audience + Performer builds)
 
 # Git
 .git/
@@ -43,8 +43,11 @@ deploy/
 # Tools
 tools/
 
-# Other projects not needed for backend/audience
-Nuotti.Performer/
+# Venue-local and tooling projects. These are never part of a hosted image:
+# Projector and AudioEngine run on the band's machine (Nuotti/Program.cs marks both
+# ExcludeFromManifest), SimKit is a scripting harness, and web has its own build context.
+# Nuotti.Performer is deliberately NOT listed - it is a hosted Blazor Server app and needs
+# to be in this context for Nuotti.Performer/Dockerfile to build.
 Nuotti.Projector/
 Nuotti.AudioEngine/
 Nuotti.SimKit/

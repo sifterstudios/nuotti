@@ -8,9 +8,16 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# One self-hosted runner serves every workflow here, so rapid pushes to the same ref would
+# otherwise stack up instead of superseding each other. Only the newest run per ref survives.
+concurrency:
+  group: build-and-push-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/sifterstudios/nuotti
+  BUILDX_CACHE: /mnt/user/appdata/gh-runner/buildx-cache
 
 jobs:
   build-amd64:
@@ -31,6 +38,10 @@ jobs:
             context: .
             dockerfile: Nuotti.Audience/Dockerfile
             image: audience
+          - service: performer
+            context: .
+            dockerfile: Nuotti.Performer/Dockerfile
+            image: performer
           - service: web
             context: web
             dockerfile: web/Dockerfile
@@ -85,8 +96,10 @@ jobs:
             ${{ env.IMAGE_PREFIX }}-${{ matrix.image }}:${{ github.sha }}
             ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=local,src=/runner/_work/buildx-cache
-          cache-to: type=local,dest=/runner/_work/buildx-cache,mode=max
+          # Must live on the array/cache pool, not under "/". Unraid's root filesystem is a
+          # tmpfs held in RAM, so a multi-GB layer cache there is charged against memory.
+          cache-from: type=local,src=${{ env.BUILDX_CACHE }}
+          cache-to: type=local,dest=${{ env.BUILDX_CACHE }},mode=max
 
       - name: Upload build logs on failure
         uses: actions/upload-artifact@v4

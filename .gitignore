@@ -4,6 +4,9 @@
 ## Get latest from `dotnet new gitignore`
 
 # dotenv files
+.env
+.env.*
+!.env.*.example
 .env.api
 .env.audience
 .env.web

@@ -1,18 +1,22 @@
-﻿# Nuotti.Backend - ASP.NET Core API (net9.0)
-# Multi-stage build: restore/build/publish then run on ASP.NET runtime
+# Nuotti.Performer - Blazor Server host (net10.0)
+# Multi-stage build: restore/build/publish then run on the ASP.NET runtime.
+#
+# Build context is the repository root:
+#   docker build -f Nuotti.Performer/Dockerfile .
 
 # --- Build stage ---
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# copy csproj and restore as distinct layers for better caching
-COPY Nuotti.Backend/Nuotti.Backend.csproj Nuotti.Backend/
+# copy csproj files and restore as distinct layers for better caching
+COPY Nuotti.Performer/Nuotti.Performer.csproj Nuotti.Performer/
 COPY Nuotti.Contracts/Nuotti.Contracts.csproj Nuotti.Contracts/
-RUN dotnet restore Nuotti.Backend/Nuotti.Backend.csproj
+COPY ServiceDefaults/ServiceDefaults.csproj ServiceDefaults/
+RUN dotnet restore Nuotti.Performer/Nuotti.Performer.csproj
 
 # copy everything and publish (allow restore to ensure latest packages)
 COPY . .
-RUN dotnet publish Nuotti.Backend/Nuotti.Backend.csproj -c Release -o /app/publish
+RUN dotnet publish Nuotti.Performer/Nuotti.Performer.csproj -c Release -o /app/publish
 
 # --- Runtime stage ---
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
@@ -26,13 +30,8 @@ RUN apt-get update \
 # The listening URL is provided by compose via ASPNETCORE_URLS
 COPY --from=build /app/publish .
 
-# /health/ready is mapped in every environment (Endpoints/HealthEndpoints.cs) and covers the
-# SessionStore readiness check.
+# MapDefaultEndpoints only maps /health outside Development, so probe the Blazor host page.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=10 \
-    CMD curl -fsS http://localhost:5210/health/ready >/dev/null || exit 1
+    CMD curl -fsS http://localhost:5240/ >/dev/null || exit 1
 
-# If you prefer to lock down the user, uncomment the following line on hosts that support it
-# USER $APP_UID
-
-# Default to running the app
-ENTRYPOINT ["dotnet", "Nuotti.Backend.dll"]
+ENTRYPOINT ["dotnet", "Nuotti.Performer.dll"]

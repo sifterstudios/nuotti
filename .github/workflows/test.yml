@@ -7,6 +7,12 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Shares the single self-hosted runner with build-and-push. Without this, a burst of pushes
+# queues one full test run per commit behind every build.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: [self-hosted, unraid, docker, amd64]

@@ -1,69 +1,226 @@
-# Nuotti Production Deployment for Unraid with Cloudflare Tunnel
-# 
-# SIMPLE SETUP - Just 3 services, minimal configuration
+# Nuotti hosted stack for Unraid, fronted by a Cloudflare Tunnel.
+#
+# This file deploys ONLY the parts that belong in the central SaaS:
+#   postgres / redis / azurite  - Backend's durable stores
+#   api                         - Nuotti.Backend (ASP.NET + SignalR)
+#   performer                   - Nuotti.Performer (Blazor Server)
+#   audience                    - Nuotti.Audience (Blazor WASM, static)
+#   web                         - marketing site (SvelteKit, static)
+#
+# Nuotti.Projector and Nuotti.AudioEngine are venue-local and are NOT deployed here.
 #
 # Prerequisites:
-# 1. Create /mnt/user/appdata/nuotti/ on Unraid
-# 2. Create ONE file: /mnt/user/appdata/nuotti/.env with your config (see below)
+#   1. mkdir -p /mnt/user/appdata/nuotti
+#   2. Put a .env next to this compose file (see .env.unraid.example). Unraid's Compose
+#      Manager: "Edit Stack" -> the .env tab. Every ${VAR} below is read from that file.
+#   3. Create /mnt/user/appdata/nuotti/audience-appsettings.json (see deploy/README.md).
 #
 # Deploy:
 #   docker compose -f deploy/docker-compose.unraid.yml pull
 #   docker compose -f deploy/docker-compose.unraid.yml up -d
-#
-# Update:
-#   docker compose -f deploy/docker-compose.unraid.yml pull
-#   docker compose -f deploy/docker-compose.unraid.yml up -d
+
+name: nuotti
 
 networks:
   nuotti:
     name: nuotti
 
+volumes:
+  nuotti-postgres-data:
+    name: nuotti-postgres-data
+  nuotti-redis-data:
+    name: nuotti-redis-data
+  nuotti-azurite-data:
+    name: nuotti-azurite-data
+
 services:
-  # Backend API - ASP.NET Core with SignalR
+  # ---------------------------------------------------------------------------
+  # Durable stores. None of these publish a host port: they are reachable only
+  # on the internal `nuotti` network. Do not expose postgres or redis.
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: nuotti-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nuotti
+      POSTGRES_USER: nuotti
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Keeps initdb from depending on host locale settings.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - nuotti-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nuotti -d nuotti"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - nuotti
+
+  redis:
+    image: redis:7-alpine
+    container_name: nuotti-redis
+    restart: unless-stopped
+    # Redis is the SignalR backplane. Persistence is not required for correctness but
+    # makes a restart less disruptive.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - nuotti-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - nuotti
+
+  # Blob storage for private song assets. Backend talks to it through the Azure Blob
+  # SDK (Assets/AzurePrivateAssetObjectStore.cs), which hands short-lived SAS URLs
+  # straight to the browser -- so this endpoint MUST be publicly reachable, and it
+  # MUST NOT use Azurite's well-known devstoreaccount1 key (that key is public).
+  # AZURITE_ACCOUNT / AZURITE_ACCOUNT_KEY in .env replace it.
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: nuotti-azurite
+    restart: unless-stopped
+    environment:
+      AZURITE_ACCOUNTS: "${AZURITE_ACCOUNT:?set AZURITE_ACCOUNT in .env}:${AZURITE_ACCOUNT_KEY:?set AZURITE_ACCOUNT_KEY in .env}"
+    # Blob service only - queue and table are unused. --skipApiVersionCheck keeps Azurite
+    # from rejecting the x-ms-version the current Azure.Storage.Blobs client sends.
+    command:
+      - azurite-blob
+      - --blobHost
+      - "0.0.0.0"
+      - --blobPort
+      - "10000"
+      - --location
+      - /data
+      - --skipApiVersionCheck
+    volumes:
+      - nuotti-azurite-data:/data
+    ports:
+      - "5100:10000"   # Cloudflare Tunnel -> assets.${NUOTTI_DOMAIN}
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(10000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - nuotti
+
+  # ---------------------------------------------------------------------------
+  # Application services
+  # ---------------------------------------------------------------------------
+
+  # Backend API - ASP.NET Core with SignalR.
+  # Program.cs only wires the Postgres/Redis/Blob adapters when the matching
+  # connection string is present; otherwise every store silently falls back to
+  # in-memory. All three are set below, so do not drop any of them.
   api:
     image: ghcr.io/sifterstudios/nuotti-backend:latest
     container_name: nuotti-api
     restart: unless-stopped
-    
-    env_file:
-      - /mnt/user/appdata/nuotti/.env
-    
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5210
+
+      # Program.cs reads the CORS allowlist from the config key "Nuotti:AllowedOrigins".
+      # The double underscore is required: a NUOTTI_-prefixed variable lands on the key
+      # "AllowedOrigins" instead and the allowlist ends up empty, which denies every
+      # cross-origin request.
+      Nuotti__AllowedOrigins: "https://${NUOTTI_DOMAIN},https://audience.${NUOTTI_DOMAIN},https://performer.${NUOTTI_DOMAIN}"
+
+      ConnectionStrings__nuotti: "Host=postgres;Port=5432;Database=nuotti;Username=nuotti;Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__realtime: "redis:6379"
+      # BlobEndpoint is the PUBLIC url, because it is baked into the SAS URIs the
+      # browser follows. An internal name like http://azurite:10000 would produce
+      # grants no client can reach.
+      ConnectionStrings__assets: "DefaultEndpointsProtocol=https;AccountName=${AZURITE_ACCOUNT};AccountKey=${AZURITE_ACCOUNT_KEY};BlobEndpoint=https://assets.${NUOTTI_DOMAIN}/${AZURITE_ACCOUNT};"
+
+      # Workspace sign-in posts the magic-link token to this webhook
+      # (Workspaces/MagicLinkDelivery.cs). Outside Development the token is never
+      # returned in the HTTP response, so with this unset POST /v1/auth/magic-links
+      # logs "Magic-link delivery is not configured" and returns 503 -- nobody can
+      # sign in to Performer. Point it at your email service and uncomment.
+      # Nuotti__MagicLinkDeliveryUrl: "https://mail.${NUOTTI_DOMAIN}/hooks/magic-link"
+
+      # Nuotti__InfrastructureProofEnabled is deliberately absent. It exposes an
+      # unauthenticated probe that writes to the database and mints storage grants.
+      # See docs/production-packaging.md.
+    volumes:
+      # Program.cs writes a 30-day audit log through a Serilog file sink rooted at
+      # $APPDATA/Nuotti/Logs. Without this mount the audit trail dies with the container.
+      - /mnt/user/appdata/nuotti/logs:/root/.config/Nuotti/Logs
     ports:
-      - "5210:5210"  # Cloudflare Tunnel → api.nuotti.app
-    
+      - "5210:5210"   # Cloudflare Tunnel -> api.${NUOTTI_DOMAIN}  (WebSockets ON)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      azurite:
+        condition: service_healthy
     networks:
       - nuotti
 
-  # Audience - Blazor WASM static site
+  # Performer - Blazor Server. The circuit is a WebSocket, so its tunnel hostname
+  # needs WebSockets enabled just like the API's.
+  performer:
+    image: ghcr.io/sifterstudios/nuotti-performer:latest
+    container_name: nuotti-performer
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5240
+      # Program.cs: builder.Configuration["BackendUrl"]. Both the REST clients and the
+      # SignalR connection to /hub are built from this.
+      BackendUrl: "https://api.${NUOTTI_DOMAIN}"
+    volumes:
+      - /mnt/user/appdata/nuotti/logs:/root/.config/Nuotti/Logs
+      # ASP.NET Data Protection key ring. Blazor Server protects circuit state and
+      # antiforgery tokens with it; left inside the container it is regenerated on every
+      # recreate, which invalidates every open session. It is also what a second
+      # Performer replica would need to share.
+      - /mnt/user/appdata/nuotti/performer-dpkeys:/root/.aspnet/DataProtection-Keys
+    ports:
+      - "5480:5240"   # Cloudflare Tunnel -> performer.${NUOTTI_DOMAIN}  (WebSockets ON)
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - nuotti
+
+  # Audience - Blazor WASM served as a static site. BackendUrl is read from a JSON
+  # file at runtime, so the same image works for any domain.
   audience:
     image: ghcr.io/sifterstudios/nuotti-audience:latest
     container_name: nuotti-audience
     restart: unless-stopped
-    
-    # Mount your config file with the BackendUrl
     volumes:
       - /mnt/user/appdata/nuotti/audience-appsettings.json:/usr/share/nginx/html/appsettings.json:ro
-    
     ports:
-      - "5280:80"  # Cloudflare Tunnel → audience.nuotti.app
-    
+      - "5280:80"     # Cloudflare Tunnel -> audience.${NUOTTI_DOMAIN}
     networks:
       - nuotti
 
-  # Web - SvelteKit static site
+  # Web - marketing site. PUBLIC_API_BASE is baked in at image build time, not here.
   web:
     image: ghcr.io/sifterstudios/nuotti-web:latest
     container_name: nuotti-web
     restart: unless-stopped
-    
     ports:
-      - "5380:80"  # Cloudflare Tunnel → nuotti.app
-    
+      - "5380:80"     # Cloudflare Tunnel -> ${NUOTTI_DOMAIN}
     networks:
       - nuotti
 
-# OPTIONAL: Watchtower for automatic updates
-# Uncomment to enable (checks for new images every hour)
+# OPTIONAL: Watchtower for automatic updates (checks for new images every hour).
+# Uncomment to enable. Note that it restarts containers without draining SignalR
+# connections, so an update mid-show will drop every client.
 #
 #  watchtower:
 #    image: containrrr/watchtower
@@ -76,7 +233,6 @@ services:
 #      - WATCHTOWER_POLL_INTERVAL=3600
 #      - WATCHTOWER_INCLUDE_STOPPED=false
 #      - WATCHTOWER_REVIVE_STOPPED=false
-#    command: nuotti-api nuotti-audience nuotti-web
-
-
-
+#    command: nuotti-api nuotti-performer nuotti-audience nuotti-web
+#    networks:
+#      - nuotti

@@ -1,209 +1,206 @@
 # Nuotti Deployment
 
-Simple deployment instructions for local development and Unraid production.
+## What gets deployed where
 
-## 🏠 Unraid Deployment (Cloudflare Tunnel)
+Nuotti is a hybrid: part of it is a hosted service, part of it runs at the venue.
 
-### What You Need
-1. Cloudflare Tunnel pointing to your Unraid server
-2. Three domains configured (see below)
+| Component | Where it runs | Why |
+|---|---|---|
+| `Nuotti.Backend` | **Hosted** | Session state, SignalR fan-out, durable stores |
+| `Nuotti.Audience` | **Hosted** | Static Blazor WASM the crowd loads on their phones |
+| `Nuotti.Performer` | **Hosted** | Blazor Server control surface |
+| `web` | **Hosted** | Marketing site |
+| Postgres / Redis / Azurite | **Hosted** | Backend's database, SignalR backplane, and private-asset blob store |
+| `Nuotti.Projector` | **Venue-local** | Avalonia desktop app on the band's machine |
+| `Nuotti.AudioEngine` | **Venue-local** | Owns the audio files and playback hardware |
 
-### Setup in Unraid Docker Compose UI
+The venue-local pair is marked `ExcludeFromManifest()` in `Nuotti/Program.cs` and ships as a
+separate `win-x64` package (see `docs/production-packaging.md`). Nothing in this directory
+deploys them.
 
-**1. Paste this docker-compose.yml:**
+---
 
-```yaml
-networks:
-  nuotti:
-    name: nuotti
+## Unraid deployment (Cloudflare Tunnel)
 
-services:
-  api:
-    image: ghcr.io/sifterstudios/nuotti-backend:latest
-    container_name: nuotti-api
-    restart: unless-stopped
-    
-    environment:
-      # IMPORTANT: Replace with YOUR actual domains!
-      - NUOTTI_AllowedOrigins=https://api.nuotti.app,https://audience.nuotti.app,https://nuotti.app
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5210
-    
-    ports:
-      - "5210:5210"
-    networks:
-      - nuotti
+### 1. Create the appdata directory and the audience config
 
-  audience:
-    image: ghcr.io/sifterstudios/nuotti-audience:latest
-    container_name: nuotti-audience
-    restart: unless-stopped
-    
-    volumes:
-      - /mnt/user/appdata/nuotti/audience-appsettings.json:/usr/share/nginx/html/appsettings.json:ro
-    
-    ports:
-      - "5280:80"
-    networks:
-      - nuotti
+SSH into Unraid:
 
-  web:
-    image: ghcr.io/sifterstudios/nuotti-web:latest
-    container_name: nuotti-web
-    restart: unless-stopped
-    
-    ports:
-      - "5380:80"
-    networks:
-      - nuotti
-
-# OPTIONAL: Auto-updates (uncomment to enable)
-#  watchtower:
-#    image: containrrr/watchtower
-#    container_name: nuotti-watchtower
-#    restart: unless-stopped
-#    volumes:
-#      - /var/run/docker.sock:/var/run/docker.sock
-#    environment:
-#      - WATCHTOWER_CLEANUP=true
-#      - WATCHTOWER_POLL_INTERVAL=3600
-#    command: nuotti-api nuotti-audience nuotti-web
-```
-
-**2. Create ONE file on Unraid:**
-
-SSH into Unraid and create:
 ```bash
-mkdir -p /mnt/user/appdata/nuotti
-nano /mnt/user/appdata/nuotti/audience-appsettings.json
-```
-
-Paste this (replace with YOUR domain):
-```json
+mkdir -p /mnt/user/appdata/nuotti/logs /mnt/user/appdata/nuotti/performer-dpkeys
+cat > /mnt/user/appdata/nuotti/audience-appsettings.json <<'JSON'
 {"BackendUrl":"https://api.nuotti.app"}
+JSON
 ```
 
-**3. Configure Cloudflare Tunnel:**
+The Audience image is domain-agnostic; this file is the only thing that points it at your
+backend. Replace `nuotti.app` with your own domain here and everywhere below.
 
-Create three public hostnames:
+### 2. Create the stack `.env`
 
-| Service | Subdomain | Port | WebSocket |
-|---------|-----------|------|-----------|
-| API | `api` | 5210 | ✅ **YES** |
-| Audience | `audience` | 5280 | ❌ No |
-| Web | (root) | 5380 | ❌ No |
+Copy `deploy/.env.unraid.example` to a file named `.env` **next to the compose file**. In the
+Unraid Compose Manager that is *Edit Stack → .env*. Compose reads `${VAR}` substitutions only
+from there — an `env_file:` entry inside a service does not satisfy them.
 
-**Important**: Enable WebSocket for the API service (SignalR needs it)!
-
-**4. Deploy:**
-
-Click "Compose Up" in Unraid UI!
-
-### Update to Latest Version
-
-In Unraid UI:
-1. Click "Compose Down"
-2. Click "Pull" (pulls latest images from GitHub)
-3. Click "Compose Up"
-
-### Troubleshooting
-
-**CORS errors:**
-- Make sure `NUOTTI_AllowedOrigins` in the compose file matches YOUR domains exactly
-- No trailing slashes!
-- Use `https://` (not `http://`)
-
-**Audience can't connect:**
 ```bash
-# Check if file is mounted correctly
+NUOTTI_DOMAIN=nuotti.app
+POSTGRES_PASSWORD=$(openssl rand -base64 24)
+AZURITE_ACCOUNT=nuottiassets
+AZURITE_ACCOUNT_KEY=$(openssl rand -base64 32)
+```
+
+> **Do not use Azurite's default `devstoreaccount1` account.** Its key is published in
+> Microsoft's own documentation, and the blob endpoint below is exposed to the internet so
+> browsers can follow the SAS URLs the Backend mints. With the default key, anyone can forge
+> a grant against your storage. `AZURITE_ACCOUNTS` in the compose file replaces it.
+
+### 3. Paste `docker-compose.unraid.yml` into the Compose Manager
+
+Use the file in this directory verbatim. It brings up seven containers: `postgres`, `redis`,
+`azurite`, `api`, `performer`, `audience`, `web`. Postgres and Redis publish no host ports and
+are reachable only on the internal `nuotti` network.
+
+### 4. Configure the Cloudflare Tunnel
+
+Five public hostnames:
+
+| Service | Hostname | Unraid target | WebSockets |
+|---|---|---|---|
+| Web | `nuotti.app` | `http://<unraid-ip>:5380` | No |
+| Audience | `audience.nuotti.app` | `http://<unraid-ip>:5280` | No |
+| Performer | `performer.nuotti.app` | `http://<unraid-ip>:5480` | **Yes** |
+| API | `api.nuotti.app` | `http://<unraid-ip>:5210` | **Yes** |
+| Assets | `assets.nuotti.app` | `http://<unraid-ip>:5100` | No |
+
+WebSockets are mandatory on **two** hostnames, not one: `api` carries the SignalR hub, and
+`performer` carries the Blazor Server circuit. Performer will render and then go inert without it.
+
+`assets` must be public because `Assets/AzurePrivateAssetObjectStore.cs` hands SAS URLs
+directly to the browser, and those URLs are built from the `BlobEndpoint` in the connection
+string. Cloudflare's free plan caps request bodies at 100 MB, which is also your effective
+upload cap for a private song asset.
+
+### 5. Deploy
+
+```bash
+docker compose -f deploy/docker-compose.unraid.yml pull
+docker compose -f deploy/docker-compose.unraid.yml up -d
+```
+
+Or click *Compose Up* in the Unraid UI.
+
+### 6. Verify
+
+```bash
+docker ps --filter name=nuotti --format '{{.Names}}\t{{.Status}}'   # all should say (healthy)
+curl -s https://api.nuotti.app/health/ready | jq                     # status: Healthy
+docker exec nuotti-postgres psql -U nuotti -d nuotti -c '\dt'        # nuotti_* tables exist
+```
+
+The `nuotti_*` tables are created lazily by each Postgres store's `EnsureSchemaAsync`, so they
+appear on first use rather than at startup. An empty `\dt` on a freshly deployed stack is
+expected; it is only a problem if it stays empty after you have run a session.
+
+Confirm the Backend actually picked up its stores — if a connection string is missing,
+`Program.cs` falls back to in-memory silently and you lose everything on restart:
+
+```bash
+docker logs nuotti-api 2>&1 | grep -i "npgsql\|redis\|blob"
+```
+
+### 7. Known gap: nobody can sign in yet
+
+`POST /v1/auth/magic-links` issues a token and then hands it to
+`Workspaces/MagicLinkDelivery.cs`, which posts it to a webhook. Outside Development the
+token is deliberately never returned in the HTTP response, so with no webhook configured
+the endpoint logs `Magic-link delivery is not configured` and returns **503** — which means
+no Workspace sign-in, which means no Performer login.
+
+The stack is otherwise fully functional without it. When you have an email service, set
+`Nuotti__MagicLinkDeliveryUrl` on the `api` service (there is a commented line in the
+compose file) and restart.
+
+---
+
+## Updating
+
+```bash
+docker compose -f deploy/docker-compose.unraid.yml pull
+docker compose -f deploy/docker-compose.unraid.yml up -d
+```
+
+In the Unraid UI: *Compose Down* → *Pull* → *Compose Up*. Images are rebuilt and pushed to
+GHCR by `.github/workflows/build-and-push.yml` on every push to `main`.
+
+That workflow runs on `[self-hosted, unraid, docker, amd64]`. If no runner with those labels
+is registered, builds queue forever and `:latest` silently stays stale — check
+`gh run list` and `gh api /repos/sifterstudios/nuotti/actions/runners` before assuming a
+deploy is out of date for any other reason.
+
+---
+
+## Troubleshooting
+
+**CORS errors / audience cannot reach the API**
+
+The allowlist variable is `Nuotti__AllowedOrigins` with a **double underscore**.
+`Program.cs` reads the config key `Nuotti:AllowedOrigins`; a `NUOTTI_`-prefixed variable has
+its prefix stripped and lands on `AllowedOrigins` instead, leaving the allowlist empty — which
+denies every cross-origin request. No trailing slashes, `https://` not `http://`.
+
+```bash
+docker exec nuotti-api printenv | grep -i allowedorigins
+```
+
+**Audience connects to the wrong backend**
+
+```bash
 docker exec nuotti-audience cat /usr/share/nginx/html/appsettings.json
-# Should show: {"BackendUrl":"https://api.nuotti.app"}
 ```
 
-**View logs:**
+**Performer loads but nothing responds** — WebSockets are off on the `performer` hostname.
+
+**Private asset upload or download fails** — the SAS URL points somewhere the browser cannot
+reach. Check that `BlobEndpoint` in the Backend's `ConnectionStrings__assets` is the public
+`https://assets.<domain>/<account>` form, not `http://azurite:10000`.
+
+**Logs**
+
 ```bash
-docker logs nuotti-api
-docker logs nuotti-audience
-docker logs nuotti-web
+docker logs nuotti-api -f
+docker logs nuotti-performer -f
+ls /mnt/user/appdata/nuotti/logs/Nuotti.Backend/   # 30-day audit trail
 ```
 
 ---
 
-## 💻 Local Development (Windows/Mac/Linux)
+## Local development
 
-### Start
-```powershell
-# Windows
-.\tools\up-local.ps1
-```
+Aspire is the one-command path and starts everything, including the venue-local pair:
 
 ```bash
-# Linux/Mac
-docker compose -f deploy/docker-compose.local.yml up -d
+dotnet run --project Nuotti
 ```
 
-### Access
-- API: http://localhost:5210
-- API Health: http://localhost:5210/health/ready
+The container-only subset (api + audience + web, no Postgres/Redis/blob):
+
+```bash
+docker compose -f deploy/docker-compose.local.yml up -d --build   # Linux/Mac
+.\tools\up-local.ps1                                              # Windows
+```
+
+- API: http://localhost:5210 (health: `/health/ready`)
 - Audience: http://localhost:5280
 - Web: http://localhost:5380
 
-### Stop
-```powershell
-# Windows
-.\tools\down-local.ps1
-```
-
-```bash
-# Linux/Mac  
-docker compose -f deploy/docker-compose.local.yml down
-```
-
 ---
 
-## 📁 Files in This Directory
+## Files in this directory
 
-- **`docker-compose.unraid.yml`** - Production deployment (for reference, paste into Unraid UI)
-- **`docker-compose.local.yml`** - Local development (used by `tools/up-local.ps1`)
-- **`audience-appsettings.unraid.json`** - Template for Audience config
-- **`README.md`** - This file
-
----
-
-## 🔄 Auto-Updates with Watchtower
-
-To enable automatic updates, uncomment the `watchtower` section in your docker-compose.yml and redeploy.
-
-Watchtower will:
-- Check for new images every hour
-- Auto-pull and restart containers when updates are available
-- Clean up old images
-
----
-
-## 🎯 Quick Reference
-
-### Unraid Commands
-```bash
-# View logs
-docker logs nuotti-api -f
-
-# Restart a service
-docker restart nuotti-api
-
-# Check status
-docker ps | grep nuotti
-```
-
-### Images Are Built Automatically
-Every push to `main` triggers GitHub Actions to build and publish:
-- `ghcr.io/sifterstudios/nuotti-backend:latest`
-- `ghcr.io/sifterstudios/nuotti-audience:latest`  
-- `ghcr.io/sifterstudios/nuotti-web:latest`
-
----
-
-## ❓ Need Help?
-
-- **Issues**: https://github.com/sifterstudios/nuotti/issues
-- **Discussions**: https://github.com/sifterstudios/nuotti/discussions
+| File | Purpose |
+|---|---|
+| `docker-compose.unraid.yml` | Hosted stack for Unraid |
+| `.env.unraid.example` | Template for the stack `.env` (secrets; copy to `.env`, never commit) |
+| `audience-appsettings.unraid.json` | Template for the Audience `BackendUrl` file |
+| `docker-compose.local.yml` | Local container subset, used by `tools/up-local.ps1` |
+| `UNRAID-UI-GUIDE.txt` | Click-by-click walkthrough of the Unraid Compose Manager |

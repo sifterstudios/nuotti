@@ -2,132 +2,113 @@
   NUOTTI - UNRAID DOCKER COMPOSE UI SETUP
 ================================================================================
 
-STEP 1: In Unraid Docker Compose UI, paste this docker-compose.yml:
---------------------------------------------------------------------------------
+This file covers the click-by-click Unraid steps only.
 
-networks:
-  nuotti:
-    name: nuotti
-
-services:
-  api:
-    image: ghcr.io/sifterstudios/nuotti-backend:latest
-    container_name: nuotti-api
-    restart: unless-stopped
-    
-    environment:
-      - NUOTTI_AllowedOrigins=https://api.nuotti.app,https://audience.nuotti.app,https://nuotti.app
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5210
-    
-    ports:
-      - "5210:5210"
-    networks:
-      - nuotti
-
-  audience:
-    image: ghcr.io/sifterstudios/nuotti-audience:latest
-    container_name: nuotti-audience
-    restart: unless-stopped
-    
-    volumes:
-      - /mnt/user/appdata/nuotti/audience-appsettings.json:/usr/share/nginx/html/appsettings.json:ro
-    
-    ports:
-      - "5280:80"
-    networks:
-      - nuotti
-
-  web:
-    image: ghcr.io/sifterstudios/nuotti-web:latest
-    container_name: nuotti-web
-    restart: unless-stopped
-    
-    ports:
-      - "5380:80"
-    networks:
-      - nuotti
-
-# OPTIONAL: Auto-updates (uncomment to enable)
-#  watchtower:
-#    image: containrrr/watchtower
-#    container_name: nuotti-watchtower
-#    restart: unless-stopped
-#    volumes:
-#      - /var/run/docker.sock:/var/run/docker.sock
-#    environment:
-#      - WATCHTOWER_CLEANUP=true
-#      - WATCHTOWER_POLL_INTERVAL=3600
-#    command: nuotti-api nuotti-audience nuotti-web
+The stack definition itself lives in deploy/docker-compose.unraid.yml and the full
+explanation lives in deploy/README.md. Do NOT retype the YAML here -- an inline copy
+drifts out of sync with the real file, which is how the stack ended up missing its
+database for months.
 
 --------------------------------------------------------------------------------
-
-STEP 2: SSH into Unraid and create ONE file:
+STEP 1: Prepare the appdata directory (SSH into Unraid)
 --------------------------------------------------------------------------------
 
-mkdir -p /mnt/user/appdata/nuotti
-nano /mnt/user/appdata/nuotti/audience-appsettings.json
+  mkdir -p /mnt/user/appdata/nuotti/logs
+  nano /mnt/user/appdata/nuotti/audience-appsettings.json
 
-Paste this (replace with YOUR domain):
-{"BackendUrl":"https://api.nuotti.app"}
+Paste this one line, with YOUR domain:
 
-Save and exit (Ctrl+X, Y, Enter)
+  {"BackendUrl":"https://api.nuotti.app"}
 
---------------------------------------------------------------------------------
-
-STEP 3: Configure Cloudflare Tunnel
---------------------------------------------------------------------------------
-
-Create three public hostnames:
-
-┌────────────┬──────────────────────┬──────┬───────────┐
-│ Service    │ Domain               │ Port │ WebSocket │
-├────────────┼──────────────────────┼──────┼───────────┤
-│ API        │ api.nuotti.app       │ 5210 │ ✅ YES    │
-│ Audience   │ audience.nuotti.app  │ 5280 │ ❌ No     │
-│ Web        │ nuotti.app           │ 5380 │ ❌ No     │
-└────────────┴──────────────────────┴──────┴───────────┘
-
-IMPORTANT: Enable WebSocket for API service!
+Save and exit (Ctrl+X, Y, Enter).
 
 --------------------------------------------------------------------------------
+STEP 2: Create the stack
+--------------------------------------------------------------------------------
 
+Docker tab -> Compose -> "Add New Stack" -> name it "nuotti".
+
+Then "Edit Stack":
+
+  * Compose File tab -> paste the FULL contents of deploy/docker-compose.unraid.yml
+  * .env tab        -> paste deploy/.env.unraid.example and fill in the blanks
+
+Generate the two secrets on the Unraid console:
+
+  openssl rand -base64 24     # POSTGRES_PASSWORD
+  openssl rand -base64 32     # AZURITE_ACCOUNT_KEY
+
+The .env tab is not optional. Compose reads every ${VAR} in the compose file from
+there, and the file refuses to start with POSTGRES_PASSWORD, AZURITE_ACCOUNT or
+AZURITE_ACCOUNT_KEY unset rather than booting into a broken state.
+
+--------------------------------------------------------------------------------
+STEP 3: Configure Cloudflare Tunnel - FIVE hostnames
+--------------------------------------------------------------------------------
+
+┌────────────┬───────────────────────┬──────┬───────────┐
+│ Service    │ Domain                │ Port │ WebSocket │
+├────────────┼───────────────────────┼──────┼───────────┤
+│ Web        │ nuotti.app            │ 5380 │    No     │
+│ Audience   │ audience.nuotti.app   │ 5280 │    No     │
+│ Performer  │ performer.nuotti.app  │ 5480 │  >> YES   │
+│ API        │ api.nuotti.app        │ 5210 │  >> YES   │
+│ Assets     │ assets.nuotti.app     │ 5100 │    No     │
+└────────────┴───────────────────────┴──────┴───────────┘
+
+TWO hostnames need WebSockets, not one:
+  - api       carries the SignalR hub
+  - performer carries the Blazor Server circuit (it renders, then goes dead without it)
+
+Do NOT expose postgres or redis. They publish no host port on purpose.
+
+--------------------------------------------------------------------------------
 STEP 4: Deploy
 --------------------------------------------------------------------------------
 
-In Unraid Docker Compose UI:
-1. Click "Compose Up"
-2. Wait for images to pull and containers to start
-3. Done!
+Click "Compose Up". First start pulls ~7 images and runs Postgres initdb, so give
+it a couple of minutes.
+
+Check it came up clean:
+
+  docker ps --filter name=nuotti --format '{{.Names}}\t{{.Status}}'
+
+Every container should read (healthy). If nuotti-api is restarting, look at
+`docker logs nuotti-api` -- a bad POSTGRES_PASSWORD shows up there.
 
 --------------------------------------------------------------------------------
-
 TO UPDATE:
 --------------------------------------------------------------------------------
 
-1. Click "Compose Down"
-2. Click "Pull" (pulls latest images)
-3. Click "Compose Up"
+1. "Compose Down"
+2. "Pull"
+3. "Compose Up"
+
+If a pull changes nothing, the images are stale at the source: the GitHub Actions
+build runs on a self-hosted runner labelled [self-hosted, unraid, docker, amd64],
+and with no such runner registered the builds queue forever. See deploy/README.md.
 
 --------------------------------------------------------------------------------
-
 TROUBLESHOOTING:
 --------------------------------------------------------------------------------
 
 CORS errors?
-→ Check NUOTTI_AllowedOrigins matches YOUR domains exactly (no trailing /)
+  The variable is Nuotti__AllowedOrigins -- DOUBLE underscore. The old
+  NUOTTI_AllowedOrigins spelling lands on the wrong config key and silently
+  produces an empty allowlist, which blocks every cross-origin request.
+    docker exec nuotti-api printenv | grep -i allowedorigins
 
 Audience can't connect?
-→ docker exec nuotti-audience cat /usr/share/nginx/html/appsettings.json
+    docker exec nuotti-audience cat /usr/share/nginx/html/appsettings.json
+
+Performer loads but does nothing?
+  WebSockets are off on the performer hostname.
+
+Private asset upload/download fails?
+  BlobEndpoint must be https://assets.<domain>/<account>, never http://azurite:10000.
 
 View logs?
-→ docker logs nuotti-api -f
-
---------------------------------------------------------------------------------
-
-That's it! Super simple! 🚀
+    docker logs nuotti-api -f
+    ls /mnt/user/appdata/nuotti/logs/Nuotti.Backend/
 
 ================================================================================
-
-
-
