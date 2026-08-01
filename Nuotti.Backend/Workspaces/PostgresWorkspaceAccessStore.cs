@@ -103,6 +103,57 @@ public sealed class PostgresWorkspaceAccessStore(NpgsqlDataSource dataSource, Ti
                 member.Key, state.UsersById[member.Key].Email, member.Value)).ToArray();
         }, cancellationToken);
 
+    /// <summary>
+    /// Idempotent Development fixture: fixed workspace + session token already selected.
+    /// </summary>
+    public Task<DevelopmentWorkspaceFixture> EnsureDevelopmentFixtureAsync(
+        string? workspaceId = null,
+        string? workspaceName = null,
+        string? email = null,
+        string? sessionToken = null,
+        CancellationToken cancellationToken = default)
+    {
+        var id = string.IsNullOrWhiteSpace(workspaceId) ? DevelopmentWorkspaceDefaults.WorkspaceId : workspaceId.Trim();
+        var name = string.IsNullOrWhiteSpace(workspaceName) ? DevelopmentWorkspaceDefaults.WorkspaceName : workspaceName.Trim();
+        var normalizedEmail = WorkspaceTokens.NormalizeEmail(
+            string.IsNullOrWhiteSpace(email) ? DevelopmentWorkspaceDefaults.Email : email);
+        var token = string.IsNullOrWhiteSpace(sessionToken) ? DevelopmentWorkspaceDefaults.SessionToken : sessionToken.Trim();
+
+        return MutateAsync(state =>
+        {
+            WorkspaceUserState user;
+            if (state.UserIdsByEmail.TryGetValue(normalizedEmail, out var existingId)
+                && state.UsersById.TryGetValue(existingId, out var existingUser))
+            {
+                user = existingUser;
+            }
+            else
+            {
+                user = new WorkspaceUserState { Id = DevelopmentWorkspaceDefaults.UserId, Email = normalizedEmail };
+                state.UserIdsByEmail[normalizedEmail] = user.Id;
+                state.UsersById[user.Id] = user;
+            }
+
+            if (!state.Workspaces.TryGetValue(id, out var workspace))
+            {
+                workspace = new WorkspaceDocument { Id = id, Name = name };
+                state.Workspaces[id] = workspace;
+            }
+            else
+            {
+                workspace.Name = name;
+            }
+
+            workspace.Memberships[user.Id] = WorkspaceRole.Owner;
+            state.Sessions[WorkspaceTokens.Hash(token)] = new WorkspaceSessionState
+            {
+                UserId = user.Id,
+                SelectedWorkspaceId = id
+            };
+            return new DevelopmentWorkspaceFixture(id, workspace.Name, normalizedEmail, token);
+        }, cancellationToken);
+    }
+
     IssuedMagicLink Issue(WorkspaceAccessDocument state, string email, string? workspaceId)
     {
         var raw = WorkspaceTokens.New();

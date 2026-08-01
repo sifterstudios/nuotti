@@ -137,7 +137,7 @@ public partial class ScoreboardView : PhaseViewBase
             Background = bgBrush,
             BorderBrush = GetBrush("DividerBrush"),
             BorderThickness = new Thickness(2),
-            CornerRadius = new CornerRadius(12),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(20, 12),
             Margin = new Thickness(0, 4)
         };
@@ -261,17 +261,17 @@ public partial class ScoreboardView : PhaseViewBase
         if (Application.Current?.Resources.TryGetResource(resourceKey, Application.Current?.ActualThemeVariant, out var brush) == true && brush is IBrush b)
             return b;
         
-        // Fallback colors
+        // Fallback colors — Variant B dark stage
         return resourceKey switch
         {
-            "SuccessBrush" => new SolidColorBrush(Color.Parse("#46B283")),
-            "SecondaryBrush" => new SolidColorBrush(Color.Parse("#004E89")),
-            "TertiaryBrush" => new SolidColorBrush(Color.Parse("#1B9AAA")),
-            "ErrorBrush" => new SolidColorBrush(Color.Parse("#EF476F")),
-            "SurfaceBrush" => new SolidColorBrush(Color.Parse("#FFFFFF")),
-            "TextPrimaryBrush" => new SolidColorBrush(Color.Parse("#1A1A1A")),
-            "TextSecondaryBrush" => new SolidColorBrush(Color.Parse("#666666")),
-            "DividerBrush" => new SolidColorBrush(Color.Parse("#E0E0E0")),
+            "SuccessBrush" => new SolidColorBrush(Color.Parse("#5EC99D")),
+            "SecondaryBrush" => new SolidColorBrush(Color.Parse("#17363A")),
+            "TertiaryBrush" => new SolidColorBrush(Color.Parse("#48C9B0")),
+            "ErrorBrush" => new SolidColorBrush(Color.Parse("#FF6B93")),
+            "SurfaceBrush" => new SolidColorBrush(Color.Parse("#091115")),
+            "TextPrimaryBrush" => new SolidColorBrush(Color.Parse("#ECFFFF")),
+            "TextSecondaryBrush" => new SolidColorBrush(Color.Parse("#91A5AA")),
+            "DividerBrush" => new SolidColorBrush(Color.Parse("#17363A")),
             _ => Brushes.Gray
         };
     }

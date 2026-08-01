@@ -134,6 +134,51 @@ public sealed class InMemoryWorkspaceAccessStore(TimeProvider? timeProvider = nu
         }
     }
 
+    /// <summary>
+    /// Idempotent Development fixture: fixed workspace + session token already selected.
+    /// </summary>
+    public DevelopmentWorkspaceFixture EnsureDevelopmentFixture(
+        string? workspaceId = null,
+        string? workspaceName = null,
+        string? email = null,
+        string? sessionToken = null)
+    {
+        var id = string.IsNullOrWhiteSpace(workspaceId) ? DevelopmentWorkspaceDefaults.WorkspaceId : workspaceId.Trim();
+        var name = string.IsNullOrWhiteSpace(workspaceName) ? DevelopmentWorkspaceDefaults.WorkspaceName : workspaceName.Trim();
+        var normalizedEmail = WorkspaceTokens.NormalizeEmail(
+            string.IsNullOrWhiteSpace(email) ? DevelopmentWorkspaceDefaults.Email : email);
+        var token = string.IsNullOrWhiteSpace(sessionToken) ? DevelopmentWorkspaceDefaults.SessionToken : sessionToken.Trim();
+
+        lock (_gate)
+        {
+            if (!_usersByEmail.TryGetValue(normalizedEmail, out var user))
+            {
+                user = new User(DevelopmentWorkspaceDefaults.UserId, normalizedEmail);
+                _usersByEmail[normalizedEmail] = user;
+                _usersById[user.Id] = user;
+            }
+
+            if (!_workspaces.TryGetValue(id, out var workspace))
+            {
+                workspace = new Workspace(id, name, new Dictionary<string, WorkspaceRole>
+                {
+                    [user.Id] = WorkspaceRole.Owner
+                });
+                _workspaces[id] = workspace;
+            }
+            else
+            {
+                workspace.Memberships[user.Id] = WorkspaceRole.Owner;
+                if (!string.Equals(workspace.Name, name, StringComparison.Ordinal))
+                    _workspaces[id] = workspace with { Name = name };
+            }
+
+            var sessionHash = WorkspaceTokens.Hash(token);
+            _sessions[sessionHash] = new Session(user.Id, id);
+            return new DevelopmentWorkspaceFixture(id, _workspaces[id].Name, normalizedEmail, token);
+        }
+    }
+
     IssuedMagicLink Issue(string email, string? workspaceId)
     {
         lock (_gate)

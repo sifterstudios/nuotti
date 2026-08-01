@@ -108,17 +108,39 @@ Confirm the Backend actually picked up its stores — if a connection string is 
 docker logs nuotti-api 2>&1 | grep -i "npgsql\|redis\|blob"
 ```
 
-### 7. Known gap: nobody can sign in yet
+### 7. Sign-in and email
 
-`POST /v1/auth/magic-links` issues a token and then hands it to
-`Workspaces/MagicLinkDelivery.cs`, which posts it to a webhook. Outside Development the
-token is deliberately never returned in the HTTP response, so with no webhook configured
-the endpoint logs `Magic-link delivery is not configured` and returns **503** — which means
-no Workspace sign-in, which means no Performer login.
+Workspace sign-in is a magic link: you enter an email at `https://performer.<domain>/signin`,
+the Backend issues a single-use token, and delivery emails it as a link back to that same page.
+Outside Development the token is never returned in the HTTP response, so **delivery must be
+configured or nobody can sign in** — the endpoint returns 503.
 
-The stack is otherwise fully functional without it. When you have an email service, set
-`Nuotti__MagicLinkDeliveryUrl` on the `api` service (there is a commented line in the
-compose file) and restart.
+Two delivery adapters ship, selected by config:
+
+| Adapter | Configure | Use when |
+|---|---|---|
+| Mailgun | `Nuotti__Mailgun__*` (four keys) | You have a Mailgun account — this is the default path |
+| Webhook | `Nuotti__MagicLinkDeliveryUrl` | You want to post the raw token to your own service |
+
+Mailgun wins if its section is complete. A **partially** filled section fails at startup rather
+than at the moment someone tries to sign in.
+
+Two things to get right:
+
+- **Region.** `Nuotti__Mailgun__BaseUrl` defaults to `https://api.eu.mailgun.net`. A US-region
+  key sent to the EU host fails as a bare `401`, which looks identical to a wrong key.
+- **`SignInUrl`.** The Backend issues a bare token and never a URL, so this is the only place
+  that knows where a magic link points. It must be the public Performer address.
+
+Check it end to end:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.<domain>/v1/auth/magic-links \
+  -H 'Content-Type: application/json' -d '{"email":"you@example.com"}'
+```
+
+`202` means Mailgun accepted it. `503` means delivery is unconfigured or Mailgun rejected the
+send — `docker logs nuotti-api` carries Mailgun's own reason in that case.
 
 ---
 

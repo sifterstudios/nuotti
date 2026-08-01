@@ -35,7 +35,7 @@ public sealed class SessionSnapshotJourneyTests(WebApplicationFactory<QuizHub> b
             member.SessionToken, document)).EnsureSuccessStatusCode();
         var package = await PostAsync<SongPackageRevision>(client,
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/package/publish", member.SessionToken,
-            new { revisionNote = "Ready", acceptedWarningCodes = new[] { "lyrics.missing" } });
+            new { acceptedWarningCodes = new[] { "lyrics.missing" } });
         var request = new CreateSessionSetlistSnapshotRequest([new(package.RevisionId)],
             new("standard", 1), ["song.1.lyrics-missing"]);
         var snapshot = await PostAsync<SessionSetlistSnapshot>(client,

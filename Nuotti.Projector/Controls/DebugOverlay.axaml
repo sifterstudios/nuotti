@@ -4,9 +4,9 @@
     
     <Border x:Name="DebugBorder"
             Background="#CC000000"
-            BorderBrush="#FF6B35"
+            BorderBrush="#00FFF5"
             BorderThickness="2"
-            CornerRadius="8"
+            CornerRadius="0"
             Padding="16"
             Margin="16"
             HorizontalAlignment="Left"
@@ -19,7 +19,7 @@
             <TextBlock Text="🐛 DEBUG OVERLAY"
                        FontSize="14"
                        FontWeight="Bold"
-                       Foreground="#FF6B35"/>
+                       Foreground="#00FFF5"/>
             
             <!-- Performance metrics -->
             <StackPanel Spacing="4">

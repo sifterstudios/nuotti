@@ -30,6 +30,8 @@ public interface IPrivateAssetMetadataStore
         CancellationToken cancellationToken = default);
     Task<PrivateCatalogEntry?> GetEntryAsync(string workspaceId, string catalogEntryId,
         CancellationToken cancellationToken = default);
+    Task<PrivateCatalogEntry?> UpdateEntryAsync(string workspaceId, string catalogEntryId, string title, string artist,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyList<PrivateCatalogEntry>> ListEntriesAsync(string workspaceId,
         CancellationToken cancellationToken = default);
     Task<(PrivateAssetRevision Revision, string ObjectKey)?> CreateDraftAsync(

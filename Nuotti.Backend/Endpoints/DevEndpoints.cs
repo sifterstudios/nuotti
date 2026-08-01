@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using Nuotti.Backend.Sessions;
+using Nuotti.Backend.Workspaces;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Enum;
 using Serilog.Events;
@@ -13,6 +14,19 @@ internal static class DevEndpoints
     public static void MapDevEndpoints(this WebApplication app)
     {
         if (!app.Environment.IsDevelopment()) return;
+
+        app.MapGet("/v1/dev/fixture", async (IWorkspaceAccessStore access, IConfiguration config, CancellationToken ct) =>
+        {
+            try
+            {
+                var fixture = await DevelopmentWorkspaceBootstrap.EnsureAsync(access, config, ct);
+                return Results.Ok(fixture);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        });
 
         app.MapPost("/dev/reset/{session}", (ISessionStore sess, IGameStateStore game, string session) =>
         {

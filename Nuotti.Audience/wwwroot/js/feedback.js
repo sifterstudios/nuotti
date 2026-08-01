@@ -41,9 +41,9 @@ window.nuottiFeedback = (function() {
         }
 
         const colors = {
-            success: ['#46B283', '#06BEE1', '#FF6B35'],
-            celebration: ['#FFD700', '#FF6B35', '#1B9AAA', '#46B283'],
-            fireworks: ['#FF6B35', '#004E89', '#1B9AAA', '#F77F00', '#EF476F']
+            success: ['#5EC99D', '#00FFF5', '#48C9B0'],
+            celebration: ['#00FFF5', '#5EC99D', '#48C9B0', '#FFA040'],
+            fireworks: ['#00FFF5', '#17363A', '#48C9B0', '#FFA040', '#FF6B93']
         };
 
         const confettiColors = colors[type] || colors.success;

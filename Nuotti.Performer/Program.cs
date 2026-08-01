@@ -15,8 +15,13 @@ builder.Services.AddMudServices();
 builder.AddNuottiWebHost();
 
 builder.Services.AddHttpClient();
+var backendUrl = builder.Configuration["BackendUrl"] ?? "http://localhost:5240";
+builder.Services.AddHttpClient(WorkspaceSession.HttpClientName, client =>
+    client.BaseAddress = new Uri(backendUrl));
 builder.Services.AddHttpClient<SongPackageAuthoringClient>(client =>
-    client.BaseAddress = new Uri("https+http://backend"));
+    client.BaseAddress = new Uri(backendUrl));
+builder.Services.AddScoped<IWorkspaceSessionStore, ProtectedLocalStorageSessionStore>();
+builder.Services.AddScoped<WorkspaceSession>();
 builder.Services.AddScoped<SessionSelectionService>();
 builder.Services.AddSingleton<PerformerUiState>();
 builder.Services.AddScoped<PerformerCommands>();

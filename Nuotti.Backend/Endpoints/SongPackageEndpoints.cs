@@ -7,7 +7,7 @@ using Nuotti.Contracts.V1.Enum;
 
 namespace Nuotti.Backend.Endpoints;
 
-public sealed record PublishSongPackageRequest(string RevisionNote, IReadOnlyList<string> AcceptedWarningCodes);
+public sealed record PublishSongPackageRequest(IReadOnlyList<string> AcceptedWarningCodes);
 public sealed record EvaluateSongPackageRequest(IReadOnlyList<string> AcceptedWarningCodes);
 
 public static class SongPackageEndpoints
@@ -62,9 +62,6 @@ public static class SongPackageEndpoints
             var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
             if (selected.Principal is null) return Results.Unauthorized();
             if (selected.Access is null) return Results.NotFound();
-            if (string.IsNullOrWhiteSpace(request.RevisionNote) || request.RevisionNote.Trim().Length > 500)
-                return ProblemResults.BadRequest("Revision note is required.",
-                    "Describe what changed in 500 characters or fewer.", ReasonCode.InvalidStateTransition, "revisionNote");
             var draft = await packages.GetDraftAsync(workspaceId, catalogEntryId, ct);
             if (draft is null) return Results.NotFound();
             var accepted = NormalizedCodes(request.AcceptedWarningCodes);
@@ -87,7 +84,7 @@ public static class SongPackageEndpoints
                 await lyricTracks.PublishAsync(workspaceId, catalogEntryId, lyric.Lrc, lyric.OffsetMs,
                     selected.Principal.UserId, ct);
             return Results.Ok(await packages.PublishAsync(workspaceId, catalogEntryId, draft.Document,
-                request.RevisionNote, accepted.Order(StringComparer.Ordinal).ToArray(), selected.Principal.UserId, ct));
+                revisionNote: "", accepted.Order(StringComparer.Ordinal).ToArray(), selected.Principal.UserId, ct));
         });
 
         app.MapPost("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}/lyric-track/revisions", async (

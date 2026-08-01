@@ -22,7 +22,7 @@
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource DividerBrush}"
                 BorderThickness="1"
-                CornerRadius="8"
+                CornerRadius="0"
                 Padding="8">
             <ListBox x:Name="MonitorListBox"
                      Background="Transparent"
@@ -31,7 +31,7 @@
                     <DataTemplate>
                         <Border Padding="12,8" 
                                 Margin="4,2"
-                                CornerRadius="6"
+                                CornerRadius="0"
                                 Background="Transparent">
                             <StackPanel>
                                 <TextBlock Text="{Binding DisplayName}" 

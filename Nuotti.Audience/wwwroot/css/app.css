@@ -1,8 +1,27 @@
-/* Nuotti Audience - Playful, Kahoot/Bandle-inspired styles */
+/* Nuotti Audience — neon stage, sharp chrome */
 html, body {
     font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
+}
+
+/* Sharp neon chrome — Mud hardcodes pill radii on chips and 50% on icon buttons */
+.mud-chip,
+.mud-chip.mud-chip-size-small,
+.mud-chip.mud-chip-size-medium,
+.mud-chip.mud-chip-size-large {
+    border-radius: 0 !important;
+}
+
+.mud-icon-button {
+    border-radius: 0 !important;
+}
+
+.mud-button-root,
+.mud-paper,
+.mud-alert,
+.mud-input-outlined .mud-input-outlined-border {
+    border-radius: var(--mud-default-borderradius) !important;
 }
 
 h1:focus {

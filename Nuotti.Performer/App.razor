@@ -1,8 +1,12 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
 <Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        @* Gating routing rather than the layout keeps MainLayout about layout, and means a
+           component test that renders a page directly is not forced through sign-in. *@
+        <AuthGate>
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </AuthGate>
     </Found>
     <NotFound>
         <LayoutView Layout="@typeof(MainLayout)">

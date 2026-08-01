@@ -1,0 +1,172 @@
+@page "/song-library"
+@inject SongPackageAuthoringClient Catalog
+@inject WorkspaceSession Session
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@using Nuotti.Performer.Shared
+
+<PageTitle>Song Library · Nuotti</PageTitle>
+
+<MudText Typo="Typo.overline" Class="mb-1" Style="letter-spacing: 0.12em; font-weight: 800; color: var(--mud-palette-primary);">
+    Workspace Song Library
+</MudText>
+<MudText Typo="Typo.h3" Class="mb-2">Song Library</MudText>
+<MudText Typo="Typo.body2" Class="mb-4" Style="color: var(--mud-palette-text-secondary);">
+    Add songs here. Open a package to author playback, hints, and dry-runs. Publish a revision, then arrange published songs in Setlist Manager.
+</MudText>
+
+@if (!string.IsNullOrWhiteSpace(Session.Error))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@Session.Error</MudAlert>
+}
+else if (!string.IsNullOrWhiteSpace(Session.WorkspaceName))
+{
+    <MudText Typo="Typo.caption" Class="mb-3" Style="color: var(--mud-palette-text-secondary);">
+        Workspace · @Session.WorkspaceName
+    </MudText>
+}
+
+<MudPaper Elevation="0" Class="pa-4" Style="border: 1px solid var(--mud-palette-divider);">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+        <MudText Typo="Typo.h6" Style="font-weight: 700;">Songs</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Material.Filled.Add"
+                   OnClick="OpenAddDialog"
+                   Disabled="@Busy">
+            Add song
+        </MudButton>
+    </MudStack>
+
+    @if (Busy && Entries.Count == 0)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+    }
+
+    <MudTable Items="@Entries" Dense="true" Hover="true" Striped="true" Loading="@Busy"
+              FixedHeader="true" Height="calc(100vh - 320px)">
+        <HeaderContent>
+            <MudTh>Title</MudTh>
+            <MudTh>Artist</MudTh>
+            <MudTh>Created</MudTh>
+            <MudTh Style="width: 180px;">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Title">@context.Title</MudTd>
+            <MudTd DataLabel="Artist">@context.Artist</MudTd>
+            <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+            <MudTd DataLabel="Actions">
+                <MudStack Row="true" Spacing="1">
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="@(() => EditAsync(context))">Edit</MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="@(() => OpenPackage(context))">Open package</MudButton>
+                </MudStack>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4">No songs yet. Add a title and artist to start the library.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    readonly List<CatalogEntryDto> Entries = [];
+    bool Busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.EnsureReadyAsync();
+        await ReloadAsync();
+    }
+
+    async Task ReloadAsync()
+    {
+        if (!Session.IsReady) return;
+        Busy = true;
+        try
+        {
+            var list = await Catalog.ListCatalogAsync(Session.WorkspaceId!, Session.SessionToken!);
+            Entries.Clear();
+            Entries.AddRange(list);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "",
+            ["Artist"] = "",
+            ["DialogTitle"] = "Add song"
+        };
+        var dialog = await Dialogs.ShowAsync<SongEditDialog>("Add song", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is null || result.Canceled || result.Data is not SongEditModel model) return;
+        await CreateAsync(model.Title, model.Artist);
+    }
+
+    async Task EditAsync(CatalogEntryDto entry)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = entry.Title,
+            ["Artist"] = entry.Artist,
+            ["DialogTitle"] = "Edit song"
+        };
+        var dialog = await Dialogs.ShowAsync<SongEditDialog>("Edit song", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is null || result.Canceled || result.Data is not SongEditModel model) return;
+        Busy = true;
+        try
+        {
+            await Catalog.UpdateCatalogEntryAsync(Session.WorkspaceId!, entry.CatalogEntryId,
+                Session.SessionToken!, model.Title, model.Artist);
+            Snackbar.Add("Song updated.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    async Task CreateAsync(string title, string artist)
+    {
+        Busy = true;
+        try
+        {
+            await Catalog.CreateCatalogEntryAsync(Session.WorkspaceId!, Session.SessionToken!, title, artist);
+            Snackbar.Add("Song added.", Severity.Success);
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    void OpenPackage(CatalogEntryDto entry)
+    {
+        Session.CatalogEntryId = entry.CatalogEntryId;
+        Nav.NavigateTo($"/song-package?catalogEntryId={Uri.EscapeDataString(entry.CatalogEntryId)}");
+    }
+}

@@ -41,6 +41,27 @@ public sealed class PostgresPrivateAssetMetadataStore(NpgsqlDataSource dataSourc
                 reader.GetFieldValue<DateTimeOffset>(3)) : null;
     }
 
+    public async Task<PrivateCatalogEntry?> UpdateEntryAsync(string workspaceId, string catalogEntryId, string title, string artist,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken);
+        var normalizedTitle = title.Trim();
+        var normalizedArtist = artist.Trim();
+        await using var command = dataSource.CreateCommand("""
+            UPDATE nuotti_private_catalog_entry
+            SET title=$3, artist=$4
+            WHERE workspace_id=$1 AND id=$2
+            RETURNING created_by, created_at
+            """);
+        command.Parameters.AddWithValue(workspaceId); command.Parameters.AddWithValue(catalogEntryId);
+        command.Parameters.AddWithValue(normalizedTitle); command.Parameters.AddWithValue(normalizedArtist);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new(catalogEntryId, workspaceId, normalizedTitle, normalizedArtist, reader.GetString(0),
+                reader.GetFieldValue<DateTimeOffset>(1))
+            : null;
+    }
+
     public async Task<IReadOnlyList<PrivateCatalogEntry>> ListEntriesAsync(string workspaceId,
         CancellationToken cancellationToken = default)
     {

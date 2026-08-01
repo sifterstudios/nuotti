@@ -1,0 +1,243 @@
+@page "/signin"
+@using Nuotti.Performer.Services
+@using Microsoft.AspNetCore.WebUtilities
+@inject WorkspaceSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Sign in - Nuotti Performer</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Class="mb-2">🎵 Nuotti Performer</MudText>
+
+        @switch (_stage)
+        {
+            case Stage.Redeeming:
+                <MudText Typo="Typo.body1" Class="mb-4">Signing you in&hellip;</MudText>
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                break;
+
+            case Stage.RequestEmail:
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+                    Enter your email and we will send you a sign-in link.
+                </MudText>
+                <MudTextField @bind-Value="_email"
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Email"
+                              Immediate="true"
+                              OnKeyUp="OnEmailKeyUp"
+                              Disabled="_busy"
+                              data-testid="signin-email" />
+                <MudButton OnClick="RequestLinkAsync"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(_busy || !LooksLikeEmail(_email))"
+                           Class="mt-4"
+                           data-testid="signin-submit">
+                    Send sign-in link
+                </MudButton>
+                break;
+
+            case Stage.LinkSent:
+                <MudAlert Severity="Severity.Success" Class="mb-4" data-testid="signin-sent">
+                    Check your inbox. The link expires shortly and can only be used once.
+                </MudAlert>
+                <MudButton OnClick="@(() => _stage = Stage.RequestEmail)" Variant="Variant.Text">
+                    Use a different email
+                </MudButton>
+                break;
+
+            case Stage.ChooseWorkspace:
+                <MudText Typo="Typo.body1" Class="mb-4" data-testid="signin-choose">
+                    Signed in as @Session.Email. Choose a workspace.
+                </MudText>
+                @if (_workspaces.Count > 0)
+                {
+                    <MudList T="string" Class="mb-4">
+                        @foreach (var workspace in _workspaces)
+                        {
+                            <MudListItem T="string"
+                                         Text="@workspace.Name"
+                                         SecondaryText="@workspace.Role"
+                                         OnClick="@(() => SelectAsync(workspace))"
+                                         data-testid="signin-workspace" />
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        You are not a member of any workspace yet. Create one to get started.
+                    </MudText>
+                }
+                <MudTextField @bind-Value="_newWorkspaceName"
+                              Label="New workspace name"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Disabled="_busy"
+                              data-testid="signin-workspace-name" />
+                <MudButton OnClick="CreateWorkspaceAsync"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(_busy || string.IsNullOrWhiteSpace(_newWorkspaceName))"
+                           Class="mt-4"
+                           data-testid="signin-workspace-create">
+                    Create workspace
+                </MudButton>
+                break;
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Session.Error))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4" data-testid="signin-error">
+                @Session.Error
+            </MudAlert>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    enum Stage { RequestEmail, Redeeming, LinkSent, ChooseWorkspace }
+
+    Stage _stage = Stage.RequestEmail;
+    string _email = string.Empty;
+    string _newWorkspaceName = string.Empty;
+    bool _busy;
+    IReadOnlyList<WorkspaceAccessDto> _workspaces = [];
+    bool _handled;
+
+    protected override void OnInitialized()
+    {
+        // Decided here rather than in OnAfterRender so the very first paint after clicking a
+        // link is the spinner, not the email form the user has no reason to see again.
+        if (TokenFromQuery() is not null) _stage = Stage.Redeeming;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // ProtectedLocalStorage needs a live JS runtime, which prerendering does not have.
+        if (!firstRender || _handled) return;
+        _handled = true;
+
+        var token = TokenFromQuery();
+        if (token is null)
+        {
+            if (await AlreadySignedInAsync()) return;
+            StateHasChanged();
+            return;
+        }
+
+        var outcome = await Session.RedeemAsync(token);
+        if (outcome is RedeemOutcome.Succeeded)
+        {
+            await ContinueAfterAuthenticationAsync();
+            return;
+        }
+
+        _stage = Stage.RequestEmail;
+        StateHasChanged();
+    }
+
+    string? TokenFromQuery()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        return query.TryGetValue("token", out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value.ToString()
+            : null;
+    }
+
+    async Task<bool> AlreadySignedInAsync()
+    {
+        await Session.EnsureReadyAsync();
+        if (Session.IsReady)
+        {
+            Nav.NavigateTo("/");
+            return true;
+        }
+        if (Session.IsAuthenticated)
+        {
+            await ContinueAfterAuthenticationAsync();
+            return true;
+        }
+        // EnsureReadyAsync reports "Not signed in" as an error. On this page that is the
+        // expected state, not something to alarm the user with.
+        return false;
+    }
+
+    /// <summary>
+    /// After a session exists, land on a usable page: straight in when a workspace is already
+    /// selected, otherwise the picker.
+    /// </summary>
+    async Task ContinueAfterAuthenticationAsync()
+    {
+        if (Session.IsReady)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        _workspaces = await Session.ListWorkspacesAsync();
+        if (_workspaces.Count == 1 && await Session.SelectWorkspaceAsync(_workspaces[0].WorkspaceId, _workspaces[0].Name))
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        _stage = Stage.ChooseWorkspace;
+        StateHasChanged();
+    }
+
+    async Task RequestLinkAsync()
+    {
+        _busy = true;
+        try
+        {
+            if (await Session.RequestSignInAsync(_email.Trim())) _stage = Stage.LinkSent;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    async Task SelectAsync(WorkspaceAccessDto workspace)
+    {
+        _busy = true;
+        try
+        {
+            if (await Session.SelectWorkspaceAsync(workspace.WorkspaceId, workspace.Name)) Nav.NavigateTo("/");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    async Task CreateWorkspaceAsync()
+    {
+        _busy = true;
+        try
+        {
+            var created = await Session.CreateWorkspaceAsync(_newWorkspaceName.Trim());
+            if (created is not null && await Session.SelectWorkspaceAsync(created.WorkspaceId, created.Name))
+                Nav.NavigateTo("/");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    async Task OnEmailKeyUp(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && LooksLikeEmail(_email) && !_busy) await RequestLinkAsync();
+    }
+
+    static bool LooksLikeEmail(string value)
+    {
+        var trimmed = value.Trim();
+        var at = trimmed.IndexOf('@');
+        return at > 0 && at < trimmed.Length - 1 && trimmed.LastIndexOf('.') > at;
+    }
+}

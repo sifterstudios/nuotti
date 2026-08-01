@@ -7,8 +7,8 @@ public class ThemeService : IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private DotNetObjectReference<ThemeService>? _objRef;
-    private bool _isDarkMode;
-    private ThemeVariant _currentVariant = ThemeVariant.Light;
+    private bool _isDarkMode = true;
+    private ThemeVariant _currentVariant = ThemeVariant.Dark;
 
     // These raise OnThemeChanged from the setters, matching the Performer copy. Without it, this
     // copy changed theme silently and no subscriber ever re-rendered. See docs/adr/0001 for why the
@@ -56,7 +56,7 @@ public class ThemeService : IAsyncDisposable
                 "light" => ThemeVariant.Light,
                 "dark" => ThemeVariant.Dark,
                 "highcontrast" => ThemeVariant.HighContrast,
-                _ => ThemeVariant.Light
+                _ => ThemeVariant.Dark
             };
             // HighContrast uses light theme base (white background)
             IsDarkMode = CurrentVariant == ThemeVariant.Dark;
@@ -148,6 +148,7 @@ public class ThemeService : IAsyncDisposable
         return new PaletteLight
         {
             Primary = palette.Primary,
+            PrimaryContrastText = palette.OnPrimary,
             Secondary = palette.Secondary,
             Tertiary = palette.Tertiary,
             Info = palette.Info,
@@ -170,6 +171,7 @@ public class ThemeService : IAsyncDisposable
         return new PaletteDark
         {
             Primary = palette.Primary,
+            PrimaryContrastText = palette.OnPrimary,
             Secondary = palette.Secondary,
             Tertiary = palette.Tertiary,
             Info = palette.Info,

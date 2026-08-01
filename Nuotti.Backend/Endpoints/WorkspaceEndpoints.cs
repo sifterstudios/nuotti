@@ -25,7 +25,7 @@ public static class WorkspaceEndpoints
             // Local development exposes the token so the journey can run without an email provider.
             // Deployed environments never disclose credentials in the HTTP response.
             if (environment.IsDevelopment()) return Results.Ok(link);
-            return await delivery.DeliverAsync(request.Email, link, ct)
+            return await delivery.DeliverAsync(request.Email, link, MagicLinkPurpose.SignIn, ct)
                 ? Results.Accepted() : DeliveryUnavailable();
         });
 
@@ -75,7 +75,7 @@ public static class WorkspaceEndpoints
             var link = await store.InviteAsync(selected.Principal, workspaceId, request.Email, ct);
             if (link is null) return Results.NotFound();
             if (environment.IsDevelopment()) return Results.Ok(link);
-            return await delivery.DeliverAsync(request.Email, link, ct)
+            return await delivery.DeliverAsync(request.Email, link, MagicLinkPurpose.Invitation, ct)
                 ? Results.Accepted() : DeliveryUnavailable();
         });
 

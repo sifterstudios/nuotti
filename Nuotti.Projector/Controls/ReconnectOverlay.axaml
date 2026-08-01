@@ -12,7 +12,7 @@
             <Border Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource PrimaryBrush}"
                     BorderThickness="3"
-                    CornerRadius="16"
+                    CornerRadius="0"
                     Padding="48,32"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"

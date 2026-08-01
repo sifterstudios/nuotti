@@ -8,6 +8,7 @@ using Nuotti.Contracts.V1.Enum;
 namespace Nuotti.Backend.Endpoints;
 
 public sealed record CreatePrivateCatalogEntryRequest(string Title, string Artist);
+public sealed record UpdatePrivateCatalogEntryRequest(string Title, string Artist);
 public sealed record CreatePrivateAssetUploadRequest(
     string AssetType, string ContentType, long Size, AssetProvenance Provenance);
 public sealed record PublishPrivateAssetRevisionRequest(string Sha256);
@@ -16,6 +17,27 @@ public static class PrivateAssetEndpoints
 {
     public static void MapPrivateAssetEndpoints(this WebApplication app)
     {
+        app.MapGet("/v1/workspaces/{workspaceId}/catalog", async (
+            HttpContext http, string workspaceId,
+            IWorkspaceAccessStore access, IPrivateAssetMetadataStore metadata, CancellationToken ct) =>
+        {
+            var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
+            if (selected.Principal is null) return Results.Unauthorized();
+            if (selected.Access is null) return Results.NotFound();
+            return Results.Ok(await metadata.ListEntriesAsync(workspaceId, ct));
+        });
+
+        app.MapGet("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}", async (
+            HttpContext http, string workspaceId, string catalogEntryId,
+            IWorkspaceAccessStore access, IPrivateAssetMetadataStore metadata, CancellationToken ct) =>
+        {
+            var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
+            if (selected.Principal is null) return Results.Unauthorized();
+            if (selected.Access is null) return Results.NotFound();
+            var entry = await metadata.GetEntryAsync(workspaceId, catalogEntryId, ct);
+            return entry is null ? Results.NotFound() : Results.Ok(entry);
+        });
+
         app.MapPost("/v1/workspaces/{workspaceId}/catalog", async (
             HttpContext http, string workspaceId, CreatePrivateCatalogEntryRequest request,
             IWorkspaceAccessStore access, IPrivateAssetMetadataStore metadata, CancellationToken ct) =>
@@ -26,6 +48,18 @@ public static class PrivateAssetEndpoints
             if (!Text(request.Title, 200) || !Text(request.Artist, 200)) return Invalid("title", "Title and artist are required.");
             return Results.Ok(await metadata.CreateEntryAsync(
                 workspaceId, request.Title, request.Artist, selected.Principal.UserId, ct));
+        });
+
+        app.MapPut("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}", async (
+            HttpContext http, string workspaceId, string catalogEntryId, UpdatePrivateCatalogEntryRequest request,
+            IWorkspaceAccessStore access, IPrivateAssetMetadataStore metadata, CancellationToken ct) =>
+        {
+            var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, access, workspaceId, ct);
+            if (selected.Principal is null) return Results.Unauthorized();
+            if (selected.Access is null) return Results.NotFound();
+            if (!Text(request.Title, 200) || !Text(request.Artist, 200)) return Invalid("title", "Title and artist are required.");
+            var updated = await metadata.UpdateEntryAsync(workspaceId, catalogEntryId, request.Title, request.Artist, ct);
+            return updated is null ? Results.NotFound() : Results.Ok(updated);
         });
 
         app.MapPost("/v1/workspaces/{workspaceId}/catalog/{catalogEntryId}/asset-uploads", async (

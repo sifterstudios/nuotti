@@ -64,7 +64,7 @@ fi
 
 # Push a question
 echo "[smoke-test] Pushing question..."
-QUESTION='{"text":"What is the answer?","options":["Option A","Option B","Option C"],"sessionCode":"'$SESSION'","issuedByRole":2,"issuedById":"smoke-test"}'
+QUESTION='{"text":"What is the answer?","options":["Option A","Option B","Option C"],"sessionCode":"'$SESSION'","issuedByRole":0,"issuedById":"smoke-test"}'
 
 if curl -f -s -X POST "$BACKEND_URL/api/pushQuestion/$SESSION" \
     -H "Content-Type: application/json" \

@@ -142,11 +142,22 @@ services:
       # grants no client can reach.
       ConnectionStrings__assets: "DefaultEndpointsProtocol=https;AccountName=${AZURITE_ACCOUNT};AccountKey=${AZURITE_ACCOUNT_KEY};BlobEndpoint=https://assets.${NUOTTI_DOMAIN}/${AZURITE_ACCOUNT};"
 
-      # Workspace sign-in posts the magic-link token to this webhook
-      # (Workspaces/MagicLinkDelivery.cs). Outside Development the token is never
-      # returned in the HTTP response, so with this unset POST /v1/auth/magic-links
-      # logs "Magic-link delivery is not configured" and returns 503 -- nobody can
-      # sign in to Performer. Point it at your email service and uncomment.
+      # Magic-link email via Mailgun. With these four set, the Backend sends sign-in and
+      # invitation links itself; leave them unset and it falls back to posting the token
+      # to Nuotti__MagicLinkDeliveryUrl instead. With neither configured, sign-in returns
+      # 503 and nobody can reach Performer.
+      #
+      # BaseUrl defaults to the EU endpoint. A US-region key sent there fails as a plain
+      # 401, indistinguishable from a wrong key, so change it if your domain is US.
+      Nuotti__Mailgun__ApiKey: "${MAILGUN_API_KEY:-}"
+      Nuotti__Mailgun__Domain: "${MAILGUN_DOMAIN:-}"
+      Nuotti__Mailgun__From: "${MAILGUN_FROM:-}"
+      Nuotti__Mailgun__BaseUrl: "${MAILGUN_BASE_URL:-https://api.eu.mailgun.net}"
+      # Where the recipient lands. The Backend issues a bare token and never a URL, so
+      # this is the only place that knows what a magic link points at.
+      Nuotti__Mailgun__SignInUrl: "https://performer.${NUOTTI_DOMAIN}/signin"
+
+      # Alternative to Mailgun: post the raw token to an internal webhook of your own.
       # Nuotti__MagicLinkDeliveryUrl: "https://mail.${NUOTTI_DOMAIN}/hooks/magic-link"
 
       # Nuotti__InfrastructureProofEnabled is deliberately absent. It exposes an

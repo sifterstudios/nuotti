@@ -119,7 +119,7 @@ public partial class HintView : PhaseViewBase
             Background = GetBrush("SurfaceBrush"),
             BorderBrush = GetBrush("PrimaryBrush"),
             BorderThickness = new Thickness(3),
-            CornerRadius = new CornerRadius(16),
+            CornerRadius = new CornerRadius(0),
             Padding = new Thickness(24, 16),
             Margin = new Thickness(0, 8)
         };
@@ -133,7 +133,7 @@ public partial class HintView : PhaseViewBase
         var numberBadge = new Border
         {
             Background = GetBrush("PrimaryBrush"),
-            CornerRadius = new CornerRadius(20),
+            CornerRadius = new CornerRadius(0),
             Width = 40,
             Height = 40,
             Margin = new Thickness(0, 0, 16, 0),
@@ -199,13 +199,13 @@ public partial class HintView : PhaseViewBase
         if (Application.Current?.Resources.TryGetResource(resourceKey, Application.Current?.ActualThemeVariant, out var brush) == true && brush is IBrush b)
             return b;
         
-        // Fallback colors
+        // Fallback colors — Variant B dark stage
         return resourceKey switch
         {
-            "PrimaryBrush" => new SolidColorBrush(Color.Parse("#FF6B35")),
-            "SurfaceBrush" => new SolidColorBrush(Color.Parse("#FFFFFF")),
-            "TextPrimaryBrush" => new SolidColorBrush(Color.Parse("#1A1A1A")),
-            "TextSecondaryBrush" => new SolidColorBrush(Color.Parse("#666666")),
+            "PrimaryBrush" => new SolidColorBrush(Color.Parse("#00FFF5")),
+            "SurfaceBrush" => new SolidColorBrush(Color.Parse("#091115")),
+            "TextPrimaryBrush" => new SolidColorBrush(Color.Parse("#ECFFFF")),
+            "TextSecondaryBrush" => new SolidColorBrush(Color.Parse("#91A5AA")),
             _ => Brushes.Gray
         };
     }

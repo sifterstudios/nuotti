@@ -41,7 +41,7 @@
                     Background="{DynamicResource SurfaceBrush}"
                     BorderBrush="{DynamicResource DividerBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="0"
                     Padding="16"
                     IsVisible="False">
                 
@@ -73,7 +73,7 @@
                         Padding="20,12"
                         Background="{DynamicResource PrimaryBrush}"
                         Foreground="{DynamicResource OnPrimaryBrush}"
-                        CornerRadius="8"
+                        CornerRadius="0"
                         Click="OnRetryClick"/>
                 
                 <Button x:Name="BackButton"
@@ -83,7 +83,7 @@
                         Padding="20,12"
                         Background="{DynamicResource SecondaryBrush}"
                         Foreground="{DynamicResource TextPrimaryBrush}"
-                        CornerRadius="8"
+                        CornerRadius="0"
                         Click="OnBackClick"/>
                 
                 <Button x:Name="DetailsButton"
@@ -95,7 +95,7 @@
                         Foreground="{DynamicResource TextSecondaryBrush}"
                         BorderBrush="{DynamicResource DividerBrush}"
                         BorderThickness="1"
-                        CornerRadius="8"
+                        CornerRadius="0"
                         Click="OnDetailsClick"/>
             </StackPanel>
             

@@ -7,8 +7,8 @@ public class ThemeService : IAsyncDisposable
 {
     private readonly IJSRuntime? _jsRuntime;
     private DotNetObjectReference<ThemeService>? _objRef;
-    private bool _isDarkMode;
-    private ThemeVariant _currentVariant = ThemeVariant.Light;
+    private bool _isDarkMode = true;
+    private ThemeVariant _currentVariant = ThemeVariant.Dark;
     
     public bool IsDarkMode
     {
@@ -41,8 +41,8 @@ public class ThemeService : IAsyncDisposable
     public ThemeService(IJSRuntime? jsRuntime = null)
     {
         _jsRuntime = jsRuntime;
-        // Default to light mode - will be updated in InitializeAsync if JS runtime is available
-        _isDarkMode = false;
+        // Default to dark neon stage — updated in InitializeAsync from preference / system
+        _isDarkMode = true;
     }
     
     public async Task InitializeAsync(IJSRuntime? jsRuntime = null)
@@ -65,14 +65,14 @@ public class ThemeService : IAsyncDisposable
                 "light" => ThemeVariant.Light,
                 "dark" => ThemeVariant.Dark,
                 "highcontrast" => ThemeVariant.HighContrast,
-                _ => ThemeVariant.Light
+                _ => ThemeVariant.Dark
             };
             // HighContrast uses light theme base (white background)
             IsDarkMode = CurrentVariant == ThemeVariant.Dark;
         }
         else
         {
-            // Use system preference if available
+            // Prefer dark neon when system preference is unavailable
             try
             {
                 var prefersDark = await runtime.InvokeAsync<bool>("matchMedia", "(prefers-color-scheme: dark)");
@@ -81,9 +81,8 @@ public class ThemeService : IAsyncDisposable
             }
             catch
             {
-                // JS not available, use default
-                IsDarkMode = false;
-                CurrentVariant = ThemeVariant.Light;
+                IsDarkMode = true;
+                CurrentVariant = ThemeVariant.Dark;
             }
         }
         
@@ -206,6 +205,7 @@ public class ThemeService : IAsyncDisposable
         return new PaletteLight
         {
             Primary = palette.Primary,
+            PrimaryContrastText = palette.OnPrimary,
             Secondary = palette.Secondary,
             Tertiary = palette.Tertiary,
             Info = palette.Info,
@@ -228,6 +228,7 @@ public class ThemeService : IAsyncDisposable
         return new PaletteDark
         {
             Primary = palette.Primary,
+            PrimaryContrastText = palette.OnPrimary,
             Secondary = palette.Secondary,
             Tertiary = palette.Tertiary,
             Info = palette.Info,

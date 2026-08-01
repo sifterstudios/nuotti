@@ -27,6 +27,19 @@ public sealed class InMemoryPrivateAssetMetadataStore(TimeProvider? timeProvider
             && entry.WorkspaceId == workspaceId ? entry : null);
     }
 
+    public Task<PrivateCatalogEntry?> UpdateEntryAsync(string workspaceId, string catalogEntryId, string title, string artist,
+        CancellationToken cancellationToken = default)
+    {
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(catalogEntryId, out var entry) || entry.WorkspaceId != workspaceId)
+                return Task.FromResult<PrivateCatalogEntry?>(null);
+            var updated = entry with { Title = title.Trim(), Artist = artist.Trim() };
+            _entries[catalogEntryId] = updated;
+            return Task.FromResult<PrivateCatalogEntry?>(updated);
+        }
+    }
+
     public Task<IReadOnlyList<PrivateCatalogEntry>> ListEntriesAsync(string workspaceId,
         CancellationToken cancellationToken = default)
     {

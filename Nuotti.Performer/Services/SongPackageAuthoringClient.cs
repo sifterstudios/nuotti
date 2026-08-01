@@ -9,6 +9,38 @@ public sealed class SongPackageAuthoringClient(HttpClient http)
 {
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    public async Task<IReadOnlyList<CatalogEntryDto>> ListCatalogAsync(string workspaceId, string token,
+        CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Get,
+            $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/catalog", token);
+        using var response = await http.SendAsync(request, ct);
+        await EnsureAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<CatalogEntryDto[]>(Json, ct)) ?? [];
+    }
+
+    public async Task<CatalogEntryDto> CreateCatalogEntryAsync(string workspaceId, string token,
+        string title, string artist, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Post,
+            $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/catalog", token,
+            new { title, artist });
+        using var response = await http.SendAsync(request, ct);
+        await EnsureAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<CatalogEntryDto>(Json, ct))!;
+    }
+
+    public async Task<CatalogEntryDto> UpdateCatalogEntryAsync(string workspaceId, string catalogEntryId, string token,
+        string title, string artist, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put,
+            $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/catalog/{Uri.EscapeDataString(catalogEntryId)}",
+            token, new { title, artist });
+        using var response = await http.SendAsync(request, ct);
+        await EnsureAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<CatalogEntryDto>(Json, ct))!;
+    }
+
     public async Task<AuthoringDocument?> GetAsync(string workspaceId, string catalogEntryId, string token,
         CancellationToken ct = default)
     {
@@ -43,14 +75,45 @@ public sealed class SongPackageAuthoringClient(HttpClient http)
     }
 
     public async Task<PublishedPackage> PublishAsync(string workspaceId, string catalogEntryId, string token,
-        string revisionNote, IReadOnlyCollection<string> acceptedWarnings, CancellationToken ct = default)
+        IReadOnlyCollection<string> acceptedWarnings, CancellationToken ct = default)
     {
         using var request = Request(HttpMethod.Post,
             $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/catalog/{Uri.EscapeDataString(catalogEntryId)}/package/publish",
-            token, new { revisionNote, acceptedWarningCodes = acceptedWarnings });
+            token, new { acceptedWarningCodes = acceptedWarnings });
         using var response = await http.SendAsync(request, ct);
         await EnsureAsync(response, ct);
         return (await response.Content.ReadFromJsonAsync<PublishedPackage>(Json, ct))!;
+    }
+
+    public async Task<IReadOnlyList<PublishedLibrarySongDto>> ListPublishedLibraryAsync(string workspaceId, string token,
+        CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Get,
+            $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/library/published", token);
+        using var response = await http.SendAsync(request, ct);
+        await EnsureAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<PublishedLibrarySongDto[]>(Json, ct)) ?? [];
+    }
+
+    public async Task<WorkspaceSetlistDto> GetSetlistAsync(string workspaceId, string token,
+        CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Get,
+            $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/setlist", token);
+        using var response = await http.SendAsync(request, ct);
+        await EnsureAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<WorkspaceSetlistDto>(Json, ct))!;
+    }
+
+    public async Task<WorkspaceSetlistDto> SaveSetlistAsync(string workspaceId, string token,
+        IReadOnlyList<SetlistSongDto> songs, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put,
+            $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/setlist", token,
+            new { songs });
+        using var response = await http.SendAsync(request, ct);
+        await EnsureAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<WorkspaceSetlistDto>(Json, ct))!;
     }
 
     static HttpRequestMessage Request(HttpMethod method, string path, string token, object? body = null)
@@ -101,3 +164,8 @@ public sealed record AuthoringReadiness(bool CanPublish, IReadOnlyList<Authoring
     AuthoringPreview Preview);
 public sealed record PublishedPackage(string RevisionId, int RevisionNumber, DateTimeOffset PublishedAt);
 public sealed record AuthoringProblem(string Title, string Detail);
+public sealed record PublishedLibrarySongDto(string CatalogEntryId, string Title, string Artist,
+    string PackageRevisionId, int RevisionNumber, DateTimeOffset PublishedAt);
+public sealed record SetlistSongDto(string PackageRevisionId, string? LyricTrackRevisionId = null);
+public sealed record WorkspaceSetlistDto(string WorkspaceId, IReadOnlyList<SetlistSongDto> Songs,
+    DateTimeOffset UpdatedAt, string UpdatedBy);

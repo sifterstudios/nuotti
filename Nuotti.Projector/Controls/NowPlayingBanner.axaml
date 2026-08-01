@@ -4,7 +4,7 @@
     
     <Border x:Name="BannerBorder"
             Background="{DynamicResource PrimaryBrush}"
-            CornerRadius="8"
+            CornerRadius="0"
             Padding="16,8"
             Margin="16"
             IsVisible="{Binding IsPlaying}"

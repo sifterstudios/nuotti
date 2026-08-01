@@ -19,6 +19,7 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
         _idleTimeout = TimeSpan.FromSeconds(Math.Max(1, options.Value.SessionIdleTimeoutSeconds));
         _scanInterval = TimeSpan.FromSeconds(Math.Max(1, options.Value.SessionEvictionIntervalSeconds));
         _timer = _time.CreateTimer(Scan, null, _scanInterval, _scanInterval);
+        Console.WriteLine($"[InMemorySessionStore] Initialized, scan interval={_scanInterval.TotalSeconds}s");
     }
 
     public void Touch(string session, string role, string connectionId, string? audienceName = null)
@@ -81,6 +82,7 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
     void Scan(object? _)
     {
         var now = _time.GetUtcNow();
+        Console.WriteLine($"[Scan] Scanning {_sessions.Count} sessions");
         foreach (var kvp in _sessions)
         {
             var sess = kvp.Key;

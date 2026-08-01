@@ -83,7 +83,7 @@ public sealed class OneSongWalkingSkeletonTests(WebApplicationFactory<QuizHub> b
             member.SessionToken, document)).EnsureSuccessStatusCode();
         var publishResponse = await SendAsync(client, HttpMethod.Post,
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/package/publish",
-            member.SessionToken, new { revisionNote = "Walk", acceptedWarningCodes = Array.Empty<string>() });
+            member.SessionToken, new { acceptedWarningCodes = Array.Empty<string>() });
         if (!publishResponse.IsSuccessStatusCode)
         {
             var body = await publishResponse.Content.ReadAsStringAsync();

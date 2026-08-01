@@ -17,16 +17,16 @@ html, body {
 }
 
 ::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: #091115;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
+    background: #17363A;
+    border-radius: 0;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: #00FFF5;
 }
 
 /* Loading animation */
@@ -36,8 +36,8 @@ html, body {
 }
 
 .loading-spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #594ae2;
+    border: 4px solid #17363A;
+    border-top: 4px solid #00FFF5;
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -69,6 +69,52 @@ html, body {
 /* Add some visual polish to chips */
 .mud-chip {
     font-weight: 500;
+}
+
+/* Sharp neon chrome — Mud hardcodes pill radii on chips and 50% on icon buttons */
+.mud-chip,
+.mud-chip.mud-chip-size-small,
+.mud-chip.mud-chip-size-medium,
+.mud-chip.mud-chip-size-large {
+    border-radius: 0 !important;
+}
+
+.mud-icon-button {
+    border-radius: 0 !important;
+}
+
+.mud-button-root,
+.mud-paper,
+.mud-alert,
+.mud-input-outlined .mud-input-outlined-border {
+    border-radius: var(--mud-default-borderradius) !important;
+}
+
+/* Song Package light theme (MudThemeProvider applies mud-theme-light) */
+.mud-theme-light .package-page {
+    --cyan: #007a74;
+    --on-cyan: #ffffff;
+    --panel: #ffffff;
+    --line: #c5d4d8;
+    --muted: #4a6068;
+    --ink: #0a1518;
+    --input-bg: #f0f7f8;
+    --input-line: #c5d4d8;
+    --btn-bg: #e5f0f2;
+    --progress-track: #c5d4d8;
+    --badge-bg: #e5f0f2;
+    --mode-selected-bg: #d8f3f1;
+    --success-bg: #e6f5ef;
+    --success-ink: #1f7a5c;
+    --error-bg: #fde8ee;
+    --error-ink: #c41e4a;
+    --projector-bg: #f0f7f8;
+    --projector-line: #c5d4d8;
+    --projector-body: #0a1518;
+    --projector-footer: #4a6068;
+    --ready: #1f7a5c;
+    --warn: #b35c00;
+    --block: #c41e4a;
 }
 
 /* Better table cell padding */

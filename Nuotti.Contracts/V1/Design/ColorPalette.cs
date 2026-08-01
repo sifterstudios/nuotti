@@ -2,27 +2,27 @@ namespace Nuotti.Contracts.V1.Design;
 
 /// <summary>
 /// Represents a complete color palette for a theme variant.
-/// All colors are in hex format (e.g., "#FF6B35").
+/// All colors are in hex format (e.g., "#00FFF5").
 /// </summary>
 public class ColorPalette
 {
     /// <summary>
-    /// Primary brand color - vibrant orange (Kahoot-inspired).
+    /// Primary brand color — neon cyan (stage accent).
     /// </summary>
     public string Primary { get; set; } = string.Empty;
     
     /// <summary>
-    /// Secondary brand color - deep blue.
+    /// Secondary brand color — deep teal panel.
     /// </summary>
     public string Secondary { get; set; } = string.Empty;
     
     /// <summary>
-    /// Tertiary accent color - teal.
+    /// Tertiary accent color — soft teal.
     /// </summary>
     public string Tertiary { get; set; } = string.Empty;
     
     /// <summary>
-    /// Informational color - bright cyan.
+    /// Informational color — cyan.
     /// </summary>
     public string Info { get; set; } = string.Empty;
     

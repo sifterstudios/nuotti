@@ -44,7 +44,7 @@
                     Padding="20,12"
                     Background="{DynamicResource PrimaryBrush}"
                     Foreground="White"
-                    CornerRadius="8"
+                    CornerRadius="0"
                     HorizontalAlignment="Center"
                     IsVisible="False"
                     Click="OnActionClick"/>

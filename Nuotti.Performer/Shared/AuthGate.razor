@@ -1,0 +1,46 @@
+@using Nuotti.Performer.Services
+@inject WorkspaceSession Session
+@inject NavigationManager Nav
+
+@if (IsSignInPage || _checked && Session.IsReady)
+{
+    @ChildContent
+}
+else if (_checked)
+{
+    @* Redirect already issued; this is what the browser shows for the instant before it lands. *@
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+        <MudText Typo="Typo.body1" Color="Color.Secondary">Redirecting to sign in&hellip;</MudText>
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    </MudContainer>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    bool _checked;
+
+    bool IsSignInPage =>
+        Nav.ToBaseRelativePath(Nav.Uri).TrimStart('/').StartsWith("signin", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Runs after render, not on initialize: the stored token lives in ProtectedLocalStorage,
+    /// which needs a JS runtime that prerendering does not have. Checking earlier would decide
+    /// "not signed in" for every user on every first paint.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _checked || IsSignInPage) return;
+
+        await Session.EnsureReadyAsync();
+        _checked = true;
+
+        if (!Session.IsReady) Nav.NavigateTo("/signin");
+        StateHasChanged();
+    }
+}

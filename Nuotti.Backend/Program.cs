@@ -17,6 +17,7 @@ using Nuotti.Backend.ShowAgents;
 using Nuotti.Backend.Assets;
 using Nuotti.Backend.SongPackages;
 using Nuotti.Backend.SessionSnapshots;
+using Nuotti.Backend.Setlists;
 using Nuotti.Contracts.V1.Eventing;
 using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
@@ -118,8 +119,20 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<ILogStreamer, LogStreamer>();
+// Magic-link delivery. Mailgun wins when its section is configured; otherwise the internal
+// webhook adapter stays in place. Neither is a no-op: with nothing configured, sign-in fails
+// loudly rather than pretending a mail was sent.
 builder.Services.AddHttpClient(nameof(HttpMagicLinkDelivery));
-builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
+builder.Services.AddHttpClient(MailgunMagicLinkDelivery.HttpClientName);
+builder.Services
+    .AddOptions<MailgunOptions>()
+    .Bind(builder.Configuration.GetSection(MailgunOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<MailgunOptions>, MailgunOptionsValidator>();
+if (builder.Configuration.GetSection(MailgunOptions.SectionName).Get<MailgunOptions>()?.IsConfigured == true)
+    builder.Services.AddSingleton<IMagicLinkDelivery, MailgunMagicLinkDelivery>();
+else
+    builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
 builder.Services.AddSingleton<ISessionStore, InMemorySessionStore>();
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
@@ -134,6 +147,7 @@ if (!string.IsNullOrWhiteSpace(databaseConnection))
     builder.Services.AddSingleton<IPrivateAssetMetadataStore, PostgresPrivateAssetMetadataStore>();
     builder.Services.AddSingleton<ISongPackageStore, PostgresSongPackageStore>();
     builder.Services.AddSingleton<ISessionSetlistSnapshotStore, PostgresSessionSetlistSnapshotStore>();
+    builder.Services.AddSingleton<IWorkspaceSetlistStore, PostgresWorkspaceSetlistStore>();
     builder.Services.AddSingleton<ILyricTrackRevisionStore, PostgresLyricTrackRevisionStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, PostgresDurableSessionCommitStore>();
 }
@@ -146,6 +160,7 @@ else
     builder.Services.AddSingleton<IPrivateAssetMetadataStore, InMemoryPrivateAssetMetadataStore>();
     builder.Services.AddSingleton<ISongPackageStore, InMemorySongPackageStore>();
     builder.Services.AddSingleton<ISessionSetlistSnapshotStore, InMemorySessionSetlistSnapshotStore>();
+    builder.Services.AddSingleton<IWorkspaceSetlistStore, InMemoryWorkspaceSetlistStore>();
     builder.Services.AddSingleton<ILyricTrackRevisionStore, InMemoryLyricTrackRevisionStore>();
     builder.Services.AddSingleton<IDurableSessionCommitStore, InMemoryDurableSessionCommitStore>();
 }
@@ -205,6 +220,13 @@ builder.Services.AddSingleton<ShowAgentCommandSubscriber>();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    await DevelopmentWorkspaceBootstrap.EnsureAsync(
+        app.Services.GetRequiredService<IWorkspaceAccessStore>(),
+        app.Configuration);
+}
+
 app.UseCors("NuottiCors");
 app.UseRateLimiter();
 app.UseMiddleware<Nuotti.Backend.Middleware.CorrelationIdMiddleware>();
@@ -238,6 +260,7 @@ app.MapWorkspaceEndpoints();
 app.MapShowAgentEndpoints();
 app.MapPrivateAssetEndpoints();
 app.MapSongPackageEndpoints();
+app.MapWorkspaceSetlistEndpoints();
 app.MapSessionSnapshotEndpoints();
 app.MapRecoveryEndpoints();
 app.MapGovernanceEndpoints();
@@ -248,6 +271,7 @@ _ = app.Services.GetRequiredService<HubBroadcastSubscriber>();
 _ = app.Services.GetRequiredService<MetricsSubscriber>();
 _ = app.Services.GetRequiredService<LogStreamSubscriber>();
 _ = app.Services.GetRequiredService<ShowAgentCommandSubscriber>();
+_ = app.Services.GetRequiredService<ISessionStore>(); // Force session store initialization
 
 var productionGovernance = app.Services.GetRequiredService<Nuotti.Backend.Governance.ProductionGovernance>();
 productionGovernance.LogLevelSwitch = app.Services.GetService<LogLevelSwitchService>();

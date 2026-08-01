@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#FF6B35",
+  "theme_color": "#00FFF5",
   "background_color": "#FAFAFA",
   "categories": ["games", "entertainment", "music"],
   "icons": [

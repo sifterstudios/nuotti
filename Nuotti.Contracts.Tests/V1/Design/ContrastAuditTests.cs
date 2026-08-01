@@ -79,36 +79,51 @@ public class ContrastAuditTests
     public void LightTheme_PrimaryButton_Text_On_Primary_Background_MeetsWCAGAA()
     {
         var palette = DesignTokens.LightPalette;
-        // For primary buttons, text should be white/light on primary color
-        // Using white (#FFFFFF) as typical button text color
-        var contrastRatio = ContrastCalculator.CalculateContrastRatio("#FFFFFF", palette.Primary);
+        // Neon primary uses OnPrimary ink (white on deepened cyan in light; dark ink on bright cyan in dark).
+        var contrastRatio = ContrastCalculator.CalculateContrastRatio(palette.OnPrimary, palette.Primary);
         
         ContrastCalculator.MeetsWCAGAA(contrastRatio).Should().BeTrue(
-            $"White text on Primary background should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
+            $"OnPrimary on Primary should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
     }
     
     [Fact]
     public void DarkTheme_PrimaryButton_Text_On_Primary_Background_MeetsWCAGAA()
     {
         var palette = DesignTokens.DarkPalette;
-        // For primary buttons, text should be white/light on primary color
-        var contrastRatio = ContrastCalculator.CalculateContrastRatio("#FFFFFF", palette.Primary);
+        var contrastRatio = ContrastCalculator.CalculateContrastRatio(palette.OnPrimary, palette.Primary);
         
         ContrastCalculator.MeetsWCAGAA(contrastRatio).Should().BeTrue(
-            $"White text on Primary background should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
+            $"OnPrimary on Primary should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
     }
     
     [Fact]
     public void HighContrastTheme_PrimaryButton_Text_On_Primary_Background_MeetsWCAGAA()
     {
         var palette = DesignTokens.HighContrastPalette;
-        // For primary buttons, text should be white/light on primary color
-        var contrastRatio = ContrastCalculator.CalculateContrastRatio("#FFFFFF", palette.Primary);
+        var contrastRatio = ContrastCalculator.CalculateContrastRatio(palette.OnPrimary, palette.Primary);
         
         ContrastCalculator.MeetsWCAGAA(contrastRatio).Should().BeTrue(
-            $"White text on Primary background should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
+            $"OnPrimary on Primary should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
     }
     
+    [Fact]
+    public void LightTheme_Info_On_Surface_MeetsWCAGAA()
+    {
+        var palette = DesignTokens.LightPalette;
+        var contrastRatio = ContrastCalculator.CalculateContrastRatio(palette.Info, palette.Surface);
+        ContrastCalculator.MeetsWCAGAA(contrastRatio).Should().BeTrue(
+            $"Info on Surface should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
+    }
+
+    [Fact]
+    public void DarkTheme_TextSecondary_On_Surface_MeetsWCAGAA()
+    {
+        var palette = DesignTokens.DarkPalette;
+        var contrastRatio = ContrastCalculator.CalculateContrastRatio(palette.TextSecondary, palette.Surface);
+        ContrastCalculator.MeetsWCAGAA(contrastRatio).Should().BeTrue(
+            $"Dark TextSecondary on Surface should meet WCAG AA (4.5:1), but got {contrastRatio:F2}:1");
+    }
+
     [Fact]
     public void LightTheme_Error_Text_On_Background_MeetsWCAGAA()
     {

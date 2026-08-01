@@ -42,11 +42,11 @@ public sealed class SongPackageJourneyTests(WebApplicationFactory<QuizHub> baseF
 
         var blockedPublish = await SendAsync(client, HttpMethod.Post,
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/package/publish",
-            member.SessionToken, new { revisionNote = "Initial live package", acceptedWarningCodes = Array.Empty<string>() });
+            member.SessionToken, new { acceptedWarningCodes = Array.Empty<string>() });
         Assert.Equal(HttpStatusCode.UnprocessableEntity, blockedPublish.StatusCode);
         var published = await PostAsync<SongPackageRevision>(client,
             $"/v1/workspaces/{workspace.WorkspaceId}/catalog/{entry.CatalogEntryId}/package/publish",
-            member.SessionToken, new { revisionNote = "Initial live package", acceptedWarningCodes = new[] { "lyrics.missing" } });
+            member.SessionToken, new { acceptedWarningCodes = new[] { "lyrics.missing" } });
         Assert.Equal(1, published.RevisionNumber);
         Assert.Equal(["lyrics.missing"], published.AcceptedWarningCodes);
 

@@ -1,6 +1,9 @@
 @page "/song-package"
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.WebUtilities
 @inject SongPackageAuthoringClient Packages
+@inject WorkspaceSession Session
+@inject NavigationManager Nav
 
 <PageTitle>Song Package readiness · Nuotti</PageTitle>
 
@@ -12,27 +15,31 @@
             <p>Tracks, routing, Hints, lyrics, timing, and Projector preview on one master timeline.</p>
         </div>
         <div class="package-actions">
-            <button @onclick="LoadAsync" disabled="@Busy">Open draft</button>
-            <button @onclick="SaveAsync" disabled="@Busy">Save draft</button>
-            <button class="cyan" @onclick="RunPreflightAsync" disabled="@Busy">Run preflight</button>
+            <button @onclick="LoadAsync" disabled="@(Busy || !HasEntry)">Open draft</button>
+            <button @onclick="SaveAsync" disabled="@(Busy || !HasEntry)">Save draft</button>
+            <button class="cyan" @onclick="RunPreflightAsync" disabled="@(Busy || !HasEntry)">Run preflight</button>
         </div>
     </header>
 
-    <details class="connection-details">
-        <summary>Development connection</summary>
-        <section class="connection-card">
-            <label>Workspace ID<input @bind="WorkspaceId" placeholder="ws_…" /></label>
-            <label>Song Library entry ID<input @bind="CatalogEntryId" placeholder="entry_…" /></label>
-            <label>Member session token<input type="password" @bind="SessionToken" autocomplete="off" /></label>
-        </section>
-        <p>This temporary connection panel will be replaced by the signed-in Workspace and Song Library selection.</p>
-    </details>
+    @if (!string.IsNullOrWhiteSpace(Session.Error))
+    {
+        <div class="package-message error">@Session.Error</div>
+    }
+    else if (!HasEntry)
+    {
+        <div class="package-empty">
+            <p class="package-eyebrow">No song selected</p>
+            <p>Pick a song in the <a href="/song-library">Song Library</a> and open its package to author and dry-run.</p>
+        </div>
+    }
 
     @if (!string.IsNullOrWhiteSpace(Message))
     {
         <div class="package-message @(IsError ? "error" : "success")">@Message</div>
     }
 
+    @if (HasEntry)
+    {
     <div class="package-readiness-strip">
         <div><strong>@ReadinessPercent%</strong><span>ready to publish</span></div>
         <div class="package-progress"><i style="width:@(ReadinessPercent)%"></i></div>
@@ -156,24 +163,25 @@
                         }
                     </div>
                 }
-                <label>Revision note<textarea @bind="RevisionNote" placeholder="What changed in this revision?"></textarea></label>
                 <button class="cyan wide" @onclick="PublishAsync" disabled="@(Busy || Readiness?.CanPublish != true)">Publish immutable revision</button>
             </section>
         </aside>
     </div>
+    }
 </div>
 
 @code {
-    string WorkspaceId = ""; string CatalogEntryId = ""; string SessionToken = "";
+    string CatalogEntryId = "";
     AuthoringPlaybackMode PlaybackMode = AuthoringPlaybackMode.BackingWithClick;
     string? BackingRevision; string? ClickRevision; long SongStartOffsetMs; long? MasterDurationMs;
     long? BackingDurationMs; long? ClickDurationMs; string BackingChannels = "1,2"; string ClickChannels = "3";
-    bool IncludeLyrics; string Lrc = ""; long LyricOffsetMs; string RevisionNote = "";
+    bool IncludeLyrics; string Lrc = ""; long LyricOffsetMs;
     readonly List<HintEditor> Hints = [new() { Type = AuthoringHintType.Text, Text = "" }];
     readonly HashSet<string> AcceptedWarnings = new(StringComparer.Ordinal);
     AuthoringReadiness? Readiness; bool Busy; bool IsError; string? Message;
     long PreflightGeneration;
 
+    bool HasEntry => !string.IsNullOrWhiteSpace(CatalogEntryId);
     bool NeedsBacking => PlaybackMode is AuthoringPlaybackMode.BackingOnly or AuthoringPlaybackMode.BackingWithClick;
     bool NeedsClick => PlaybackMode is AuthoringPlaybackMode.ClickOnly or AuthoringPlaybackMode.BackingWithClick;
     int BlockingCount => Readiness?.Findings.Count(x => x.Severity == AuthoringSeverity.Blocking) ?? 0;
@@ -183,17 +191,36 @@
             || x.Severity == AuthoringSeverity.Warning && AcceptedWarnings.Contains(x.Code)) / Readiness.Findings.Count);
     int OffsetPercent => MasterDurationMs is > 0 ? (int)Math.Clamp(100 * SongStartOffsetMs / MasterDurationMs.Value, 0, 90) : 0;
 
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.EnsureReadyAsync();
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("catalogEntryId", out var fromQuery)
+            && !string.IsNullOrWhiteSpace(fromQuery))
+        {
+            CatalogEntryId = fromQuery.ToString();
+            Session.CatalogEntryId = CatalogEntryId;
+        }
+        else if (!string.IsNullOrWhiteSpace(Session.CatalogEntryId))
+        {
+            CatalogEntryId = Session.CatalogEntryId;
+        }
+
+        if (HasEntry && Session.IsReady)
+            await LoadAsync();
+    }
+
     async Task LoadAsync() => await ExecuteAsync(async () =>
     {
         EnsureConnection();
-        var document = await Packages.GetAsync(WorkspaceId, CatalogEntryId, SessionToken);
+        var document = await Packages.GetAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!);
         if (document is null) { Message = "No draft exists for this Song Library entry yet."; return; }
         Hydrate(document); Readiness = null; AcceptedWarnings.Clear(); Message = "Draft opened.";
     });
 
     async Task SaveAsync() => await ExecuteAsync(async () =>
     {
-        EnsureConnection(); await Packages.SaveAsync(WorkspaceId, CatalogEntryId, SessionToken, BuildDocument());
+        EnsureConnection(); await Packages.SaveAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!, BuildDocument());
         Message = "Draft saved.";
     });
     async Task RunPreflightAsync()
@@ -202,8 +229,8 @@
         var accepted = AcceptedWarnings.ToArray();
         await ExecuteAsync(async () =>
         {
-            EnsureConnection(); await Packages.SaveAsync(WorkspaceId, CatalogEntryId, SessionToken, BuildDocument());
-            var readiness = await Packages.EvaluateAsync(WorkspaceId, CatalogEntryId, SessionToken, accepted);
+            EnsureConnection(); await Packages.SaveAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!, BuildDocument());
+            var readiness = await Packages.EvaluateAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!, accepted);
             if (generation != PreflightGeneration) return;
             Readiness = readiness;
             Message = readiness.CanPublish ? "Preflight passed." : "Preflight found items requiring attention.";
@@ -212,14 +239,14 @@
     async Task PublishAsync() => await ExecuteAsync(async () =>
     {
         EnsureConnection();
-        await Packages.SaveAsync(WorkspaceId, CatalogEntryId, SessionToken, BuildDocument());
-        Readiness = await Packages.EvaluateAsync(WorkspaceId, CatalogEntryId, SessionToken, AcceptedWarnings.ToArray());
+        await Packages.SaveAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!, BuildDocument());
+        Readiness = await Packages.EvaluateAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!, AcceptedWarnings.ToArray());
         if (!Readiness.CanPublish)
         {
             Message = "The package changed or preflight no longer passes. Resolve the current checks before publishing.";
             return;
         }
-        var published = await Packages.PublishAsync(WorkspaceId, CatalogEntryId, SessionToken, RevisionNote, AcceptedWarnings);
+        var published = await Packages.PublishAsync(Session.WorkspaceId!, CatalogEntryId, Session.SessionToken!, AcceptedWarnings);
         Message = $"Published immutable revision {published.RevisionNumber}.";
     });
     async Task ExecuteAsync(Func<Task> action)
@@ -231,8 +258,10 @@
     }
     void EnsureConnection()
     {
-        if (string.IsNullOrWhiteSpace(WorkspaceId) || string.IsNullOrWhiteSpace(CatalogEntryId)
-            || string.IsNullOrWhiteSpace(SessionToken)) throw new InvalidOperationException("Workspace, Catalog entry, and member session token are required.");
+        if (!Session.IsReady)
+            throw new InvalidOperationException(Session.Error ?? "Workspace session is not ready.");
+        if (string.IsNullOrWhiteSpace(CatalogEntryId))
+            throw new InvalidOperationException("Select a song from the Song Library first.");
     }
     AuthoringDocument BuildDocument() => new(
         new(PlaybackMode, NeedsBacking ? NullIfBlank(BackingRevision) : null, NeedsClick ? NullIfBlank(ClickRevision) : null,
