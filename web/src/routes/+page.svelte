@@ -8,7 +8,10 @@
   <meta name="theme-color" content="#00FFF5" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700;800&display=swap"
+    rel="stylesheet"
+  />
 </svelte:head>
 
 <main>
@@ -42,9 +45,7 @@
     align-content: center;
     gap: 0.75rem;
     padding: clamp(2rem, 6vw, 4rem);
-    background:
-      linear-gradient(180deg, rgba(0, 255, 245, 0.06), transparent 42%),
-      var(--bg);
+    background: linear-gradient(180deg, rgba(0, 255, 245, 0.06), transparent 42%), var(--bg);
     border-left: 4px solid var(--cyan);
     font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   }

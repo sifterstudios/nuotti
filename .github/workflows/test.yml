@@ -59,13 +59,17 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # npm scripts, so these run the pinned local eslint/prettier rather than whatever version
+      # npx resolves. --ext is also gone: ESLint 9 removed it, and flat config selects files
+      # itself. Previously neither tool was a dependency, so npx fetched the newest major -
+      # eslint@10 - which could not read the legacy .eslintrc.json at all.
       - name: Run ESLint
         working-directory: web
-        run: npx eslint . --ext .js,.ts,.svelte --max-warnings 0 || (echo "ESLint errors found" && exit 1)
+        run: npm run lint
 
       - name: Run Prettier check
         working-directory: web
-        run: npx prettier --check . || (echo "Prettier formatting errors found" && exit 1)
+        run: npm run format:check
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

@@ -1,0 +1,7 @@
+# Generated output
+build/
+.svelte-kit/
+node_modules/
+
+# Lockfile: npm owns its formatting
+package-lock.json
