@@ -27,10 +27,30 @@ deploys them.
 SSH into Unraid:
 
 ```bash
-mkdir -p /mnt/user/appdata/nuotti/logs /mnt/user/appdata/nuotti/performer-dpkeys
+mkdir -p /mnt/user/appdata/nuotti/{logs,performer-dpkeys,grafana,loki,alloy,observability/grafana/provisioning/datasources}
 cat > /mnt/user/appdata/nuotti/audience-appsettings.json <<'JSON'
 {"BackendUrl":"https://api.nuotti.app"}
 JSON
+```
+
+Copy the observability configs from this repo onto the Unraid share (required before
+`loki` / `alloy` / `grafana` can start — Compose Manager pastes only the YAML, not these files):
+
+```bash
+# From a machine that has the repo checked out, or paste the file contents on Unraid:
+cp deploy/observability/loki-config.yml \
+  /mnt/user/appdata/nuotti/observability/loki-config.yml
+cp deploy/observability/alloy-config.alloy \
+  /mnt/user/appdata/nuotti/observability/alloy-config.alloy
+cp deploy/observability/grafana/provisioning/datasources/loki.yml \
+  /mnt/user/appdata/nuotti/observability/grafana/provisioning/datasources/loki.yml
+```
+
+Grafana and Loki run as non-root users. If either container exits on permission errors:
+
+```bash
+chown -R 472:472 /mnt/user/appdata/nuotti/grafana
+chown -R 10001:10001 /mnt/user/appdata/nuotti/loki
 ```
 
 The Audience image is domain-agnostic; this file is the only thing that points it at your
@@ -47,6 +67,7 @@ NUOTTI_DOMAIN=nuotti.app
 POSTGRES_PASSWORD=$(openssl rand -base64 24)
 AZURITE_ACCOUNT=nuottiassets
 AZURITE_ACCOUNT_KEY=$(openssl rand -base64 32)
+GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 24)
 ```
 
 > **Do not use Azurite's default `devstoreaccount1` account.** Its key is published in
@@ -56,9 +77,11 @@ AZURITE_ACCOUNT_KEY=$(openssl rand -base64 32)
 
 ### 3. Paste `docker-compose.unraid.yml` into the Compose Manager
 
-Use the file in this directory verbatim. It brings up seven containers: `postgres`, `redis`,
-`azurite`, `api`, `performer`, `audience`, `web`. Postgres and Redis publish no host ports and
-are reachable only on the internal `nuotti` network.
+Use the file in this directory verbatim. It brings up ten containers: `postgres`, `redis`,
+`azurite`, `api`, `performer`, `audience`, `web`, `loki`, `alloy`, `grafana`. Postgres, Redis,
+Loki, and Alloy publish no host ports and are reachable only on the internal `nuotti` network.
+Grafana listens on host port `5580` for LAN access only — do not add a Cloudflare Tunnel
+hostname for it without SSO or another auth layer in front.
 
 ### 4. Configure the Cloudflare Tunnel
 
@@ -142,6 +165,30 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://api.<domain>/v1/auth/ma
 `202` means Mailgun accepted it. `503` means delivery is unconfigured or Mailgun rejected the
 send — `docker logs nuotti-api` carries Mailgun's own reason in that case.
 
+### 8. Observability (Grafana + Loki + Alloy)
+
+Alloy scrapes stdout from every `nuotti-*` container (except the log stack itself) and ships
+it to Loki. Grafana is the Explore UI — the Aspire-like multi-service log view for production.
+
+1. Open `http://<unraid-ip>:5580` on your LAN.
+2. Sign in as `admin` / your `GRAFANA_ADMIN_PASSWORD`.
+3. **Explore** → datasource **Loki** → query e.g. `{container="nuotti-api"}`.
+
+Useful LogQL filters:
+
+```logql
+{container="nuotti-api"}
+{container=~"nuotti-(api|performer)"}
+{service="api"} |= "error"
+```
+
+**Do not** expose Grafana on Cloudflare unless you add SSO or another gate in front. The
+admin password alone is not enough for a public hostname.
+
+To raise Serilog verbosity temporarily while digging in Grafana, set `NUOTTI_LOG_LEVEL=Information`
+in the stack `.env` and recreate `api` (and `performer` if needed), then put it back to
+`Warning`.
+
 ---
 
 ## Updating
@@ -188,11 +235,18 @@ reach. Check that `BlobEndpoint` in the Backend's `ConnectionStrings__assets` is
 
 **Logs**
 
+Prefer Grafana on the LAN (`http://<unraid-ip>:5580` → Explore → Loki) for multi-container
+browsing. Fallback:
+
 ```bash
 docker logs nuotti-api -f
 docker logs nuotti-performer -f
 ls /mnt/user/appdata/nuotti/logs/Nuotti.Backend/   # 30-day audit trail
 ```
+
+If Grafana Explore is empty: check `docker logs nuotti-alloy` (needs the docker socket and
+a healthy Loki), and confirm the config files exist under
+`/mnt/user/appdata/nuotti/observability/`.
 
 ---
 
@@ -224,5 +278,6 @@ docker compose -f deploy/docker-compose.local.yml up -d --build   # Linux/Mac
 | `docker-compose.unraid.yml` | Hosted stack for Unraid |
 | `.env.unraid.example` | Template for the stack `.env` (secrets; copy to `.env`, never commit) |
 | `audience-appsettings.unraid.json` | Template for the Audience `BackendUrl` file |
+| `observability/` | Loki, Alloy, and Grafana provisioning configs (copy onto Unraid appdata) |
 | `docker-compose.local.yml` | Local container subset, used by `tools/up-local.ps1` |
 | `UNRAID-UI-GUIDE.txt` | Click-by-click walkthrough of the Unraid Compose Manager |

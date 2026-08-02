@@ -6,14 +6,16 @@
 #   performer                   - Nuotti.Performer (Blazor Server)
 #   audience                    - Nuotti.Audience (Blazor WASM, static)
 #   web                         - marketing site (SvelteKit, static)
+#   loki / alloy / grafana      - multi-container log browsing (LAN only)
 #
 # Nuotti.Projector and Nuotti.AudioEngine are venue-local and are NOT deployed here.
 #
 # Prerequisites:
-#   1. mkdir -p /mnt/user/appdata/nuotti
-#   2. Put a .env next to this compose file (see .env.unraid.example). Unraid's Compose
+#   1. mkdir -p /mnt/user/appdata/nuotti/{logs,performer-dpkeys,grafana,loki,alloy,observability}
+#   2. Copy deploy/observability/* into /mnt/user/appdata/nuotti/observability/ (see README).
+#   3. Put a .env next to this compose file (see .env.unraid.example). Unraid's Compose
 #      Manager: "Edit Stack" -> the .env tab. Every ${VAR} below is read from that file.
-#   3. Create /mnt/user/appdata/nuotti/audience-appsettings.json (see deploy/README.md).
+#   4. Create /mnt/user/appdata/nuotti/audience-appsettings.json (see deploy/README.md).
 #
 # Deploy:
 #   docker compose -f deploy/docker-compose.unraid.yml pull
@@ -233,6 +235,66 @@ services:
     restart: unless-stopped
     ports:
       - "5380:80"     # Cloudflare Tunnel -> ${NUOTTI_DOMAIN}
+    networks:
+      - nuotti
+
+  # ---------------------------------------------------------------------------
+  # Observability — Aspire-like multi-container logs (LAN only).
+  # Copy configs from deploy/observability/ into /mnt/user/appdata/nuotti/observability/
+  # before first start (see deploy/README.md). Do NOT put Grafana behind Cloudflare
+  # without SSO / extra auth — it is admin-password protected and LAN-bound on purpose.
+  # ---------------------------------------------------------------------------
+
+  loki:
+    image: grafana/loki:3.4.3
+    container_name: nuotti-loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - /mnt/user/appdata/nuotti/observability/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - /mnt/user/appdata/nuotti/loki:/loki
+    networks:
+      - nuotti
+
+  alloy:
+    image: grafana/alloy:v1.8.3
+    container_name: nuotti-alloy
+    restart: unless-stopped
+    # loki.source.docker requires generally-available stability.
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - --stability.level=generally-available
+      - /etc/alloy/config.alloy
+    volumes:
+      - /mnt/user/appdata/nuotti/observability/alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/user/appdata/nuotti/alloy:/var/lib/alloy/data
+    depends_on:
+      - loki
+    networks:
+      - nuotti
+
+  grafana:
+    image: grafana/grafana-oss:11.5.2
+    container_name: nuotti-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - /mnt/user/appdata/nuotti/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /mnt/user/appdata/nuotti/grafana:/var/lib/grafana
+    ports:
+      - "5580:3000"   # LAN only — http://<unraid-ip>:5580 — do NOT tunnel
+    depends_on:
+      - loki
     networks:
       - nuotti
 

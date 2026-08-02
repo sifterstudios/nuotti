@@ -1,0 +1,59 @@
+// Collect stdout/stderr from Nuotti Docker containers and push to Loki.
+// Filter: keep container names matching /nuotti-*, drop the observability trio.
+
+discovery.docker "nuotti" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "10s"
+}
+
+discovery.relabel "nuotti_containers" {
+  targets = discovery.docker.nuotti.targets
+
+  // Keep only Nuotti stack containers (compose names them nuotti-*).
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/nuotti-.*"
+    action        = "keep"
+  }
+
+  // Drop the log stack itself to avoid noise / feedback.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/nuotti-(alloy|grafana|loki)"
+    action        = "drop"
+  }
+
+  // Strip leading slash for a clean label: nuotti-api, nuotti-performer, ...
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "nuotti/docker"
+  }
+}
+
+loki.source.docker "nuotti" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.nuotti_containers.output
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
