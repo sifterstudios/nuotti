@@ -9,9 +9,9 @@
 <MudPaper Elevation="3" Class="pa-6 mb-4">
     <MudText Typo="Typo.h5" Class="mb-2">Pair venue devices</MudText>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        Generate an eight-digit code for each local app. Type it into the Projector pairing screen,
-        or start the Show Agent with <code>--pair-code</code> / <code>NUOTTI_PAIR_CODE</code>.
-        Codes expire in ten minutes and can only be used once — issue one per device.
+        Generate an eight-digit code and enter it once in the <strong>Nuotti Venue</strong> app on the
+        band laptop. That pairs both the stage display and the audio engine on that machine.
+        Codes expire in ten minutes and can only be used once.
     </MudText>
 
     @if (!CanPair)
@@ -141,7 +141,7 @@
         {
             _activeCode = await Pairing.IssuePairingCodeAsync(
                 Workspace.WorkspaceId!, SessionCode!, Workspace.SessionToken!);
-            Snackbar.Add("Pairing code ready. Enter it on the Projector or Show Agent.", Severity.Success);
+            Snackbar.Add("Pairing code ready. Enter it once in the Nuotti Venue app.", Severity.Success);
             await RefreshStatusesAsync();
         }
         catch (Exception ex)

@@ -23,15 +23,25 @@ pwsh tools/verify-production-packaging.ps1 -Manifest .artifacts/aspire-manifest.
 
 ## Venue package
 
-The Show Agent is published separately for `win-x64`. It contains the Audio Engine and hardware
-adapter, but no database, object storage, Redis, Backend, Audience, or Performer resources.
+The band-facing venue deliverable is **Nuotti Venue** (`Nuotti.Projector`): one Windows or macOS
+app that pairs with a single Performer code and runs the stage display plus an in-process audio
+engine. See `docs/superpowers/specs/2026-08-02-venue-one-app-design.md`.
+
+```powershell
+dotnet publish Nuotti.Projector/Nuotti.Projector.csproj -c Release -r win-x64 --self-contained true -o .artifacts/venue-win
+dotnet publish Nuotti.Projector/Nuotti.Projector.csproj -c Release -r osx-arm64 --self-contained true -o .artifacts/venue-osx-arm64
+dotnet publish Nuotti.Projector/Nuotti.Projector.csproj -c Release -r osx-x64 --self-contained true -o .artifacts/venue-osx-x64
+```
+
+`Nuotti.AudioEngine` remains a separate `win-x64` publish for development and debugging; it is not
+the band path. Linux Venue packaging and split-machine Projector/Engine installs are backlog.
 
 ```powershell
 dotnet publish Nuotti.AudioEngine/Nuotti.AudioEngine.csproj -c Release -r win-x64 --self-contained true -o .artifacts/show-agent
 ```
 
 The executable remains named `Nuotti.AudioEngine`; the `show-agent` Aspire resource records the
-production boundary until the coordinator/package is introduced by #258.
+production boundary until the stage-grade coordinator in #258 lands.
 
 ## Deployment proof
 

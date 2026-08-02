@@ -5,7 +5,7 @@
         xmlns:controls="using:Nuotti.Projector.Controls"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
         x:Class="Nuotti.Projector.MainWindow"
-        Title="🎵 Nuotti Projector"
+        Title="Nuotti Venue"
         Background="{DynamicResource BackgroundBrush}">
     <!-- Main container with safe area overlay -->
     <Grid>
@@ -247,11 +247,11 @@
                 ZIndex="4000"
                 Background="{DynamicResource BackgroundBrush}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" MaxWidth="620">
-                <TextBlock Text="🎵 Pair this projector"
+                <TextBlock Text="Pair this Venue machine"
                            FontSize="42" FontWeight="Bold"
                            HorizontalAlignment="Center"
                            Foreground="{DynamicResource ForegroundBrush}"/>
-                <TextBlock Text="In the Performer app, open this session and generate a projector pairing code. Type the eight digits below."
+                <TextBlock Text="In the Performer app, open this session and generate a pairing code. Type the eight digits below — that pairs both the display and the audio engine on this computer."
                            FontSize="20" TextWrapping="Wrap" TextAlignment="Center"
                            Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="PairingCodeInput"

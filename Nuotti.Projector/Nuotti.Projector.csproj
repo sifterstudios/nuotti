@@ -29,6 +29,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Nuotti.Contracts\Nuotti.Contracts.csproj" />
       <ProjectReference Include="..\Nuotti.Projector.Presentation\Nuotti.Projector.Presentation.csproj" />
+      <ProjectReference Include="..\Nuotti.AudioEngine\Nuotti.AudioEngine.csproj" />
       <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
     </ItemGroup>
     

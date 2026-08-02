@@ -18,6 +18,7 @@ using Nuotti.Projector.Presentation;
 using Nuotti.Projector.Presentation.Playback;
 using Nuotti.Projector.Services;
 using Nuotti.Projector.Views;
+using Nuotti.AudioEngine;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -62,6 +63,7 @@ public partial class MainWindow : Window
         ?? "http://localhost:5240";
     string _sessionCode;
     readonly VenueDevicePairingClient _pairing;
+    VenueEngineHost? _engineHost;
 
     int[] _tally = new int[4];
 
@@ -406,7 +408,7 @@ public partial class MainWindow : Window
             if (_pairing.Current is null)
             {
                 _reconnectOverlay.Hide();
-                ShowPairingScreen("This projector is no longer paired to a session. Enter a new code.");
+                ShowPairingScreen("This Venue machine is no longer paired to a session. Enter a new code.");
                 return;
             }
 
@@ -435,12 +437,13 @@ public partial class MainWindow : Window
         var preseeded = Environment.GetEnvironmentVariable("NUOTTI_PAIRINGCODE");
         if (!string.IsNullOrWhiteSpace(preseeded) && await TryPairAsync(preseeded.Trim())) return true;
 
-        ShowPairingScreen("Enter the eight-digit code from the Performer app.");
+        ShowPairingScreen("Enter the eight-digit code from the Performer app to pair this Venue machine.");
         return false;
     }
 
     void ShowPairingScreen(string message)
     {
+        _ = StopEngineHostAsync();
         Dispatcher.UIThread.Post(() =>
         {
             _pairingStatusText.Text = message;
@@ -487,6 +490,45 @@ public partial class MainWindow : Window
         }
     }
 
+    async Task StartEngineHostAsync()
+    {
+        if (_engineHost?.IsStarted == true) return;
+        if (_pairing.Current is null) return;
+
+        await StopEngineHostAsync();
+        try
+        {
+            _engineHost = new VenueEngineHost(
+                _backend,
+                _sessionCode,
+                async () => await _pairing.GetAccessTokenAsync());
+            await _engineHost.StartAsync();
+            AppendLocal("[engine] Venue audio engine connected");
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_connectionTextBlock.Text == "Connected")
+                    _connectionTextBlock.Text = "Connected (display + audio)";
+            });
+        }
+        catch (Exception ex)
+        {
+            AppendLocal($"[engine] failed to start: {ex.Message}");
+            Dispatcher.UIThread.Post(() =>
+                _connectionTextBlock.Text = "Connected (display only — audio failed)");
+            try { if (_engineHost is not null) await _engineHost.DisposeAsync(); }
+            catch { }
+            _engineHost = null;
+        }
+    }
+
+    async Task StopEngineHostAsync()
+    {
+        if (_engineHost is null) return;
+        try { await _engineHost.DisposeAsync(); }
+        catch (Exception ex) { AppendLocal($"[engine] stop failed: {ex.Message}"); }
+        _engineHost = null;
+    }
+
     async Task<bool> TryPairAsync(string code)
     {
         var name = Environment.GetEnvironmentVariable("NUOTTI_DEVICENAME") ?? Environment.MachineName;
@@ -510,6 +552,7 @@ public partial class MainWindow : Window
         _debugOverlay.UpdateConnectionId(_connection.ConnectionId ?? "Unknown");
 
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
+        await StartEngineHostAsync();
         _ = StartLogConnection();
         return true;
     }
@@ -525,6 +568,7 @@ public partial class MainWindow : Window
             AppendLocal("[hub] reconnect start ok");
 
             AppendLocal($"[hub] rejoined as projector to session={_sessionCode}");
+            await StartEngineHostAsync();
 
             // Fetch latest state to resync
             _reconnectOverlay.Show("Reconnecting...", "Syncing latest state...");
@@ -940,6 +984,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        _ = StopEngineHostAsync();
         _cursorService?.Dispose();
         _reconnectService?.Dispose();
         _performanceService?.Dispose();
