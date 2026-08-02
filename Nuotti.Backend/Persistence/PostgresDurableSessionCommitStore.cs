@@ -166,35 +166,56 @@ public sealed class PostgresDurableSessionCommitStore(NpgsqlDataSource dataSourc
         {
             lastSequence = checked(lastSequence + 1);
             var serialized = SessionMessagePublisher.SerializeDurable(message);
-            await using var append = new NpgsqlCommand("""
+            // One statement per NpgsqlCommand: Postgres rejects multi-command prepared statements.
+            await using (var appendEvent = new NpgsqlCommand("""
                 INSERT INTO nuotti_session_event(workspace_id, session_code, sequence, message_type, payload)
-                VALUES ($1, $2, $3, $4, $5::jsonb);
+                VALUES ($1, $2, $3, $4, $5::jsonb)
+                """, connection, transaction))
+            {
+                appendEvent.Parameters.AddWithValue(workspaceId);
+                appendEvent.Parameters.AddWithValue(sessionCode);
+                appendEvent.Parameters.AddWithValue(lastSequence);
+                appendEvent.Parameters.AddWithValue(serialized.Type);
+                appendEvent.Parameters.AddWithValue(serialized.Payload);
+                await appendEvent.ExecuteNonQueryAsync(cancellationToken);
+            }
+            await using (var appendOutbox = new NpgsqlCommand("""
                 INSERT INTO nuotti_outbox(workspace_id, session_code, sequence, message_type, payload)
-                VALUES ($1, $2, $3, $4, $5::jsonb);
-                """, connection, transaction);
-            append.Parameters.AddWithValue(workspaceId);
-            append.Parameters.AddWithValue(sessionCode);
-            append.Parameters.AddWithValue(lastSequence);
-            append.Parameters.AddWithValue(serialized.Type);
-            append.Parameters.AddWithValue(serialized.Payload);
-            await append.ExecuteNonQueryAsync(cancellationToken);
+                VALUES ($1, $2, $3, $4, $5::jsonb)
+                """, connection, transaction))
+            {
+                appendOutbox.Parameters.AddWithValue(workspaceId);
+                appendOutbox.Parameters.AddWithValue(sessionCode);
+                appendOutbox.Parameters.AddWithValue(lastSequence);
+                appendOutbox.Parameters.AddWithValue(serialized.Type);
+                appendOutbox.Parameters.AddWithValue(serialized.Payload);
+                await appendOutbox.ExecuteNonQueryAsync(cancellationToken);
+            }
             committed.Add(new DurableOutboxMessage(workspaceId, sessionCode, new SessionSequence(lastSequence), serialized.Type, serialized.Payload));
         }
 
         var stateJson = JsonSerializer.Serialize(snapshot, ContractsJson.RestOptions);
-        await using (var finish = new NpgsqlCommand("""
+        await using (var updateState = new NpgsqlCommand("""
             UPDATE nuotti_session_state SET snapshot=$3::jsonb, last_sequence=$4, updated_at=now()
-            WHERE workspace_id=$1 AND session_code=$2;
-            INSERT INTO nuotti_command_outcome(workspace_id, session_code, command_id, outcome, state)
-            VALUES ($1, $2, $5, 'Applied', $3::jsonb);
+            WHERE workspace_id=$1 AND session_code=$2
             """, connection, transaction))
         {
-            finish.Parameters.AddWithValue(workspaceId);
-            finish.Parameters.AddWithValue(sessionCode);
-            finish.Parameters.AddWithValue(stateJson);
-            finish.Parameters.AddWithValue(lastSequence);
-            finish.Parameters.AddWithValue(commandId);
-            await finish.ExecuteNonQueryAsync(cancellationToken);
+            updateState.Parameters.AddWithValue(workspaceId);
+            updateState.Parameters.AddWithValue(sessionCode);
+            updateState.Parameters.AddWithValue(stateJson);
+            updateState.Parameters.AddWithValue(lastSequence);
+            await updateState.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await using (var insertOutcome = new NpgsqlCommand("""
+            INSERT INTO nuotti_command_outcome(workspace_id, session_code, command_id, outcome, state)
+            VALUES ($1, $2, $3, 'Applied', $4::jsonb)
+            """, connection, transaction))
+        {
+            insertOutcome.Parameters.AddWithValue(workspaceId);
+            insertOutcome.Parameters.AddWithValue(sessionCode);
+            insertOutcome.Parameters.AddWithValue(commandId);
+            insertOutcome.Parameters.AddWithValue(stateJson);
+            await insertOutcome.ExecuteNonQueryAsync(cancellationToken);
         }
 
         await transaction.CommitAsync(cancellationToken);
