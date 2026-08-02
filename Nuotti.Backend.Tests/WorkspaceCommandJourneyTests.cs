@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Nuotti.Backend.Endpoints;
 using Nuotti.Backend.Sessions;
@@ -7,6 +8,7 @@ using Nuotti.Contracts.V1.Enum;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Nuotti.Backend.Tests;
 
@@ -54,19 +56,39 @@ public sealed class WorkspaceCommandJourneyTests(WebApplicationFactory<QuizHub> 
     }
 
     [Fact]
-    public async Task A_command_cannot_be_issued_in_somebody_elses_name()
+    public async Task The_server_stamps_who_issued_a_command_over_whatever_the_caller_claimed()
     {
-        // IssuedById lands in the audit trail and in every event derived from the command, so a
-        // caller that disagrees with the server about who it is gets refused rather than relabelled.
+        // IssuedById lands in the audit trail and in every event derived from the command. The
+        // server writes it rather than checking it, so a client cannot put somebody else's name on
+        // its own actions - and an honest client does not have to know its own user id to be
+        // recorded correctly. QuestionPushed is relayed untouched, which is what makes the stamp
+        // observable from outside.
         using var client = _factory.CreateClient();
         var band = await StartSessionAsync(client);
 
-        var response = await SendAsync(client, HttpMethod.Post,
-            $"/v1/workspaces/{band.WorkspaceId}/sessions/{band.SessionCode}/commands/start-game",
-            band.SessionToken, Body(band, issuedById: "somebody-else"));
+        await using var watcher = Connect(band);
+        var pushed = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.On<JsonElement>("QuestionPushed", q => pushed.TrySetResult(q));
+        await watcher.StartAsync();
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var response = await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{band.WorkspaceId}/sessions/{band.SessionCode}/commands/push-question",
+            band.SessionToken, Body(band, issuedById: "somebody-else",
+                payload: new { text = "Which song?", options = new[] { "A", "B" } }));
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var question = await pushed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        // The hub's serializer casing is its own business; the assertion is about the value.
+        var issuedBy = question.EnumerateObject()
+            .First(p => p.NameEquals("issuedById") || p.NameEquals("IssuedById"));
+        Assert.Equal(band.UserId, issuedBy.Value.GetString());
     }
+
+    HubConnection Connect(Band band) => new HubConnectionBuilder()
+        .WithUrl(new Uri(_factory.Server.BaseAddress,
+                $"/hub?sessionCode={band.SessionCode}&workspaceId={band.WorkspaceId}&access_token={band.SessionToken}"),
+            options => options.HttpMessageHandlerFactory = _ => _factory.Server.CreateHandler())
+        .Build();
 
     [Fact]
     public async Task A_command_aimed_at_another_bands_session_is_refused()

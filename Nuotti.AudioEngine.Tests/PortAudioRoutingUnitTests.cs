@@ -77,10 +77,11 @@ public class PortAudioRoutingUnitTests
         Exception? err = null;
         player.Error += (_, ex) => err = ex;
         await player.PlayAsync("fake://test");
-        // Allow processing loop to run
-        await Task.Delay(100);
+        // Wait for the processing loop to actually run rather than for a fixed 100ms. On a machine
+        // busy running the rest of the solution's tests it does not always get there in time, and
+        // the failure looks like a routing bug rather than a slow box.
+        for (var i = 0; i < 500 && router.Calls == 0; i++) await Task.Delay(10);
         await player.StopAsync();
-        await Task.Delay(50);
 
         Assert.Null(err);
         Assert.True(router.Calls > 0);

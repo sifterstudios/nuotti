@@ -76,19 +76,17 @@ public sealed record ConnectionPrincipal(
                 Capability.ReportDeviceStatus
             });
 
-    /// <summary>
-    /// An audience phone: it may watch, answer for itself, and ask for the clip to be replayed.
-    /// </summary>
+    /// <summary>An audience phone: it may watch, and answer for itself. Nothing else.</summary>
     /// <remarks>
-    /// Playback is included because the Audience app ships a play control and taking it away here
-    /// would be a silent feature regression. It is a request, not a command: the venue rig decides.
+    /// Playback is deliberately not here. The Audience app's only play control was a developer
+    /// panel that let any phone in the room start audio on the venue rig; the Performer drives
+    /// playback, and it is now the only principal that can ask for it.
     /// </remarks>
     public static ConnectionPrincipal ForAudience(string participantId, string sessionCode) =>
         new(PrincipalKind.AudienceParticipant, Role.Audience, sessionCode, null, participantId,
             new HashSet<Capability>
             {
                 Capability.Subscribe,
-                Capability.SubmitAnswer,
-                Capability.RequestPlayback
+                Capability.SubmitAnswer
             });
 }

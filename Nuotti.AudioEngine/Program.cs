@@ -76,11 +76,6 @@ player.Started += (_, __) => { Log.Information("Playback started"); metrics.SetP
 player.Stopped += (_, cancelled) => { Log.Information("Playback stopped. Cancelled={Cancelled}", cancelled); metrics.SetStopped(); };
 player.Error += (_, ex) => { Log.Error(ex, "Playback error: {Message}", ex.Message); metrics.SetError(ex.Message); };
 
-var connection = new HubConnectionBuilder()
-    .WithUrl(new Uri(new Uri(backend), "/hub"))
-    .WithAutomaticReconnect()
-    .Build();
-
 var httpClient = new HttpClient();
 httpClient.BaseAddress = new Uri(backend);
 var pairCode = GetArg(args, "pair-code", envVar: "NUOTTI_PAIR_CODE");
@@ -92,6 +87,18 @@ if (OperatingSystem.IsWindows())
     if (!string.IsNullOrWhiteSpace(pairCode) || credentialStore.Load() is not null)
         cloudAgent = new ShowAgentCloudClient(httpClient, credentialStore);
 }
+
+// The pairing client has to exist before the connection now: the hub derives what this engine may
+// do from the lease it presents, so a deployed backend refuses a connection that presents none.
+// The agent is built first purely so its lease can be read at connect time.
+var connection = new HubConnectionBuilder()
+    .WithUrl(new Uri(new Uri(backend), "/hub"), o =>
+    {
+        if (cloudAgent is not null)
+            o.AccessTokenProvider = async () => (await cloudAgent.EnsureLeaseAsync())?.AccessToken;
+    })
+    .WithAutomaticReconnect()
+    .Build();
 IEngineStatusSink sink = cloudAgent is null
     ? new HubStatusSink(connection, session)
     : new CloudAgentStatusSink(cloudAgent);

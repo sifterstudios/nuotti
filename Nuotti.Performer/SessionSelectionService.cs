@@ -76,9 +76,29 @@ public sealed class SessionSelectionService
         return CreateNewSessionAsync(http, preferredCode, ct);
     }
 
-    public async Task<string> CreateNewSessionAsync(HttpClient http, string? preferredCode = null, CancellationToken ct = default)
+    /// <param name="workspaceId">
+    /// The workspace to create the session in. When supplied, the workspace-scoped route is used -
+    /// it is the only one a deployed backend exposes, and it is also what binds the session code to
+    /// the workspace so the audience can join it later.
+    /// </param>
+    /// <param name="sessionToken">The signed-in member's token, required by that route.</param>
+    public async Task<string> CreateNewSessionAsync(HttpClient http, string? preferredCode = null,
+        CancellationToken ct = default, string? workspaceId = null, string? sessionToken = null)
     {
         var code = string.IsNullOrWhiteSpace(preferredCode) ? GenerateSessionCode() : preferredCode!.Trim();
+
+        if (!string.IsNullOrWhiteSpace(workspaceId) && !string.IsNullOrWhiteSpace(sessionToken))
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post,
+                $"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/sessions/{Uri.EscapeDataString(code)}/create");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", sessionToken);
+            (await http.SendAsync(request, ct)).EnsureSuccessStatusCode();
+            LastSessionCode = code;
+            SaveLastSession(code);
+            State = UiState.Control;
+            return code;
+        }
+
         // Build command payload
         var cmd = new CreateSession(code)
         {

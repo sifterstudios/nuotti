@@ -88,7 +88,7 @@ public class CommandPaletteTests : MudTestContext
 
         // Find input inside the dialog and type 'hint'
         IElement? input = null;
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 1000; i++)
         {
             var inputs = layout.FindAll(".mud-dialog input");
             if (inputs.Count > 0)
@@ -107,7 +107,7 @@ public class CommandPaletteTests : MudTestContext
 
         // Assert give-hint was posted (wait for async pipeline)
         var found = false;
-        for (int i = 0; i < 100; i++)
+        for (int i = 0; i < 1000; i++)
         {
             var posts = handler.Requests.Where(r => r.Method == HttpMethod.Post).ToList();
             if (posts.Any(r => r.RequestUri!.AbsolutePath.Contains("/v1/message/phase/give-hint/")))

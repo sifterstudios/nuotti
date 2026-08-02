@@ -36,38 +36,53 @@ public sealed class ConnectionPrincipalResolver(
     public async Task<ConnectionPrincipal?> ResolveAsync(
         RealtimeConnectionRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.AccessToken) || string.IsNullOrWhiteSpace(request.SessionCode))
-            return null;
+        if (string.IsNullOrWhiteSpace(request.AccessToken)) return null;
 
         var token = request.AccessToken.Trim();
-        var sessionCode = request.SessionCode.Trim();
+
+        // The session code on the request is a claim, not a credential. Audience tickets and device
+        // leases each name their own session, so the caller need not supply one at all - and a
+        // supplied one that disagrees is refused rather than believed. This is what lets a venue
+        // device be paired while it is running: it does not have to know which show it is joining
+        // before it connects.
+        var claimedSession = request.SessionCode?.Trim();
 
         // 1. Audience is the highest-volume case and the cheapest lookup, so it goes first.
         var participant = await audience.AuthenticateAsync(token, cancellationToken);
         if (participant is not null)
-            return string.Equals(participant.SessionCode, sessionCode, StringComparison.OrdinalIgnoreCase)
-                ? ConnectionPrincipal.ForAudience(participant.ParticipantId, participant.SessionCode)
-                : null;
+            return Contradicts(claimedSession, participant.SessionCode)
+                ? null
+                : ConnectionPrincipal.ForAudience(participant.ParticipantId, participant.SessionCode);
 
         // 2. A paired venue device. Its lease already names the workspace and session it belongs
         //    to, so a device cannot follow a code into somebody else's show.
         var lease = await devices.AuthenticateAsync(token, cancellationToken);
         if (lease is not null)
         {
-            if (!string.Equals(lease.SessionCode, sessionCode, StringComparison.OrdinalIgnoreCase)) return null;
+            if (Contradicts(claimedSession, lease.SessionCode)) return null;
             var role = string.Equals(request.DeviceRole, "projector", StringComparison.OrdinalIgnoreCase)
                 ? Role.Projector
                 : Role.Engine;
             return ConnectionPrincipal.ForVenueDevice(lease.AgentId, lease.WorkspaceId, lease.SessionCode, role);
         }
 
-        // 3. A signed-in workspace member. Membership alone is not enough: the principal must have
-        //    this workspace selected, matching how every workspace-scoped HTTP route behaves.
+        // 3. A signed-in workspace member. Their token names no session - a member runs many - so
+        //    this is the one principal that must say which one. Membership alone is not enough
+        //    either: the workspace must be selected, matching every workspace-scoped HTTP route.
         var user = await workspaces.AuthenticateAsync(token, cancellationToken);
-        if (user is null || string.IsNullOrWhiteSpace(request.WorkspaceId)) return null;
+        if (user is null || string.IsNullOrWhiteSpace(claimedSession)) return null;
+        if (string.IsNullOrWhiteSpace(request.WorkspaceId)) return null;
         if (!string.Equals(user.SelectedWorkspaceId, request.WorkspaceId, StringComparison.Ordinal)) return null;
         if (await workspaces.GetAccessAsync(user, request.WorkspaceId, cancellationToken) is null) return null;
 
-        return ConnectionPrincipal.ForWorkspaceUser(user.UserId, request.WorkspaceId, sessionCode);
+        return ConnectionPrincipal.ForWorkspaceUser(user.UserId, request.WorkspaceId, claimedSession);
     }
+
+    /// <summary>
+    /// True when the caller named a session and it is not the one its credential belongs to.
+    /// Naming none is allowed; naming the wrong one is not.
+    /// </summary>
+    static bool Contradicts(string? claimed, string actual)
+        => !string.IsNullOrWhiteSpace(claimed)
+            && !string.Equals(claimed, actual, StringComparison.OrdinalIgnoreCase);
 }

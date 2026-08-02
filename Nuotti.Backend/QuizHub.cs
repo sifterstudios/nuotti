@@ -37,23 +37,43 @@ public class QuizHub(
     const string ParticipantKey = "participantId";
     const string PrincipalKey = "principal";
 
-    /// <summary>The group every workspace-scoped publication fans out to.</summary>
-    public static string WorkspaceGroupName(string workspaceId, string sessionCode) => $"{workspaceId}:{sessionCode}";
 
     ConnectionPrincipal? Principal()
         => Context.Items.TryGetValue(PrincipalKey, out var value) ? value as ConnectionPrincipal : null;
 
-    // Engine reports status changes via hub; broadcast to entire session
-    public Task EngineStatusChanged(string session, EngineStatusChanged evt)
-        => Clients.Group(session).SendAsync("EngineStatusChanged", evt);
+    /// <summary>
+    /// The session this call acts on. A credentialled connection acts on its own session and
+    /// nothing else; the argument is only honoured for connections admitted without a credential.
+    /// </summary>
+    /// <remarks>
+    /// These three relays took a session name and forwarded to it, so any connected client could
+    /// push engine status into, or ping, a session it had nothing to do with.
+    /// </remarks>
+    string ScopeToPrincipal(string session) => Principal()?.SessionCode ?? session;
+
+    // Engine reports status changes via hub; broadcast to entire session.
+    public async Task EngineStatusChanged(string session, EngineStatusChanged evt)
+    {
+        if (!Allows(Capability.ReportDeviceStatus, legacyRole: "engine"))
+        {
+            await SendProblemAsync(NuottiProblem.UnprocessableEntity(
+                title: "Unauthorized role",
+                detail: "Only a venue device reports engine status.",
+                reason: ReasonCode.UnauthorizedRole,
+                field: "role"));
+            return;
+        }
+        await Clients.Group(RealtimeGroups.Session(ScopeToPrincipal(session))).SendAsync("EngineStatusChanged", evt);
+    }
 
     // Performer can ping engine; relay to engine group
     public Task Ping(string session, long clientTicks)
-        => Clients.Group($"{session}:engine").SendAsync("Ping", clientTicks);
+        => Clients.Group(RealtimeGroups.SessionRole(ScopeToPrincipal(session), "engine")).SendAsync("Ping", clientTicks);
 
     // Engine echoes back; relay to performer group
     public Task Echo(string session, long clientTicks, long engineTicks)
-        => Clients.Group($"{session}:performer").SendAsync("Echo", clientTicks, engineTicks);
+        => Clients.Group(RealtimeGroups.SessionRole(ScopeToPrincipal(session), "performer"))
+            .SendAsync("Echo", clientTicks, engineTicks);
 
     public async Task Join(string session, string role, string? name, string? deviceSecret)
     {
@@ -125,8 +145,8 @@ public class QuizHub(
         }
 
         // Join session-wide group and session+role group
-        await Groups.AddToGroupAsync(Context.ConnectionId, session);
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"{session}:{normalizedRole.ToLowerInvariant()}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Session(session));
+        await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.SessionRole(session, normalizedRole));
         // Track connection by role in the session store
         sessions.Touch(session, normalizedRole, Context.ConnectionId, displayName);
 
@@ -158,7 +178,7 @@ public class QuizHub(
 
         if (!string.IsNullOrWhiteSpace(displayName) && string.Equals(normalizedRole, "audience", StringComparison.OrdinalIgnoreCase))
         {
-            await Clients.Group(session).SendAsync("JoinedAudience",
+            await Clients.Group(RealtimeGroups.Session(session)).SendAsync("JoinedAudience",
                 new JoinedAudience(participantId ?? Context.ConnectionId, displayName));
         }
     }
@@ -224,15 +244,15 @@ public class QuizHub(
         Context.Items[RoleKey] = principal.Role.ToString();
         if (principal.Kind == PrincipalKind.AudienceParticipant) Context.Items[ParticipantKey] = principal.Id;
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, principal.SessionCode);
+        await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Session(principal.SessionCode));
         await Groups.AddToGroupAsync(Context.ConnectionId,
-            $"{principal.SessionCode}:{principal.Role.ToString().ToLowerInvariant()}");
+            RealtimeGroups.SessionRole(principal.SessionCode, principal.Role.ToString()));
 
         // Workspace-scoped publications fan out to their own group, so a member watching from the
         // Performer app receives the same stream the venue rig does.
         if (!string.IsNullOrWhiteSpace(principal.WorkspaceId))
             await Groups.AddToGroupAsync(Context.ConnectionId,
-                WorkspaceGroupName(principal.WorkspaceId, principal.SessionCode));
+                RealtimeGroups.Workspace(principal.WorkspaceId, principal.SessionCode));
 
         sessions.Touch(principal.SessionCode, principal.Role.ToString(), Context.ConnectionId, null);
         return true;
@@ -247,7 +267,7 @@ public class QuizHub(
         {
             try
             {
-                await Groups.RemoveFromGroupAsync(Context.ConnectionId, session);
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, RealtimeGroups.Session(session));
             }
             catch
             {
@@ -288,7 +308,7 @@ public class QuizHub(
     {
         if (Principal() is { } admitted) session = admitted.SessionCode;
 
-        if (!Allows(Capability.RequestPlayback, legacyRole: "audience"))
+        if (!Allows(Capability.RequestPlayback, legacyRole: "performer"))
         {
             await SendProblemAsync(NuottiProblem.UnprocessableEntity(
                 title: "Unauthorized role",
@@ -322,7 +342,7 @@ public class QuizHub(
             Role: role
         ));
 
-        await Clients.Group(session).SendAsync("RequestPlay", cmd);
+        await Clients.Group(RealtimeGroups.Session(session)).SendAsync("RequestPlay", cmd);
     }
 
     // Audience submits an answer. Pass Guid.Empty to mint a fresh CommandId; otherwise retry with the same id.

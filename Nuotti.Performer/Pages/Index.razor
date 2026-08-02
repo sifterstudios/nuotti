@@ -183,7 +183,8 @@ else
             isBusy = true;
             StateHasChanged();
             using var http = new HttpClient { BaseAddress = new Uri(backendUrl!, UriKind.Absolute) };
-            sessionCode = await SessionSvc.CreateNewSessionAsync(http, sessionCode);
+            sessionCode = await SessionSvc.CreateNewSessionAsync(http, sessionCode,
+                workspaceId: Workspace.WorkspaceId, sessionToken: Workspace.SessionToken);
             status = $"Created session: {sessionCode}";
         }
         catch (Exception ex)

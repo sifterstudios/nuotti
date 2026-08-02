@@ -13,13 +13,33 @@ public sealed class PerformerCommands
     private readonly PerformerUiState _state;
     private readonly CommandHistoryService _history;
     private readonly OfflineCommandQueue _offline;
+    private readonly WorkspaceSession? _workspace;
 
-    public PerformerCommands(ISnackbar snackbar, PerformerUiState state, CommandHistoryService history, OfflineCommandQueue offline)
+    public PerformerCommands(ISnackbar snackbar, PerformerUiState state, CommandHistoryService history,
+        OfflineCommandQueue offline, WorkspaceSession? workspace = null)
     {
         _snackbar = snackbar;
         _state = state;
         _history = history;
         _offline = offline;
+        _workspace = workspace;
+    }
+
+    /// <summary>
+    /// Where a command is sent, and with what authority.
+    /// </summary>
+    /// <remarks>
+    /// A signed-in Performer with a workspace selected posts to the workspace-scoped route, which
+    /// is the only command surface a deployed backend exposes: /v1/message/phase/* takes the
+    /// issuing role from the request body and is therefore local-only. Without this the app could
+    /// sign in to nuotti.app, create a session, and then not run it.
+    /// </remarks>
+    public (string Url, string? Token) Route(string route)
+    {
+        var session = Uri.EscapeDataString(_state.SessionCode!);
+        return _workspace is { WorkspaceId: { Length: > 0 } workspaceId, SessionToken: { Length: > 0 } token }
+            ? ($"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/sessions/{session}/commands/{route}", token)
+            : ($"/v1/message/phase/{route}/{session}", null);
     }
 
     HttpClient CreateClient()
@@ -169,7 +189,9 @@ public sealed class PerformerCommands
         if (string.IsNullOrWhiteSpace(_state.SessionCode)) throw new InvalidOperationException("Session not set");
         var http = CreateClient();
 
-        var url = $"/v1/message/phase/{route}/{Uri.EscapeDataString(_state.SessionCode!)}";
+        var (url, token) = Route(route);
+        if (token is not null)
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         // Add correlation ID header to match command's CommandId
         // This ensures correlation IDs flow from client through to backend logs

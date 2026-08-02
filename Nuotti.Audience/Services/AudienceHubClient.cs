@@ -102,10 +102,12 @@ public class AudienceHubClient : IAsyncDisposable
         if (_connection is null)
         {
             Log($"[Audience] Creating HubConnection to {BackendBaseUrl}/hub");
-            var hubUri = new Uri(new Uri(BackendBaseUrl!),
-                $"/hub?session={Uri.EscapeDataString(SessionCode ?? string.Empty)}");
+            // No session in the URL: the join token names one, and the connection is built once
+            // while a phone can join a second session in the same page session. A stale code baked
+            // into the URL would contradict the newer ticket and get the connection refused.
             _connection = new HubConnectionBuilder()
-                .WithUrl(hubUri, options => options.AccessTokenProvider = () => Task.FromResult(_joinToken))
+                .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/hub"),
+                    options => options.AccessTokenProvider = () => Task.FromResult(_joinToken))
                 .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10) })
                 .Build();
 
@@ -364,28 +366,6 @@ public class AudienceHubClient : IAsyncDisposable
         }
 
         return MyAnswerChoiceIndex;
-    }
-
-    public async Task RequestPlayAsync(string fileUrl)
-    {
-        if (string.IsNullOrWhiteSpace(SessionCode))
-        {
-            Log("[Audience] RequestPlay skipped: no session");
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(fileUrl))
-        {
-            Log("[Audience] RequestPlay skipped: empty fileUrl");
-            return;
-        }
-        await EnsureConnectedAsync();
-        Log($"[Audience] RequestPlay: session={SessionCode} url={fileUrl}");
-        await _connection!.InvokeAsync("RequestPlay", SessionCode!, new PlayTrack(fileUrl)
-        {
-            SessionCode = SessionCode!,
-            IssuedByRole = Role.Audience,
-            IssuedById = AudienceName ?? "anonymous"
-        });
     }
 
     public async Task<GameStateSnapshot?> FetchGameStateAsync()

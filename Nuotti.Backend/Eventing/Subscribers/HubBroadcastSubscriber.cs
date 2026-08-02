@@ -4,6 +4,7 @@ using Nuotti.Contracts.V1.Eventing;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Backend.Workspaces;
 using Nuotti.Backend.Persistence;
+using Nuotti.Backend.Realtime;
 namespace Nuotti.Backend.Eventing.Subscribers;
 
 /// <summary>
@@ -42,7 +43,7 @@ public sealed class HubBroadcastSubscriber : IDisposable
     }
 
     Task Send(string session, string method, object payload, CancellationToken ct)
-        => _hub.Clients.Group(session).SendAsync(method, payload, ct);
+        => _hub.Clients.Group(RealtimeGroups.Session(session)).SendAsync(method, payload, ct);
 
     Task SendWorkspace(SessionMessagePublisher.WorkspacePublication publication, CancellationToken ct)
     {
@@ -56,7 +57,7 @@ public sealed class HubBroadcastSubscriber : IDisposable
             _ => (string.Empty, publication.Payload)
         };
         return method.Length == 0 ? Task.CompletedTask : _hub.Clients
-            .Group(QuizHub.WorkspaceGroupName(publication.WorkspaceId, publication.SessionCode))
+            .Group(RealtimeGroups.Workspace(publication.WorkspaceId, publication.SessionCode))
             .SendAsync(method, payload, ct);
     }
 

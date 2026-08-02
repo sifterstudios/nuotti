@@ -45,6 +45,10 @@ public partial class MainWindow : Window
     readonly Button _safeAreaButton;
     readonly Button _tallyToggleButton;
     readonly Grid _contentGrid;
+    readonly Border _pairingOverlay;
+    readonly TextBox _pairingCodeInput;
+    readonly Button _pairingSubmitButton;
+    readonly TextBlock _pairingStatusText;
     readonly SafeAreaFrame _safeAreaFrame;
     readonly NowPlayingBanner _nowPlayingBanner;
     readonly ReconnectOverlay _reconnectOverlay;
@@ -55,7 +59,7 @@ public partial class MainWindow : Window
     // environment it was installed into, the session from the pairing the band issued.
     readonly string _backend = Environment.GetEnvironmentVariable("NUOTTI_BACKEND")?.TrimEnd('/')
         ?? "http://localhost:5240";
-    readonly string _sessionCode;
+    string _sessionCode;
     readonly VenueDevicePairingClient _pairing;
 
     int[] _tally = new int[4];
@@ -124,6 +128,11 @@ public partial class MainWindow : Window
         _safeAreaButton = this.FindControl<Button>("SafeAreaButton")!;
         _tallyToggleButton = this.FindControl<Button>("TallyToggleButton")!;
         _contentGrid = this.FindControl<Grid>("ContentGrid")!;
+        _pairingOverlay = this.FindControl<Border>("PairingOverlay")!;
+        _pairingCodeInput = this.FindControl<TextBox>("PairingCodeInput")!;
+        _pairingSubmitButton = this.FindControl<Button>("PairingSubmitButton")!;
+        _pairingStatusText = this.FindControl<TextBlock>("PairingStatusText")!;
+        _pairingSubmitButton.Click += async (_, _) => await SubmitPairingCodeAsync();
         _safeAreaFrame = this.FindControl<SafeAreaFrame>("SafeAreaFrameControl")!;
         _nowPlayingBanner = this.FindControl<NowPlayingBanner>("NowPlayingBannerControl")!;
         _reconnectOverlay = this.FindControl<ReconnectOverlay>("ReconnectOverlayControl")!;
@@ -225,7 +234,7 @@ public partial class MainWindow : Window
         // The hub derives this connection's role from the access token, so the projector no longer
         // announces one. A device that cannot produce a token is refused rather than trusted.
         _connection = new HubConnectionBuilder()
-            .WithUrl($"{_backend}/hub?session={Uri.EscapeDataString(_sessionCode)}&deviceRole=projector",
+            .WithUrl($"{_backend}/hub?deviceRole=projector",
                 options => options.AccessTokenProvider = async () => await _pairing.GetAccessTokenAsync())
             .WithAutomaticReconnect()
             .Build();
@@ -355,9 +364,11 @@ public partial class MainWindow : Window
                 // Ensure window is positioned on primary screen
                 Position = new PixelPoint(100, 100);
 
-                await StartConnection();
-                _connectionTextBlock.Text = "Connected";
-                AppendLocal("[hub] connected");
+                if (await StartConnection())
+                {
+                    _connectionTextBlock.Text = "Connected";
+                    AppendLocal("[hub] connected");
+                }
 
                 // F19 - Start theming API connection (optional, non-blocking)
                 _ = StartThemingApiConnection();
@@ -388,6 +399,16 @@ public partial class MainWindow : Window
                 AppendLocal($"[hub] holding render failed: {renderEx.Message}");
             }
 
+            // A revoked device has had its stored credential deleted by the pairing client. There
+            // is nothing to reconnect with, so ask to be paired again rather than reconnect-loop
+            // against a hub that will keep refusing.
+            if (_pairing.Current is null)
+            {
+                _reconnectOverlay.Hide();
+                ShowPairingScreen("This projector is no longer paired to a session. Enter a new code.");
+                return;
+            }
+
             var delayMs = Random.Shared.Next(0, 5) * 1000;
             AppendLocal($"[hub] disconnected; reconnecting in {delayMs} ms");
             await Task.Delay(delayMs);
@@ -397,43 +418,89 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Redeems a pairing code when one has been supplied and this machine is not paired yet.
+    /// Makes sure this machine is paired, showing the pairing screen until it is.
     /// </summary>
     /// <remarks>
-    /// The band generates the code from their own workspace, so pairing is the moment a venue
-    /// machine is admitted to a specific show by somebody who is allowed to admit it.
+    /// The band generates the code from inside their own workspace, so pairing is the moment a
+    /// venue machine is admitted to a specific show by somebody entitled to admit it. An unpaired
+    /// projector has nothing to display, so the pairing screen is the whole screen.
     /// </remarks>
     async Task<bool> EnsurePairedAsync()
     {
         if (_pairing.Current is not null) return true;
 
-        var code = Environment.GetEnvironmentVariable("NUOTTI_PAIRINGCODE");
-        if (string.IsNullOrWhiteSpace(code))
+        // An operator running many rooms can still preseed the code, but it is no longer the only
+        // way in: typing it on the projector itself is.
+        var preseeded = Environment.GetEnvironmentVariable("NUOTTI_PAIRINGCODE");
+        if (!string.IsNullOrWhiteSpace(preseeded) && await TryPairAsync(preseeded.Trim())) return true;
+
+        ShowPairingScreen("Enter the eight-digit code from the Performer app.");
+        return false;
+    }
+
+    void ShowPairingScreen(string message)
+    {
+        Dispatcher.UIThread.Post(() =>
         {
-            AppendLocal("[pair] This projector is not paired. Generate a pairing code in the Performer app, "
-                + "then start the projector with NUOTTI_PAIRINGCODE set to it.");
-            return false;
+            _pairingStatusText.Text = message;
+            _pairingOverlay.IsVisible = true;
+            _connectionTextBlock.Text = "Not paired";
+            _pairingCodeInput.Focus();
+        });
+    }
+
+    /// <summary>Redeems a typed code and, if it works, connects without a restart.</summary>
+    async Task SubmitPairingCodeAsync()
+    {
+        var code = (_pairingCodeInput.Text ?? string.Empty).Trim();
+        if (code.Length != 8 || !code.All(char.IsAsciiDigit))
+        {
+            _pairingStatusText.Text = "A pairing code is eight digits.";
+            return;
         }
 
+        _pairingSubmitButton.IsEnabled = false;
+        _pairingStatusText.Text = "Pairing...";
+        try
+        {
+            if (!await TryPairAsync(code))
+            {
+                _pairingStatusText.Text = "That code was refused. It may have expired or already been used.";
+                _pairingCodeInput.Text = string.Empty;
+                return;
+            }
+
+            _pairingOverlay.IsVisible = false;
+            // The hub URL carries no session code - the lease names it - so the existing
+            // connection can simply be started rather than rebuilt.
+            if (await StartConnection()) _connectionTextBlock.Text = "Connected";
+        }
+        catch (Exception ex)
+        {
+            _pairingStatusText.Text = $"Pairing failed: {ex.Message}";
+            AppendLocal($"[pair] failed: {ex.Message}");
+        }
+        finally
+        {
+            _pairingSubmitButton.IsEnabled = true;
+        }
+    }
+
+    async Task<bool> TryPairAsync(string code)
+    {
         var name = Environment.GetEnvironmentVariable("NUOTTI_DEVICENAME") ?? Environment.MachineName;
-        var paired = await _pairing.PairAsync(code.Trim(), name);
-        if (paired is null)
-        {
-            AppendLocal("[pair] Pairing failed. The code may have expired or already been used.");
-            return false;
-        }
+        var paired = await _pairing.PairAsync(code, name);
+        if (paired is null) return false;
 
-        AppendLocal($"[pair] Paired to session={paired.SessionCode}. Restart to display it.");
+        _sessionCode = paired.SessionCode;
+        Dispatcher.UIThread.Post(() => _sessionCodeText.Text = _sessionCode);
+        AppendLocal($"[pair] Paired to session={paired.SessionCode}");
         return true;
     }
 
-    async Task StartConnection()
+    async Task<bool> StartConnection()
     {
-        if (!await EnsurePairedAsync())
-        {
-            _connectionTextBlock.Text = "Not paired";
-            return;
-        }
+        if (!await EnsurePairedAsync()) return false;
 
         await _connection.StartAsync();
         AppendLocal("[hub] start ok");
@@ -443,6 +510,7 @@ public partial class MainWindow : Window
 
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
+        return true;
     }
 
     // F11 - Enhanced connection with state resync

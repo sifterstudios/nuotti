@@ -187,7 +187,11 @@
         var http = State.CreateClient();
         await OfflineQueue.FlushAsync(async (route, cmd) =>
         {
-            var url = $"/v1/message/phase/{route}/{Uri.EscapeDataString(State.SessionCode!)}";
+            // Queued commands take the same route as live ones. Draining them onto the local-only
+            // phase surface would mean everything typed while offline silently 404s on reconnect.
+            var (url, token) = Commands.Route(route);
+            if (token is not null)
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             return await http.PostAsJsonAsync(url, cmd, ContractsJson.RestOptions);
         },
         Snackbar,

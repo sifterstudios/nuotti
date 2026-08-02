@@ -95,6 +95,56 @@ public sealed class RealtimeHubAuthorizationTests(WebApplicationFactory<QuizHub>
     }
 
     [Fact]
+    public async Task A_phone_that_types_the_code_in_lower_case_still_hears_the_show()
+    {
+        // Session codes authenticate case-insensitively but group names match exactly, so the two
+        // spellings used to become two different rooms: the phone joined, was told nothing was
+        // wrong, and then received nothing for the rest of the night.
+        using var client = _factory.CreateClient();
+        var band = await StartSessionAsync(client, "shouty");
+        var ticket = await JoinAsync(client, band.SessionCode.ToLowerInvariant());
+
+        await using var connection = Connect($"/hub?access_token={ticket.Token}");
+        var pushed = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        connection.On<System.Text.Json.JsonElement>("QuestionPushed", q => pushed.TrySetResult(q.ToString()));
+        await connection.StartAsync();
+
+        await PushQuestionAsync(client, band);
+
+        var arrived = await Task.WhenAny(pushed.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.True(arrived == pushed.Task, "The question never reached a phone that used a lower-case code.");
+    }
+
+    [Fact]
+    public async Task A_device_relay_lands_in_its_own_session_whatever_it_names()
+    {
+        // The relays forwarded to whatever session name they were handed, so any connected client
+        // could inject engine status into a show it had nothing to do with. A device may report
+        // status - that is what a venue device is for - but only into the session it is paired to.
+        using var client = _factory.CreateClient();
+        var band = await StartSessionAsync(client, "relay");
+        var pairing = await PostAsync<ShowAgentPairingCode>(client,
+            $"/v1/workspaces/{band.WorkspaceId}/sessions/{band.SessionCode}/show-agent/pairings", band.SessionToken, null);
+        var device = await PostAsync<PairedShowAgent>(client, "/v1/show-agent/pair", null,
+            new { code = pairing.Code, name = "Stage projector" });
+
+        await using var watcher = Connect(
+            $"/hub?sessionCode={band.SessionCode}&workspaceId={band.WorkspaceId}&access_token={band.SessionToken}");
+        var heard = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.On<System.Text.Json.JsonElement>("EngineStatusChanged", e => heard.TrySetResult(e.ToString()));
+        await watcher.StartAsync();
+
+        await using var connection = Connect($"/hub?deviceRole=projector&access_token={device.AccessToken}");
+        await connection.StartAsync();
+        await connection.InvokeAsync("EngineStatusChanged", "SOMEONE-ELSE",
+            new { State = "Playing", Detail = (string?)null });
+
+        var arrived = await Task.WhenAny(heard.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+        Assert.True(arrived == heard.Task,
+            "The relay followed the session name it was handed instead of the one the device is paired to.");
+    }
+
+    [Fact]
     public async Task A_workspace_member_may_connect_to_their_own_session()
     {
         using var client = _factory.CreateClient();
@@ -158,7 +208,7 @@ public sealed class RealtimeHubAuthorizationTests(WebApplicationFactory<QuizHub>
         }
     }
 
-    sealed record Band(string SessionToken, string WorkspaceId, string SessionCode);
+    sealed record Band(string SessionToken, string WorkspaceId, string SessionCode, string UserId);
 
     static async Task<Band> StartSessionAsync(HttpClient client, string prefix)
     {
@@ -174,10 +224,26 @@ public sealed class RealtimeHubAuthorizationTests(WebApplicationFactory<QuizHub>
         (await SendAsync(client, HttpMethod.Post,
             $"/v1/workspaces/{workspace.WorkspaceId}/sessions/{sessionCode}/create",
             member.SessionToken)).EnsureSuccessStatusCode();
-        return new Band(member.SessionToken, workspace.WorkspaceId, sessionCode);
+        return new Band(member.SessionToken, workspace.WorkspaceId, sessionCode, member.Principal.UserId);
     }
 
     sealed record JoinedAudienceTicket(string ParticipantId, string SessionCode, string Token);
+
+    /// <summary>Puts a question on the wire through the Performer's own command surface.</summary>
+    static async Task PushQuestionAsync(HttpClient client, Band band)
+    {
+        var response = await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{band.WorkspaceId}/sessions/{band.SessionCode}/commands/push-question",
+            band.SessionToken, new
+            {
+                text = "Which song?",
+                options = new[] { "A", "B" },
+                sessionCode = band.SessionCode,
+                issuedByRole = "Performer",
+                issuedById = band.UserId
+            });
+        response.EnsureSuccessStatusCode();
+    }
 
     static Task<JoinedAudienceTicket> JoinAsync(HttpClient client, string sessionCode)
         => PostAsync<JoinedAudienceTicket>(client, $"/v1/sessions/{sessionCode}/join", null,

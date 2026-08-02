@@ -184,51 +184,8 @@
                 Leave Session
             </MudButton>
 
-            @if (_showDevTools)
-            {
-                <MudButton Variant="Variant.Text"
-                           StartIcon="@Material.Filled.BugReport"
-                           OnClick="@(() => _showDevPanel = !_showDevPanel)"
-                           Color="Color.Secondary">
-                    Dev Tools
-                </MudButton>
-            }
-            else
-            {
-                <MudLink Typo="Typo.caption" OnClick="@(() => _showDevTools = true)">
-                    Show dev tools
-                </MudLink>
-            }
         </div>
 
-        <!-- Developer Panel (Collapsible) -->
-        @if (_showDevPanel && _showDevTools)
-        {
-            <MudPaper Class="mt-4 pa-4" Elevation="2" Style="border-radius: 0;">
-                <MudText Typo="Typo.subtitle1" GutterBottom="true" Style="font-weight: 600;">
-                    🛠️ Developer Tools
-                </MudText>
-                <MudDivider Class="mb-3" />
-
-                <MudText Typo="Typo.body2" Class="mb-2" Style="font-weight: 600;">Test Audio Playback</MudText>
-                <MudStack Row="true" Spacing="2" Class="mb-3">
-                    <MudTextField @bind-Value="fileUrl"
-                                  Variant="Variant.Outlined"
-                                  Label="Audio URL"
-                                  FullWidth="true"
-                                  Dense="true" />
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Success"
-                               OnClick="RequestPlay"
-                               Style="min-width: 120px;">
-                        Play
-                    </MudButton>
-                </MudStack>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    Sends play request to projector via backend. AudioEngine in the same session will play it.
-                </MudText>
-            </MudPaper>
-        }
     </MudContainer>
 </div>
 
@@ -458,10 +415,7 @@
 </style>
 
 @code {
-    private string fileUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
     private int? _selectedChoice;
-    private bool _showDevPanel = false;
-    private bool _showDevTools = false;
     private List<string> _participantsList = new();
     private bool _isWaiting => Hub.CurrentQuestion is null;
     private DateTime _lastSubmissionAttempt = DateTime.MinValue;
@@ -584,19 +538,6 @@
             // Shake animation on error
             await Feedback.TriggerShakeAnimationAsync($"option-{index + 1}");
             Snackbar.Add($"Failed to submit answer: {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task RequestPlay()
-    {
-        try
-        {
-            await Hub.RequestPlayAsync(fileUrl);
-            Snackbar.Add("Play request sent to projector", Severity.Info);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to send play request: {ex.Message}", Severity.Error);
         }
     }
 

@@ -12,6 +12,8 @@ using Nuotti.Contracts.V1.Message;
 using System.Collections.Concurrent;
 using System.Security.Claims;
 using Nuotti.Backend.Tests.TestSupport;
+using Nuotti.Backend.Realtime;
+
 namespace Nuotti.Backend.Tests;
 
 public class QuizHubInProcTests
@@ -32,8 +34,8 @@ public class QuizHubInProcTests
 
         await hub.Join("sessA", "Audience", name: "Alice", deviceSecret: "dev-Alice");
 
-        Assert.True(groups.Groups.TryGetValue("sessA", out var sessGroup) && sessGroup.Contains("conn-1"));
-        Assert.True(groups.Groups.TryGetValue("sessA:audience", out var roleGroup) && roleGroup.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.Session("sessA"), out var sessGroup) && sessGroup.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.SessionRole("sessA", "audience"), out var roleGroup) && roleGroup.Contains("conn-1"));
 
         var counts = store.GetCounts("sessA");
         Assert.Equal(0, counts.Performer);
@@ -109,8 +111,8 @@ public class QuizHubInProcTests
         await hub.Join("session2", "Performer", null, null);
 
         // Verify groups are separate
-        Assert.True(groups.Groups.TryGetValue("session1", out var sess1Group) && sess1Group.Contains("conn-1"));
-        Assert.True(groups.Groups.TryGetValue("session2", out var sess2Group) && sess2Group.Contains("conn-2"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.Session("session1"), out var sess1Group) && sess1Group.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.Session("session2"), out var sess2Group) && sess2Group.Contains("conn-2"));
         Assert.DoesNotContain("conn-2", sess1Group);
         Assert.DoesNotContain("conn-1", sess2Group);
     }
@@ -181,8 +183,8 @@ public class QuizHubInProcTests
         await hub.Join("test-session", "Performer", null, null);
 
         // Verify added to session group and role group
-        Assert.True(groups.Groups.TryGetValue("test-session", out var sessGroup) && sessGroup.Contains("conn-perf"));
-        Assert.True(groups.Groups.TryGetValue("test-session:performer", out var roleGroup) && roleGroup.Contains("conn-perf"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.Session("test-session"), out var sessGroup) && sessGroup.Contains("conn-perf"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.SessionRole("test-session", "performer"), out var roleGroup) && roleGroup.Contains("conn-perf"));
 
         // Join as Audience
         var audCtx = new TestContext("conn-aud");
@@ -191,7 +193,7 @@ public class QuizHubInProcTests
 
         // Verify added to session group and audience role group
         Assert.Contains("conn-aud", sessGroup);
-        Assert.True(groups.Groups.TryGetValue("test-session:audience", out var audRoleGroup) && audRoleGroup.Contains("conn-aud"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.SessionRole("test-session", "audience"), out var audRoleGroup) && audRoleGroup.Contains("conn-aud"));
 
         // Verify both connections in session group
         Assert.Contains("conn-perf", sessGroup);
@@ -232,8 +234,8 @@ public class QuizHubInProcTests
         public IClientProxy Clients(IReadOnlyList<string> connectionIds) => new FakeClientProxy();
         public IClientProxy Group(string groupName)
         {
-            if (groupName == "session1") return new TrackingClientProxy(Session1Clients);
-            if (groupName == "session2") return new TrackingClientProxy(Session2Clients);
+            if (groupName == RealtimeGroups.Session("session1")) return new TrackingClientProxy(Session1Clients);
+            if (groupName == RealtimeGroups.Session("session2")) return new TrackingClientProxy(Session2Clients);
             return new FakeClientProxy();
         }
         public IClientProxy GroupExcept(string groupName, IReadOnlyList<string> excludedConnectionIds) => Group(groupName);
@@ -267,7 +269,7 @@ public class QuizHubInProcTests
         await hub.Join("test-session", "Audience", name: "Alice", deviceSecret: "dev-Alice");
 
         // Verify JoinedAudience was sent to session group
-        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var groupProxy));
         Assert.Contains(groupProxy.Sent, x => x.method == "JoinedAudience");
         var joinedMsg = (JoinedAudience)groupProxy.Sent.First(x => x.method == "JoinedAudience").args[0]!;
         Assert.StartsWith("part_", joinedMsg.ConnectionId);
@@ -288,7 +290,7 @@ public class QuizHubInProcTests
         await hub.Join("test-session", "Performer", null, null);
 
         // Verify JoinedAudience was NOT sent (if group proxy exists, it should be empty)
-        if (clients.GroupProxies.TryGetValue("test-session", out var groupProxy))
+        if (clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var groupProxy))
         {
             Assert.DoesNotContain(groupProxy.Sent, x => x.method == "JoinedAudience");
         }
@@ -336,11 +338,11 @@ public class QuizHubInProcTests
         await hub.CreateOrJoinWithName("test-session", "Bob", "dev-Bob");
 
         // Verify added to session and audience role group
-        Assert.True(groups.Groups.TryGetValue("test-session", out var sessGroup) && sessGroup.Contains("conn-1"));
-        Assert.True(groups.Groups.TryGetValue("test-session:audience", out var roleGroup) && roleGroup.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.Session("test-session"), out var sessGroup) && sessGroup.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.SessionRole("test-session", "audience"), out var roleGroup) && roleGroup.Contains("conn-1"));
 
         // Verify JoinedAudience was broadcast
-        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var groupProxy));
         Assert.Contains(groupProxy.Sent, x => x.method == "JoinedAudience");
     }
 
@@ -356,7 +358,7 @@ public class QuizHubInProcTests
 
         // Join a session
         await hub.Join("test-session", "Audience", name: "Alice", deviceSecret: "dev-Alice");
-        Assert.True(groups.Groups.TryGetValue("test-session", out var sessGroup) && sessGroup.Contains("conn-1"));
+        Assert.True(groups.Groups.TryGetValue(RealtimeGroups.Session("test-session"), out var sessGroup) && sessGroup.Contains("conn-1"));
         Assert.Equal(1, store.GetCounts("test-session").Audiences);
 
         // Disconnect
@@ -375,10 +377,14 @@ public class QuizHubInProcTests
         var clients = new FakeClients();
         hub.SetClients(clients);
 
+        hub.SetContext(new TestContext("engine-1"));
+        hub.SetGroups(new CapturingGroupManager());
+        await hub.Join("test-session", "Engine", null, null);
+
         var evt = new EngineStatusChanged(EngineStatus.Playing, 50.0);
         await hub.EngineStatusChanged("test-session", evt);
 
-        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var groupProxy));
         Assert.Contains(groupProxy.Sent, x => x.method == "EngineStatusChanged" && x.args[0] is EngineStatusChanged e && e.Status == evt.Status && e.LatencyMs == evt.LatencyMs);
     }
 
@@ -390,9 +396,10 @@ public class QuizHubInProcTests
         var clients = new FakeClients();
         hub.SetClients(clients);
 
+        hub.SetContext(new TestContext("perf-1"));
         await hub.Ping("test-session", 1234567890L);
 
-        Assert.True(clients.GroupProxies.TryGetValue("test-session:engine", out var engineGroupProxy));
+        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.SessionRole("test-session", "engine"), out var engineGroupProxy));
         Assert.Contains(engineGroupProxy.Sent, x => x.method == "Ping" && x.args[0] is long ticks && ticks == 1234567890L);
     }
 
@@ -404,9 +411,10 @@ public class QuizHubInProcTests
         var clients = new FakeClients();
         hub.SetClients(clients);
 
+        hub.SetContext(new TestContext("engine-1"));
         await hub.Echo("test-session", 1234567890L, 1234567900L);
 
-        Assert.True(clients.GroupProxies.TryGetValue("test-session:performer", out var performerGroupProxy));
+        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.SessionRole("test-session", "performer"), out var performerGroupProxy));
         Assert.Contains(performerGroupProxy.Sent, x =>
             x.method == "Echo" &&
             x.args[0] is long clientTicks && clientTicks == 1234567890L &&
@@ -414,7 +422,36 @@ public class QuizHubInProcTests
     }
 
     [Fact]
-    public async Task RequestPlay_blocks_non_audience()
+    public async Task RequestPlay_blocks_the_audience()
+    {
+        // Playback used to be an audience-only call, reachable from a developer panel in the
+        // Audience app: any phone in the room could start audio on the venue rig. The Performer
+        // drives playback.
+        var store = CreateSessionStore();
+        var hub = Harness.Hub(store, new CapturingEventBus());
+        var clients = new FakeClients();
+        var groups = new CapturingGroupManager();
+        hub.SetContext(new TestContext("aud-1"));
+        hub.SetClients(clients);
+        hub.SetGroups(groups);
+
+        await hub.Join("test-session", "Audience", name: "Alice", deviceSecret: "dev-Alice");
+
+        var cmd = new PlayTrack("https://example.com/track.mp3")
+        {
+            SessionCode = "test-session",
+            IssuedByRole = Role.Audience,
+            IssuedById = "aud-1"
+        };
+        await hub.RequestPlay("test-session", cmd);
+
+        Assert.Contains(clients.CallerProxy.Sent, x => x.method == "Problem");
+        Assert.False(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var group)
+            && group.Sent.Any(x => x.method == "RequestPlay"));
+    }
+
+    [Fact]
+    public async Task RequestPlay_allows_the_performer_and_broadcasts_to_session()
     {
         var store = CreateSessionStore();
         var hub = Harness.Hub(store, new CapturingEventBus());
@@ -424,10 +461,8 @@ public class QuizHubInProcTests
         hub.SetClients(clients);
         hub.SetGroups(groups);
 
-        // Join as Performer
         await hub.Join("test-session", "Performer", null, null);
 
-        // Try to request play
         var cmd = new PlayTrack("https://example.com/track.mp3")
         {
             SessionCode = "test-session",
@@ -436,35 +471,7 @@ public class QuizHubInProcTests
         };
         await hub.RequestPlay("test-session", cmd);
 
-        // Should receive Problem
-        Assert.Contains(clients.CallerProxy.Sent, x => x.method == "Problem");
-    }
-
-    [Fact]
-    public async Task RequestPlay_allows_audience_and_broadcasts_to_session()
-    {
-        var store = CreateSessionStore();
-        var hub = Harness.Hub(store, new CapturingEventBus());
-        var clients = new FakeClients();
-        var groups = new CapturingGroupManager();
-        hub.SetContext(new TestContext("aud-1"));
-        hub.SetClients(clients);
-        hub.SetGroups(groups);
-
-        // Join as Audience
-        await hub.Join("test-session", "Audience", name: "Alice", deviceSecret: "dev-Alice");
-
-        // Request play
-        var cmd = new PlayTrack("https://example.com/track.mp3")
-        {
-            SessionCode = "test-session",
-            IssuedByRole = Role.Audience,
-            IssuedById = "aud-1"
-        };
-        await hub.RequestPlay("test-session", cmd);
-
-        // Should broadcast to session group
-        Assert.True(clients.GroupProxies.TryGetValue("test-session", out var groupProxy));
+        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var groupProxy));
         Assert.Contains(groupProxy.Sent, x => x.method == "RequestPlay" && x.args[0] is PlayTrack p && p.FileUrl == cmd.FileUrl);
     }
 
@@ -495,6 +502,7 @@ public class QuizHubInProcTests
         // Broadcast EngineStatusChanged to session1
         var evt = new EngineStatusChanged(EngineStatus.Playing, 50.0);
         hub.SetContext(new TestContext("engine-1"));
+        await hub.Join("session1", "Engine", null, null);
         await hub.EngineStatusChanged("session1", evt);
 
         // Verify session1 received it, session2 did not

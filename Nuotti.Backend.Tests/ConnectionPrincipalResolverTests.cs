@@ -69,6 +69,8 @@ public sealed class ConnectionPrincipalResolverTests
         Assert.True(principal.Can(Capability.Subscribe));
         Assert.False(principal.Can(Capability.IssueGameCommand));
         Assert.False(principal.Can(Capability.ReportDeviceStatus));
+        // A phone in the crowd cannot start audio on the venue's PA.
+        Assert.False(principal.Can(Capability.RequestPlayback));
     }
 
     [Fact]
@@ -103,6 +105,38 @@ public sealed class ConnectionPrincipalResolverTests
         var b = await audience.JoinAsync("SESS", "device-secret-bbbbbbbbbb");
 
         Assert.NotEqual(a.ParticipantId, b.ParticipantId);
+    }
+
+    [Fact]
+    public async Task A_credential_that_names_its_own_session_need_not_be_told_which_one()
+    {
+        // A venue device is paired while it is already running, so it cannot know its session code
+        // before it connects. Its lease names one, which is the authority anyway.
+        var (resolver, workspaces, devices, audience) = Create();
+        var owner = await SignedInOwnerAsync(workspaces);
+        var pairing = await devices.IssuePairingCodeAsync(owner.WorkspaceId, "SESS", owner.UserId);
+        var paired = await devices.PairAsync(pairing.Code, "Stage projector");
+        var ticket = await audience.JoinAsync("SESS", "device-secret-0123456789");
+
+        var device = await resolver.ResolveAsync(new RealtimeConnectionRequest(paired!.AccessToken, null, null, "projector"));
+        var fan = await resolver.ResolveAsync(new RealtimeConnectionRequest(ticket.Token, null, null, null));
+
+        Assert.Equal("SESS", device!.SessionCode);
+        Assert.Equal("SESS", fan!.SessionCode);
+    }
+
+    [Fact]
+    public async Task A_workspace_member_still_has_to_say_which_session()
+    {
+        // Their token names no session - a band runs many - so leaving it out cannot be resolved
+        // into one. This is the case the relaxation above must not sweep up.
+        var (resolver, workspaces, _, _) = Create();
+        var owner = await SignedInOwnerAsync(workspaces);
+
+        Assert.Null(await resolver.ResolveAsync(
+            new RealtimeConnectionRequest(owner.SessionToken, null, owner.WorkspaceId, null)));
+        Assert.Null(await resolver.ResolveAsync(
+            new RealtimeConnectionRequest(owner.SessionToken, "  ", owner.WorkspaceId, null)));
     }
 
     [Fact]

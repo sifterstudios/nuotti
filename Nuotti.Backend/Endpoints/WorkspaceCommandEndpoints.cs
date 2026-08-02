@@ -4,6 +4,8 @@ using Nuotti.Backend.Workspaces;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Nuotti.Backend.Endpoints;
 
@@ -19,6 +21,8 @@ namespace Nuotti.Backend.Endpoints;
 /// </remarks>
 internal static class WorkspaceCommandEndpoints
 {
+    static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
     public static void MapWorkspaceCommandEndpoints(this WebApplication app)
     {
         app.MapWorkspaceCommand<StartGame>("start-game");
@@ -44,23 +48,24 @@ internal static class WorkspaceCommandEndpoints
     static void MapWorkspaceCommand<T>(this WebApplication app, string route) where T : CommandBase
     {
         app.MapPost($"/v1/workspaces/{{workspaceId}}/sessions/{{sessionCode}}/commands/{route}", async (
-            HttpContext http, string workspaceId, string sessionCode, T command,
+            HttpContext http, string workspaceId, string sessionCode, JsonElement body,
             IWorkspaceAccessStore store, ISessionCommandProcessor processor, CancellationToken ct) =>
         {
             var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, store, workspaceId, ct);
             if (selected.Principal is null) return Results.Unauthorized();
             if (selected.Access is null) return Results.NotFound();
 
-            // The command body carries who issued it, and that lands in the audit trail and in
-            // every event derived from it. It is validated rather than rewritten, because a record
-            // with init-only properties cannot be corrected generically - and a caller that
-            // disagrees with the server about who it is should be told, not quietly relabelled.
-            if (!string.Equals(command.SessionCode, sessionCode, StringComparison.Ordinal))
-                return Mismatch("sessionCode", "The command's session must match the route.");
-            if (command.IssuedByRole != Role.Performer)
-                return Mismatch("issuedByRole", "Workspace commands are issued as the Performer.");
-            if (!string.Equals(command.IssuedById, selected.Principal.UserId, StringComparison.Ordinal))
-                return Mismatch("issuedById", "The command must be issued by the signed-in member sending it.");
+            T? command;
+            try
+            {
+                command = Stamp(body, sessionCode, selected.Principal.UserId).Deserialize<T>(Json);
+            }
+            catch (JsonException exception)
+            {
+                return Results.ValidationProblem(
+                    new Dictionary<string, string[]> { ["command"] = [exception.Message] });
+            }
+            if (command is null) return Results.BadRequest();
 
             var result = await processor.ApplyAsync(sessionCode,
                 Actor.Verified(Role.Performer, selected.Principal.UserId), command,
@@ -69,6 +74,23 @@ internal static class WorkspaceCommandEndpoints
         }).RequireCors("NuottiCors");
     }
 
-    static IResult Mismatch(string field, string message) => Results.ValidationProblem(
-        new Dictionary<string, string[]> { [field] = [message] });
+    /// <summary>
+    /// Writes who issued this command and which session it belongs to, over whatever the caller
+    /// said.
+    /// </summary>
+    /// <remarks>
+    /// These three fields land in the audit trail and in every event derived from the command, so
+    /// they are stamped rather than validated: a client that gets them wrong is corrected instead
+    /// of refused, and a client that lies about them cannot. Commands are records with init-only
+    /// properties, so this happens on the JSON on the way in - there is nowhere later to do it.
+    /// </remarks>
+    static JsonNode Stamp(JsonElement body, string sessionCode, string userId)
+    {
+        var node = JsonNode.Parse(body.GetRawText()) as JsonObject
+            ?? throw new JsonException("A command must be a JSON object.");
+        node["sessionCode"] = sessionCode;
+        node["issuedByRole"] = Role.Performer.ToString();
+        node["issuedById"] = userId;
+        return node;
+    }
 }

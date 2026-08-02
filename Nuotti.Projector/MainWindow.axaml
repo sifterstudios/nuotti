@@ -238,5 +238,42 @@
         <controls:DebugOverlay x:Name="DebugOverlayControl"
                                IsDebugVisible="False"
                                ZIndex="3000"/>
+
+        <!-- Pairing. A projector is admitted to a show by the band, from inside their own
+             workspace, so an unpaired machine has nothing to display until somebody types the
+             code it was given. Sits above everything: it is the only thing that matters. -->
+        <Border x:Name="PairingOverlay"
+                IsVisible="False"
+                ZIndex="4000"
+                Background="{DynamicResource BackgroundBrush}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="20" MaxWidth="620">
+                <TextBlock Text="🎵 Pair this projector"
+                           FontSize="42" FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           Foreground="{DynamicResource ForegroundBrush}"/>
+                <TextBlock Text="In the Performer app, open this session and generate a projector pairing code. Type the eight digits below."
+                           FontSize="20" TextWrapping="Wrap" TextAlignment="Center"
+                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+                <TextBox x:Name="PairingCodeInput"
+                         Watermark="00000000"
+                         MaxLength="8"
+                         FontSize="52"
+                         FontFamily="monospace"
+                         TextAlignment="Center"
+                         HorizontalAlignment="Center"
+                         MinWidth="360"
+                         Padding="16"/>
+                <Button x:Name="PairingSubmitButton"
+                        Content="Pair"
+                        FontSize="24"
+                        Padding="40,12"
+                        HorizontalAlignment="Center"
+                        IsDefault="True"/>
+                <TextBlock x:Name="PairingStatusText"
+                           Text=""
+                           FontSize="18" TextWrapping="Wrap" TextAlignment="Center"
+                           Foreground="{DynamicResource SecondaryTextBrush}"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
