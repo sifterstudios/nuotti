@@ -31,8 +31,8 @@ public sealed class ProductionGovernance
     }
 
     /// <summary>
-    /// Default entitlements for a newly created private-show workspace.
-    /// Owners can revoke individual kinds via the entitlement gate.
+    /// Restores private-show launch defaults for a workspace (asset download, Show Agent pairing,
+    /// publish). Launch kinds are allowed unless revoked; calling this clears any prior revoke.
     /// </summary>
     public void GrantLaunchEntitlements(string workspaceId)
     {

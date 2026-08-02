@@ -70,6 +70,15 @@ public class ProductionGovernanceSeamsTests
         entitlements.Grant("ws-1", EntitlementKind.DiagnosticsExport);
         entitlements.IsAllowed("ws-1", EntitlementKind.DiagnosticsExport).Should().BeTrue();
 
+        // Launch defaults survive without an explicit in-memory grant (API restart / pre-existing workspace).
+        entitlements.IsAllowed("ws-existing", EntitlementKind.ShowAgentPairing).Should().BeTrue();
+        entitlements.IsAllowed("ws-existing", EntitlementKind.AssetDownload).Should().BeTrue();
+        entitlements.IsAllowed("ws-existing", EntitlementKind.PublishPackage).Should().BeTrue();
+        entitlements.Revoke("ws-existing", EntitlementKind.ShowAgentPairing);
+        entitlements.IsAllowed("ws-existing", EntitlementKind.ShowAgentPairing).Should().BeFalse();
+        entitlements.Grant("ws-existing", EntitlementKind.ShowAgentPairing);
+        entitlements.IsAllowed("ws-existing", EntitlementKind.ShowAgentPairing).Should().BeTrue();
+
         var takedown = new TakedownCaseStore();
         var now = DateTimeOffset.UtcNow;
         var opened = takedown.Open("ws-1", "rev_audio_1", "rights dispute", now);

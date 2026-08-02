@@ -106,6 +106,49 @@ public sealed class GovernanceJourneyTests(WebApplicationFactory<QuizHub> baseFa
         Assert.True(governance.LeaseIssuer.TryVerify(lease, DateTimeOffset.UtcNow, out _));
     }
 
+    [Fact]
+    public async Task Show_agent_pairing_works_for_workspace_without_in_memory_launch_grants()
+    {
+        // Production workspaces survive API restarts; the old EntitlementGate did not.
+        // Creating via the store skips GrantLaunchEntitlements — same gap operators hit.
+        using var client = _factory.CreateClient();
+        var owner = await SignInAsync(client, "pair-survive");
+        var access = _factory.Services.GetRequiredService<IWorkspaceAccessStore>();
+        var workspace = await access.CreateWorkspaceAsync(owner.Principal, "Surviving band");
+        await SelectAsync(client, owner.SessionToken, workspace.WorkspaceId);
+        (await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/DEV/create", owner.SessionToken)).EnsureSuccessStatusCode();
+
+        var pairing = await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/DEV/show-agent/pairings", owner.SessionToken);
+        Assert.Equal(HttpStatusCode.OK, pairing.StatusCode);
+        var code = await pairing.Content.ReadFromJsonAsync<ShowAgentPairingCode>();
+        Assert.Matches("^[0-9]{8}$", code!.Code);
+    }
+
+    [Fact]
+    public async Task Show_agent_pairing_respects_explicit_revoke()
+    {
+        using var client = _factory.CreateClient();
+        var owner = await SignInAsync(client, "pair-revoke");
+        var workspace = await PostAsync<WorkspaceAccess>(client, "/v1/workspaces", owner.SessionToken, new { name = "Revoked band" });
+        await SelectAsync(client, owner.SessionToken, workspace.WorkspaceId);
+        (await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/REV1/create", owner.SessionToken)).EnsureSuccessStatusCode();
+
+        var governance = _factory.Services.GetRequiredService<Nuotti.Backend.Governance.ProductionGovernance>();
+        governance.Entitlements.Revoke(workspace.WorkspaceId, EntitlementKind.ShowAgentPairing);
+
+        var denied = await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/REV1/show-agent/pairings", owner.SessionToken);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        governance.GrantLaunchEntitlements(workspace.WorkspaceId);
+        var restored = await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/REV1/show-agent/pairings", owner.SessionToken);
+        Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+    }
+
     static async Task<RedeemedMagicLink> SignInAsync(HttpClient client, string prefix)
     {
         var link = await PostAsync<IssuedMagicLink>(client, "/v1/auth/magic-links", null,
