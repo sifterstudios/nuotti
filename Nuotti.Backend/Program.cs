@@ -28,6 +28,17 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    // Session codes are short enough to guess, so the one public write surface is throttled per
+    // IP. A real venue puts a whole room behind one NAT address, so the window is generous.
+    options.AddPolicy("audience-join", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 300,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
     options.AddPolicy("show-agent-pairing", http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
@@ -143,6 +154,10 @@ builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 builder.Services.AddSingleton<ISessionWorkspaceBinder, InMemorySessionWorkspaceBinder>();
 builder.Services.AddSingleton<IParticipantIdentityStore, InMemoryParticipantIdentityStore>();
 builder.Services.AddSingleton<ISharedSongCatalog, InMemorySharedSongCatalog>();
+// Realtime authorization. A hub connection's capabilities come from its credential rather than
+// from a role it declares, which is what makes one hub safe to expose in every environment.
+builder.Services.AddSingleton<Nuotti.Backend.Realtime.IAudienceJoinStore, Nuotti.Backend.Realtime.InMemoryAudienceJoinStore>();
+builder.Services.AddSingleton<Nuotti.Backend.Realtime.IConnectionPrincipalResolver, Nuotti.Backend.Realtime.ConnectionPrincipalResolver>();
 builder.Services.AddSingleton<IAudienceCatalogSearch, AudienceCatalogSearch>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
@@ -260,6 +275,7 @@ app.MapTimeEndpoints();
 if (app.Environment.IsDevelopment()) app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
+app.MapAudienceJoinEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapShowAgentEndpoints();
 app.MapPrivateAssetEndpoints();
