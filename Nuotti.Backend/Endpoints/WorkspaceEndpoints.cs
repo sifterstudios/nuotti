@@ -122,6 +122,26 @@ public static class WorkspaceEndpoints
             return result.ToHttpResult();
         });
 
+        // Who is actually connected. This is the "is my projector plugged in?" check a band makes
+        // before a set, and it lived on /api, which is local-only - so deployed, the Performer's
+        // counts never populated at all.
+        app.MapGet("/v1/workspaces/{workspaceId}/sessions/{sessionCode}/counts", async (
+            HttpContext http, string workspaceId, string sessionCode,
+            IWorkspaceAccessStore store, ISessionStore sessions, CancellationToken ct) =>
+        {
+            var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, store, workspaceId, ct);
+            if (selected.Principal is null) return Results.Unauthorized();
+            if (selected.Access is null) return Results.NotFound();
+            var counts = sessions.GetCounts(sessionCode);
+            return Results.Ok(new
+            {
+                performer = counts.Performer,
+                projector = counts.Projector,
+                engine = counts.Engine,
+                audiences = counts.Audiences
+            });
+        });
+
         app.MapPost("/v1/workspaces/{workspaceId}/sessions/{sessionCode}/start", async (
             HttpContext http, string workspaceId, string sessionCode,
             IWorkspaceAccessStore store, ISessionCommandProcessor processor, CancellationToken ct) =>

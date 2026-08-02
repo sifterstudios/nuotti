@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.JSInterop;
 using Nuotti.Contracts.V1.Enum;
 using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
@@ -14,6 +15,7 @@ public class AudienceHubClient : IAsyncDisposable
     readonly NavigationManager _nav;
     readonly HttpClient _http;
     readonly IConfiguration _configuration;
+    readonly IJSRuntime? _js;
 
     HubConnection? _connection;
     HubConnection? _logConnection;
@@ -26,6 +28,14 @@ public class AudienceHubClient : IAsyncDisposable
     public string? SessionCode { get; private set; }
     public string? AudienceName { get; private set; }
     public string? ParticipantId { get; private set; }
+    /// <summary>
+    /// The device-bound secret that makes this phone the same participant every time.
+    /// </summary>
+    /// <remarks>
+    /// It survives a page reload, not just a dropped socket. Minting a fresh one per client
+    /// instance meant a refresh - or a phone locking and waking - arrived as a stranger with no
+    /// name and no score, which is the exact failure the device-bound identity exists to prevent.
+    /// </remarks>
     public string DeviceSecret { get; private set; } = Guid.NewGuid().ToString("N");
     public int? MyAnswerChoiceIndex { get; private set; }
     public bool HasPendingAnswer => _pendingAnswer is not null;
@@ -51,12 +61,42 @@ public class AudienceHubClient : IAsyncDisposable
     public event Action? ParticipantsChanged;
     public NuottiProblem? LastProblem { get; private set; }
 
-    public AudienceHubClient(NavigationManager nav, HttpClient http, IConfiguration configuration)
+    public AudienceHubClient(NavigationManager nav, HttpClient http, IConfiguration configuration,
+        IJSRuntime? js = null)
     {
         _nav = nav;
         _http = http;
         _configuration = configuration;
+        _js = js;
         BackendBaseUrl = ResolveBackendBaseUrl();
+    }
+
+    const string DeviceSecretKey = "nuotti-device-secret";
+
+    /// <summary>
+    /// Loads this browser's device secret, minting and storing one the first time.
+    /// </summary>
+    /// <remarks>
+    /// Falls back to the freshly generated in-memory value when storage is unavailable - a phone
+    /// in private mode still plays, it just cannot be recognised after a reload.
+    /// </remarks>
+    async Task EnsureDeviceSecretAsync()
+    {
+        if (_js is null) return;
+        try
+        {
+            var stored = await _js.InvokeAsync<string?>("localStorage.getItem", DeviceSecretKey);
+            if (!string.IsNullOrWhiteSpace(stored))
+            {
+                DeviceSecret = stored;
+                return;
+            }
+            await _js.InvokeVoidAsync("localStorage.setItem", DeviceSecretKey, DeviceSecret);
+        }
+        catch (Exception ex)
+        {
+            Log($"[Audience] Device secret not persisted: {ex.Message}");
+        }
     }
 
     string ResolveBackendBaseUrl()
@@ -243,6 +283,7 @@ public class AudienceHubClient : IAsyncDisposable
     {
         SessionCode = sessionCode;
         AudienceName = audienceName;
+        await EnsureDeviceSecretAsync();
 
         // Joining is an HTTP call now, and it happens before the hub connection is built: the
         // token it returns is what the connection presents, and the participant id it returns is
@@ -260,6 +301,10 @@ public class AudienceHubClient : IAsyncDisposable
 
         Log($"[Audience] Invoking Join: session={sessionCode} name={audienceName}");
         await _connection!.InvokeAsync("Join", sessionCode, "audience", audienceName, DeviceSecret);
+
+        // Catch up on what is already happening. Most phones join mid-set, and without this one
+        // stares at an empty screen until the performer happens to push the next thing.
+        await FetchGameStateAsync();
         await FetchMyAnswerAsync();
     }
 
@@ -379,7 +424,10 @@ public class AudienceHubClient : IAsyncDisposable
         try
         {
             Log($"[Audience] Fetching game state for session: {SessionCode}");
-            var response = await _http.GetAsync($"{BackendBaseUrl}/status/{SessionCode}");
+            using var stateRequest = new HttpRequestMessage(HttpMethod.Get, $"{BackendBaseUrl}/status/{SessionCode}");
+            if (_joinToken is not null)
+                stateRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _joinToken);
+            var response = await _http.SendAsync(stateRequest);
 
             if (response.IsSuccessStatusCode)
             {
@@ -432,18 +480,31 @@ public class AudienceHubClient : IAsyncDisposable
         }
     }
 
+    bool _logUnavailable;
+
+    /// <summary>
+    /// Attaches to the debug log stream, once.
+    /// </summary>
+    /// <remarks>
+    /// /log is mapped in Development only, and deliberately so - it is a firehose of everything
+    /// happening on the server and has no place on a public host. The client's job is therefore to
+    /// try once and stop: with automatic reconnect it retried a 404 for the length of the show.
+    /// </remarks>
     async Task EnsureLogConnectedAsync()
     {
-        if (_logConnection == null)
-        {
-            _logConnection = new HubConnectionBuilder()
-                .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/log"))
-                .WithAutomaticReconnect()
-                .Build();
-        }
-        if (_logConnection.State == HubConnectionState.Disconnected)
+        if (_logUnavailable) return;
+        _logConnection ??= new HubConnectionBuilder()
+            .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/log"))
+            .Build();
+        if (_logConnection.State != HubConnectionState.Disconnected) return;
+
+        try
         {
             await _logConnection.StartAsync();
+        }
+        catch
+        {
+            _logUnavailable = true;
         }
     }
 

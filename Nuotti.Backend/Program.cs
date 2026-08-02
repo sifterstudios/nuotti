@@ -263,7 +263,9 @@ if (app.Environment.IsDevelopment())
 // credential it presents, so there is nothing left for an environment branch to protect.
 app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
 app.MapHealthEndpoints();
-if (app.Environment.IsDevelopment()) app.MapStatusEndpoints();
+// The session catch-up read. Authorized by the same principal the hub resolves, so it is safe in
+// every environment - and the clients that depend on it stop being local-only with it.
+app.MapStatusEndpoints();
 // Audience surfaces. These were local-only while they identified a participant by a query string
 // parameter; they now require the join token, which names both the participant and its session.
 app.MapAudienceCatalogEndpoints();

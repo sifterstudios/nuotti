@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Nuotti.Backend.Realtime;
 using Nuotti.Backend.ShowAgents;
 using Nuotti.Backend.Workspaces;
+using Nuotti.Contracts.V1.Model;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
@@ -142,6 +144,61 @@ public sealed class RealtimeHubAuthorizationTests(WebApplicationFactory<QuizHub>
         var arrived = await Task.WhenAny(heard.Task, Task.Delay(TimeSpan.FromSeconds(5)));
         Assert.True(arrived == heard.Task,
             "The relay followed the session name it was handed instead of the one the device is paired to.");
+    }
+
+    [Fact]
+    public async Task A_phone_that_joins_mid_round_can_catch_up_on_what_it_missed()
+    {
+        // Most phones join mid-set. Without this read they stare at an empty screen until the
+        // performer happens to push the next thing, because the state they missed is never resent.
+        using var client = _factory.CreateClient();
+        var band = await StartSessionAsync(client, "latecomer");
+        await PushQuestionAsync(client, band);
+        var ticket = await JoinAsync(client, band.SessionCode);
+
+        var response = await SendAsync(client, HttpMethod.Get, $"/status/{band.SessionCode}", ticket.Token);
+
+        response.EnsureSuccessStatusCode();
+        // The snapshot carries the choices the phone has to render; arriving with an empty list is
+        // the blank screen this read exists to prevent.
+        var snapshot = await response.Content.ReadFromJsonAsync<GameStateSnapshot>();
+        Assert.Equal(["A", "B"], snapshot!.Choices);
+    }
+
+    [Fact]
+    public async Task Session_state_is_not_readable_without_a_credential()
+    {
+        // A snapshot carries the current question and the running tallies. Un-gating this read
+        // would hand a band's live show to anyone who guessed a six-character code.
+        using var client = _factory.CreateClient();
+        var band = await StartSessionAsync(client, "nosy");
+        await PushQuestionAsync(client, band);
+
+        var anonymous = await SendAsync(client, HttpMethod.Get, $"/status/{band.SessionCode}", null);
+        var rival = await StartSessionAsync(client, "rival");
+        var otherBand = await SendAsync(client, HttpMethod.Get, $"/status/{band.SessionCode}", rival.SessionToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, otherBand.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_member_can_see_who_is_connected_to_their_session()
+    {
+        // The "is my projector plugged in?" check before a set.
+        using var client = _factory.CreateClient();
+        var band = await StartSessionAsync(client, "counts");
+
+        await using var connection = Connect(
+            $"/hub?sessionCode={band.SessionCode}&workspaceId={band.WorkspaceId}&access_token={band.SessionToken}");
+        await connection.StartAsync();
+
+        var response = await SendAsync(client, HttpMethod.Get,
+            $"/v1/workspaces/{band.WorkspaceId}/sessions/{band.SessionCode}/counts", band.SessionToken);
+
+        response.EnsureSuccessStatusCode();
+        var counts = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(1, counts.GetProperty("performer").GetInt32());
     }
 
     [Fact]

@@ -223,7 +223,7 @@ else
             client.ConnectedChanged += OnConnectedChanged;
             client.GameStateChanged += OnGameStateChanged;
             client.AnswerSubmitted += OnAnswerSubmitted;
-            LiveState.SetSession(sessionCode!, backendUri);
+            LiveState.SetSession(sessionCode!, backendUri, Workspace.WorkspaceId, Workspace.SessionToken);
             await client.EnsureConnectedAsync();
             _ = LiveState.RefreshCountsAsync();
             status = "Connected.";

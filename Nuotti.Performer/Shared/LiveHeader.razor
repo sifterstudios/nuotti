@@ -68,7 +68,10 @@
         {
             var http = State.CreateClient();
             var sw = Stopwatch.StartNew();
-            var resp = await http.GetAsync($"/api/sessions/{Uri.EscapeDataString(State.SessionCode!)}/counts", cts.Token);
+            var (countsUrl, countsToken) = State.CountsRoute();
+            if (countsToken is not null)
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", countsToken);
+            var resp = await http.GetAsync(countsUrl, cts.Token);
             sw.Stop();
             if (resp.IsSuccessStatusCode)
             {

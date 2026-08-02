@@ -33,6 +33,7 @@ public partial class MainWindow : Window
 {
     readonly HubConnection _connection;
     HubConnection? _logConnection;
+    bool _logUnavailable;
     readonly TextBlock _connectionTextBlock;
     readonly TextBlock _sessionCodeText;
     readonly TextBlock _questionText;
@@ -143,7 +144,7 @@ public partial class MainWindow : Window
         _monitorService = new MonitorService();
         _safeAreaService = new SafeAreaService();
         _gameStateService = new GameStateService();
-        _reconnectService = new ReconnectService(_backend);
+        _reconnectService = new ReconnectService(_backend, () => _pairing.GetAccessTokenAsync());
         _performanceService = new PerformanceService();
         _fontService = new FontService();
         _errorHandlingService = new ErrorHandlingService();
@@ -696,11 +697,14 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (_logUnavailable) return;
             if (_logConnection == null)
             {
+                // No automatic reconnect: /log is mapped in Development only - it is a firehose of
+                // everything happening on the server - so on a deployed backend this retried a 404
+                // for the whole night. Try once, then leave it alone.
                 _logConnection = new HubConnectionBuilder()
                     .WithUrl($"{_backend}/log")
-                    .WithAutomaticReconnect()
                     .Build();
 
                 _logConnection.On<LogEvent>("Log", e =>
@@ -716,7 +720,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            AppendLocal($"[log] connect error: {ex.Message}");
+            _logUnavailable = true;
+            AppendLocal($"[log] unavailable, continuing without it: {ex.Message}");
         }
     }
 

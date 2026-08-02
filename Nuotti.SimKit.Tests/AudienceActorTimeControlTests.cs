@@ -12,10 +12,13 @@ public class AudienceActorTimeControlTests
     public async Task Immediate_provider_skips_delays()
     {
         var factory = new CapturingHubClientFactory();
+        // Seconds, not tens of milliseconds. The behaviour under test is "the configured delay was
+        // skipped entirely", and with a 50ms delay that verdict is decided by thread-pool
+        // scheduling on a busy machine rather than by the time provider.
         var options = new AudienceOptions
         {
-            MinDelay = TimeSpan.FromMilliseconds(50),
-            MaxDelay = TimeSpan.FromMilliseconds(100),
+            MinDelay = TimeSpan.FromSeconds(5),
+            MaxDelay = TimeSpan.FromSeconds(10),
             DropRate = 0.0,
             RandomSeed = 321
         };
@@ -37,13 +40,13 @@ public class AudienceActorTimeControlTests
         var startedAt = DateTime.UtcNow;
         await actor.OnStateAsync(snapshot);
 
-        // no extra wait should be necessary; answer should be near-instant
         var client = factory.Client!;
-        // wait briefly to allow async scheduling on thread pool
-        await Task.Delay(5);
+        await WaitForAnswerAsync(() => client.Answers.Count, TimeSpan.FromSeconds(2));
         Assert.Single(client.Answers);
         var first = client.Answers[0];
-        Assert.True((first.Timestamp - startedAt).TotalMilliseconds < 20);
+        // Comfortably under the 5s minimum a real provider would have waited.
+        Assert.True((first.Timestamp - startedAt) < TimeSpan.FromSeconds(2),
+            $"Answer took {(first.Timestamp - startedAt).TotalMilliseconds}ms; the delay was not skipped.");
     }
 
     [Fact]
@@ -52,12 +55,12 @@ public class AudienceActorTimeControlTests
         var factory = new CapturingHubClientFactory();
         var options = new AudienceOptions
         {
-            MinDelay = TimeSpan.FromMilliseconds(100),
-            MaxDelay = TimeSpan.FromMilliseconds(100),
+            MinDelay = TimeSpan.FromSeconds(2),
+            MaxDelay = TimeSpan.FromSeconds(2),
             DropRate = 0.0,
             RandomSeed = 42
         };
-        var time = new RealTimeProvider(speed: 10.0); // 10x faster => ~10ms expected
+        var time = new RealTimeProvider(speed: 10.0); // 10x faster => ~200ms expected
         var actor = new AudienceActor(factory, new Uri("http://localhost:5000"), "SESS", "Eve", LaneRandom.ForLane(options.RandomSeed ?? 0, 0), options, time);
         await actor.StartAsync();
 
@@ -76,11 +79,20 @@ public class AudienceActorTimeControlTests
         var startedAt = DateTime.UtcNow;
         await actor.OnStateAsync(snapshot);
 
-        await Task.Delay(50);
         var client = factory.Client!;
+        await WaitForAnswerAsync(() => client.Answers.Count, TimeSpan.FromSeconds(2));
         Assert.Single(client.Answers);
         var first = client.Answers[0];
-        Assert.InRange((first.Timestamp - startedAt).TotalMilliseconds, 5, 40);
+        // Scaled down from 2s but not skipped: the window is wide enough that a loaded machine
+        // cannot push it out of range, and narrow enough that neither 2s nor 0 would pass.
+        Assert.InRange((first.Timestamp - startedAt).TotalMilliseconds, 50, 1500);
+    }
+
+    /// <summary>Waits for the actor to answer rather than sleeping a guessed interval.</summary>
+    static async Task WaitForAnswerAsync(Func<int> answerCount, TimeSpan budget)
+    {
+        var deadline = DateTime.UtcNow + budget;
+        while (answerCount() == 0 && DateTime.UtcNow < deadline) await Task.Delay(10);
     }
 }
 

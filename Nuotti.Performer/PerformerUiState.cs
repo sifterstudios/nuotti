@@ -61,11 +61,36 @@ public sealed class PerformerUiState
     public int EngineCount { get; private set; }
     public int AudienceCount { get; private set; }
 
-    public void SetSession(string session, Uri backend)
+    /// <summary>The workspace this session belongs to, and the token that reaches its routes.</summary>
+    /// <remarks>
+    /// Held here rather than injected: this is a singleton and WorkspaceSession is scoped, so
+    /// taking it as a dependency would be a captive one. The connect flow hands them over instead.
+    /// </remarks>
+    public string? WorkspaceId { get; private set; }
+    public string? SessionToken { get; private set; }
+
+    public void SetSession(string session, Uri backend, string? workspaceId = null, string? sessionToken = null)
     {
         SessionCode = session;
         BackendBaseUri = backend;
+        WorkspaceId = workspaceId;
+        SessionToken = sessionToken;
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Where to read connection counts, and with what authority.
+    /// </summary>
+    /// <remarks>
+    /// /api/sessions/{code}/counts is local-only, so on a deployed backend the counts never
+    /// arrived and the header sat on "not connected" no matter what was plugged in.
+    /// </remarks>
+    public (string Url, string? Token) CountsRoute()
+    {
+        var session = Uri.EscapeDataString(SessionCode!);
+        return WorkspaceId is { Length: > 0 } workspaceId && SessionToken is { Length: > 0 } token
+            ? ($"/v1/workspaces/{Uri.EscapeDataString(workspaceId)}/sessions/{session}/counts", token)
+            : ($"/api/sessions/{session}/counts", null);
     }
 
     public void SetConnection(bool connected)
@@ -156,7 +181,10 @@ public sealed class PerformerUiState
         try
         {
             var http = CreateClient();
-            var resp = await http.GetFromJsonAsync<RoleCountsDto>($"/api/sessions/{Uri.EscapeDataString(SessionCode!)}/counts", ct);
+            var (url, token) = CountsRoute();
+            if (token is not null)
+                http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var resp = await http.GetFromJsonAsync<RoleCountsDto>(url, ct);
             if (resp is not null)
             {
                 ProjectorCount = resp.projector;
