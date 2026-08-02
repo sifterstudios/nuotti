@@ -1,0 +1,240 @@
+@using Microsoft.JSInterop
+@using Nuotti.Performer.Services
+@inject ShowAgentPairingClient Pairing
+@inject WorkspaceSession Workspace
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<MudPaper Elevation="3" Class="pa-6 mb-4">
+    <MudText Typo="Typo.h5" Class="mb-2">Pair venue devices</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        Generate an eight-digit code for each local app. Type it into the Projector pairing screen,
+        or start the Show Agent with <code>--pair-code</code> / <code>NUOTTI_PAIR_CODE</code>.
+        Codes expire in ten minutes and can only be used once — issue one per device.
+    </MudText>
+
+    @if (!CanPair)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">Connect a session first to issue pairing codes.</MudAlert>
+    }
+    else
+    {
+        <MudStack Row="true" Spacing="2" Class="mb-4" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Material.Filled.QrCode"
+                       OnClick="GenerateAsync" Disabled="@_busy">
+                Generate pairing code
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                       StartIcon="@Material.Filled.LinkOff"
+                       OnClick="RevokeAsync" Disabled="@(_busy || !_devices.Any(d => !d.Revoked))">
+                Revoke all devices
+            </MudButton>
+        </MudStack>
+
+        @if (_activeCode is not null)
+        {
+            <MudPaper Outlined="true" Class="pa-4 mb-4" Style="text-align:center;">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Enter this code on the device</MudText>
+                <MudText Typo="Typo.h3" Class="my-2" Style="letter-spacing:0.2em; font-variant-numeric:tabular-nums;">
+                    @FormatCode(_activeCode.Code)
+                </MudText>
+                <MudStack Row="true" Spacing="2" Justify="Justify.Center" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Expires @_activeCode.ExpiresAt.ToLocalTime().ToString("t")
+                    </MudText>
+                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Material.Filled.ContentCopy"
+                               OnClick="CopyCodeAsync">
+                        Copy
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_error</MudAlert>
+        }
+
+        @if (_devices.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">No devices paired to this session yet.</MudText>
+        }
+        else
+        {
+            <MudTable Items="_devices" Dense="true" Hover="true" Breakpoint="Breakpoint.None">
+                <HeaderContent>
+                    <MudTh>Device</MudTh>
+                    <MudTh>State</MudTh>
+                    <MudTh>Last seen</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Device">
+                        @context.Name
+                        @if (context.Revoked)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-2">Revoked</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="State">
+                        <MudChip T="string" Size="Size.Small" Color="@StateColor(context)">@context.State</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Last seen">
+                        @(context.LastSeenAt?.ToLocalTime().ToString("g") ?? "—")
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public string? SessionCode { get; set; }
+
+    ShowAgentPairingCodeDto? _activeCode;
+    IReadOnlyList<ShowAgentStatusDto> _devices = [];
+    string? _error;
+    bool _busy;
+    CancellationTokenSource? _pollCts;
+
+    bool CanPair =>
+        !string.IsNullOrWhiteSpace(SessionCode)
+        && Workspace.IsReady
+        && !string.IsNullOrWhiteSpace(Workspace.SessionToken);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await RestartPollingAsync();
+    }
+
+    async Task RestartPollingAsync()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+        if (!CanPair) return;
+        await RefreshStatusesAsync();
+        _pollCts = new CancellationTokenSource();
+        _ = PollLoopAsync(_pollCts.Token);
+    }
+
+    async Task PollLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3), ct);
+                await RefreshStatusesAsync();
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    async Task GenerateAsync()
+    {
+        if (!CanPair) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            _activeCode = await Pairing.IssuePairingCodeAsync(
+                Workspace.WorkspaceId!, SessionCode!, Workspace.SessionToken!);
+            Snackbar.Add("Pairing code ready. Enter it on the Projector or Show Agent.", Severity.Success);
+            await RefreshStatusesAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    async Task RevokeAsync()
+    {
+        if (!CanPair) return;
+        _busy = true;
+        _error = null;
+        try
+        {
+            var revoked = await Pairing.RevokeAsync(
+                Workspace.WorkspaceId!, SessionCode!, Workspace.SessionToken!);
+            if (!revoked)
+            {
+                _error = "Nothing to revoke — no live devices, or only the workspace owner may revoke.";
+                Snackbar.Add(_error, Severity.Warning);
+            }
+            else
+            {
+                _activeCode = null;
+                Snackbar.Add("All venue devices revoked.", Severity.Info);
+            }
+            await RefreshStatusesAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    async Task RefreshStatusesAsync()
+    {
+        if (!CanPair) return;
+        try
+        {
+            _devices = await Pairing.ListStatusesAsync(
+                Workspace.WorkspaceId!, SessionCode!, Workspace.SessionToken!);
+            if (_activeCode is not null && _activeCode.ExpiresAt <= DateTimeOffset.UtcNow)
+                _activeCode = null;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    async Task CopyCodeAsync()
+    {
+        if (_activeCode is null) return;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _activeCode.Code);
+            Snackbar.Add("Code copied.", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add("Could not copy to clipboard.", Severity.Warning);
+        }
+    }
+
+    static string FormatCode(string code) =>
+        code.Length == 8 ? $"{code[..4]} {code[4..]}" : code;
+
+    static Color StateColor(ShowAgentStatusDto device) => device.Revoked
+        ? Color.Warning
+        : device.State switch
+        {
+            ShowAgentDeviceState.Ready or ShowAgentDeviceState.Playing => Color.Success,
+            ShowAgentDeviceState.Error => Color.Error,
+            _ => Color.Default
+        };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pollCts is null) return;
+        await _pollCts.CancelAsync();
+        _pollCts.Dispose();
+        _pollCts = null;
+    }
+}

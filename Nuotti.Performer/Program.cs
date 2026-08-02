@@ -20,6 +20,8 @@ builder.Services.AddHttpClient(WorkspaceSession.HttpClientName, client =>
     client.BaseAddress = new Uri(backendUrl));
 builder.Services.AddHttpClient<SongPackageAuthoringClient>(client =>
     client.BaseAddress = new Uri(backendUrl));
+builder.Services.AddHttpClient<ShowAgentPairingClient>(client =>
+    client.BaseAddress = new Uri(backendUrl));
 builder.Services.AddScoped<IWorkspaceSessionStore, ProtectedLocalStorageSessionStore>();
 builder.Services.AddScoped<WorkspaceSession>();
 builder.Services.AddScoped<SessionSelectionService>();

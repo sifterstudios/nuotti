@@ -102,8 +102,8 @@ public static class ShowAgentEndpoints
             var selected = await WorkspaceHttpAccess.RequireSelectedAsync(http, workspaceStore, workspaceId, ct);
             if (selected.Principal is null) return Results.Unauthorized();
             if (selected.Access is null) return Results.NotFound();
-            var status = await agentStore.GetStatusAsync(workspaceId, sessionCode, ct);
-            return status is null ? Results.NotFound() : Results.Ok(status);
+            var statuses = await agentStore.ListStatusesAsync(workspaceId, sessionCode, ct);
+            return Results.Ok(statuses);
         });
 
         app.MapDelete("/v1/workspaces/{workspaceId}/sessions/{sessionCode}/show-agent", async (

@@ -24,8 +24,10 @@ public interface IShowAgentAccessStore
     Task<ShowAgentLease?> AuthenticateAsync(string accessToken, CancellationToken cancellationToken = default);
     Task<bool> ReportStatusAsync(ShowAgentLease lease, ShowAgentConnectionState state, string? detail,
         CancellationToken cancellationToken = default);
-    Task<ShowAgentStatus?> GetStatusAsync(string workspaceId, string sessionCode,
+    /// <summary>Every device paired to this session, including revoked ones that still report last-known state.</summary>
+    Task<IReadOnlyList<ShowAgentStatus>> ListStatusesAsync(string workspaceId, string sessionCode,
         CancellationToken cancellationToken = default);
+    /// <summary>Revokes every live agent on the session. Returns false when none were live.</summary>
     Task<bool> RevokeAsync(string workspaceId, string sessionCode, CancellationToken cancellationToken = default);
     Task AppendCommandAsync(string workspaceId, string sessionCode, string messageType, object payload,
         CancellationToken cancellationToken = default);

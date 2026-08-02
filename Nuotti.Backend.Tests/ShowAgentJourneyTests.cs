@@ -56,8 +56,9 @@ public sealed class ShowAgentJourneyTests(WebApplicationFactory<QuizHub> baseFac
             new { credential = paired.Credential });
         Assert.Equal(HttpStatusCode.Unauthorized, blockedRefresh.StatusCode);
 
-        var status = await GetAsync<ShowAgentStatus>(client,
+        var statuses = await GetAsync<ShowAgentStatus[]>(client,
             $"/v1/workspaces/{workspace.WorkspaceId}/sessions/VENUE1/show-agent", owner.SessionToken);
+        var status = Assert.Single(statuses);
         Assert.True(status.Revoked);
         Assert.Equal(ShowAgentConnectionState.Playing, status.State);
         Assert.Equal("current-track.wav", status.Detail);
@@ -115,6 +116,45 @@ public sealed class ShowAgentJourneyTests(WebApplicationFactory<QuizHub> baseFac
         Assert.Equal(HttpStatusCode.NotFound, reuse.StatusCode);
         var workspaceAccess = await SendAsync(client, HttpMethod.Get, "/v1/workspaces", paired.AccessToken);
         Assert.Equal(HttpStatusCode.Unauthorized, workspaceAccess.StatusCode);
+    }
+
+    [Fact]
+    public async Task Projector_and_engine_can_both_stay_paired_to_the_same_session()
+    {
+        using var client = _factory.CreateClient();
+        var owner = await SignInAsync(client);
+        var workspace = await PostAsync<WorkspaceAccess>(client, "/v1/workspaces", owner.SessionToken,
+            new { name = "Dual device band" });
+        await SendAsync(client, HttpMethod.Post, $"/v1/workspaces/{workspace.WorkspaceId}/select", owner.SessionToken);
+        (await SendAsync(client, HttpMethod.Post,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/DUAL1/create", owner.SessionToken)).EnsureSuccessStatusCode();
+
+        var projectorCode = await PostAsync<ShowAgentPairingCode>(client,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/DUAL1/show-agent/pairings", owner.SessionToken, null);
+        var projector = await PostAsync<PairedShowAgent>(client, "/v1/show-agent/pair", null,
+            new { code = projectorCode.Code, name = "Stage projector" });
+
+        var engineCode = await PostAsync<ShowAgentPairingCode>(client,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/DUAL1/show-agent/pairings", owner.SessionToken, null);
+        var engine = await PostAsync<PairedShowAgent>(client, "/v1/show-agent/pair", null,
+            new { code = engineCode.Code, name = "Show agent" });
+
+        Assert.NotEqual(projector.AgentId, engine.AgentId);
+
+        // Both leases must still refresh — pairing the second device must not revoke the first.
+        var projectorRefresh = await SendAsync(client, HttpMethod.Post, "/v1/show-agent/token", null,
+            new { credential = projector.Credential });
+        var engineRefresh = await SendAsync(client, HttpMethod.Post, "/v1/show-agent/token", null,
+            new { credential = engine.Credential });
+        Assert.Equal(HttpStatusCode.OK, projectorRefresh.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, engineRefresh.StatusCode);
+
+        var statuses = await GetAsync<ShowAgentStatus[]>(client,
+            $"/v1/workspaces/{workspace.WorkspaceId}/sessions/DUAL1/show-agent", owner.SessionToken);
+        Assert.Equal(2, statuses.Length);
+        Assert.All(statuses, status => Assert.False(status.Revoked));
+        Assert.Contains(statuses, status => status.Name == "Stage projector");
+        Assert.Contains(statuses, status => status.Name == "Show agent");
     }
 
     static async Task<RedeemedMagicLink> SignInAsync(HttpClient client)

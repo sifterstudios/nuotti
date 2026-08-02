@@ -2,7 +2,10 @@
 @inject WorkspaceSession Session
 @inject NavigationManager Nav
 
-@if (IsSignInPage || _checked && Session.IsReady)
+@* Session.IsReady alone is enough to pass the gate: SignIn already selected a workspace before
+   NavigateTo("/"), and requiring _checked there left a permanent spinner after leaving /signin
+   (the readiness check is skipped on that page and never re-ran). *@
+@if (IsSignInPage || Session.IsReady)
 {
     @ChildContent
 }
@@ -33,9 +36,14 @@ else
     /// which needs a JS runtime that prerendering does not have. Checking earlier would decide
     /// "not signed in" for every user on every first paint.
     /// </summary>
+    /// <remarks>
+    /// Do not gate on <c>firstRender</c>. Sign-in skips this check, then navigates home on the
+    /// same AuthGate instance; a firstRender-only gate would never run and would leave the
+    /// spinner up forever if Session.IsReady were somehow still false.
+    /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || _checked || IsSignInPage) return;
+        if (_checked || IsSignInPage || Session.IsReady) return;
 
         await Session.EnsureReadyAsync();
         _checked = true;

@@ -93,6 +93,8 @@ else
                 </MudStack>
             </MudPaper>
 
+            <VenueDevicePairingPanel SessionCode="@(sessionCode ?? SessionSvc.LastSessionCode)" />
+
             <ControlPanel />
         </MudItem>
 

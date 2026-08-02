@@ -23,7 +23,7 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
     readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     readonly Dictionary<string, Pairing> _pairings = [];
     readonly Dictionary<string, Agent> _agents = [];
-    readonly Dictionary<string, string> _agentByScope = [];
+    readonly Dictionary<string, List<string>> _agentIdsByScope = [];
     readonly Dictionary<string, Token> _tokens = [];
     readonly Dictionary<string, List<ShowAgentCommand>> _commands = [];
     readonly Dictionary<string, long> _lastSequenceByScope = [];
@@ -65,9 +65,9 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
                 CredentialHash = ShowAgentTokens.Hash(credential),
                 CommandStartSequence = _lastSequenceByScope.GetValueOrDefault(scope)
             };
-            if (_agentByScope.TryGetValue(scope, out var previous)) _agents[previous].Revoked = true;
             _agents[agent.Id] = agent;
-            _agentByScope[scope] = agent.Id;
+            if (!_agentIdsByScope.TryGetValue(scope, out var ids)) _agentIdsByScope[scope] = ids = [];
+            ids.Add(agent.Id);
             var (token, lease) = IssueToken(agent);
             return Task.FromResult<PairedShowAgent?>(new(agent.Id, credential, token, lease.ExpiresAt));
         }
@@ -105,14 +105,19 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
         }
     }
 
-    public Task<ShowAgentStatus?> GetStatusAsync(string workspaceId, string sessionCode, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ShowAgentStatus>> ListStatusesAsync(string workspaceId, string sessionCode,
+        CancellationToken cancellationToken = default)
     {
         lock (_gate)
         {
-            if (!_agentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var id)) return Task.FromResult<ShowAgentStatus?>(null);
-            var agent = _agents[id];
-            return Task.FromResult<ShowAgentStatus?>(new(agent.Id, agent.Name, workspaceId, sessionCode,
-                agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked));
+            if (!_agentIdsByScope.TryGetValue(Scope(workspaceId, sessionCode), out var ids) || ids.Count == 0)
+                return Task.FromResult<IReadOnlyList<ShowAgentStatus>>([]);
+            return Task.FromResult<IReadOnlyList<ShowAgentStatus>>(ids.Select(id =>
+            {
+                var agent = _agents[id];
+                return new ShowAgentStatus(agent.Id, agent.Name, workspaceId, sessionCode,
+                    agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
+            }).ToArray());
         }
     }
 
@@ -120,10 +125,16 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
     {
         lock (_gate)
         {
-            if (!_agentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var id) || _agents[id].Revoked)
+            if (!_agentIdsByScope.TryGetValue(Scope(workspaceId, sessionCode), out var ids))
                 return Task.FromResult(false);
-            _agents[id].Revoked = true;
-            return Task.FromResult(true);
+            var revokedAny = false;
+            foreach (var id in ids)
+            {
+                if (_agents[id].Revoked) continue;
+                _agents[id].Revoked = true;
+                revokedAny = true;
+            }
+            return Task.FromResult(revokedAny);
         }
     }
 

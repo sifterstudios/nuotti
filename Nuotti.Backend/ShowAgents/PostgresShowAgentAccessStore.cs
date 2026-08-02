@@ -41,9 +41,9 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
                 CredentialHash = ShowAgentTokens.Hash(credential),
                 CommandStartSequence = state.LastSequenceByScope.GetValueOrDefault(scope)
             };
-            if (state.AgentByScope.TryGetValue(scope, out var oldId)) state.Agents[oldId].Revoked = true;
             state.Agents[agent.Id] = agent;
-            state.AgentByScope[scope] = agent.Id;
+            if (!state.AgentByScope.TryGetValue(scope, out var ids)) state.AgentByScope[scope] = ids = [];
+            ids.Add(agent.Id);
             var (token, lease) = IssueToken(state, agent);
             return new PairedShowAgent(agent.Id, credential, token, lease.ExpiresAt);
         }, cancellationToken);
@@ -73,21 +73,32 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
         return true;
     }, cancellationToken);
 
-    public Task<ShowAgentStatus?> GetStatusAsync(string workspaceId, string sessionCode,
-        CancellationToken cancellationToken = default) => ReadAsync<ShowAgentStatus?>(state =>
+    public Task<IReadOnlyList<ShowAgentStatus>> ListStatusesAsync(string workspaceId, string sessionCode,
+        CancellationToken cancellationToken = default) => ReadAsync<IReadOnlyList<ShowAgentStatus>>(state =>
     {
-        if (!state.AgentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var id)) return null;
-        var agent = state.Agents[id];
-        return new(agent.Id, agent.Name, workspaceId, sessionCode, agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
+        if (!state.AgentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var ids) || ids.Count == 0)
+            return Array.Empty<ShowAgentStatus>();
+        return ids.Select(id =>
+        {
+            var agent = state.Agents[id];
+            return new ShowAgentStatus(agent.Id, agent.Name, workspaceId, sessionCode,
+                agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
+        }).ToArray();
     }, cancellationToken);
 
     public Task<bool> RevokeAsync(string workspaceId, string sessionCode, CancellationToken cancellationToken = default) =>
         MutateAsync(state =>
         {
-            if (!state.AgentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var id) || state.Agents[id].Revoked)
+            if (!state.AgentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var ids))
                 return false;
-            state.Agents[id].Revoked = true;
-            return true;
+            var revokedAny = false;
+            foreach (var id in ids)
+            {
+                if (state.Agents[id].Revoked) continue;
+                state.Agents[id].Revoked = true;
+                revokedAny = true;
+            }
+            return revokedAny;
         }, cancellationToken);
 
     public Task AppendCommandAsync(string workspaceId, string sessionCode, string messageType, object payload,
@@ -214,7 +225,9 @@ internal sealed class ShowAgentAccessDocument
 {
     public Dictionary<string, ShowAgentPairingDocument> Pairings { get; set; } = [];
     public Dictionary<string, ShowAgentDocument> Agents { get; set; } = [];
-    public Dictionary<string, string> AgentByScope { get; set; } = [];
+    /// <summary>Agent ids for each workspace/session scope. Values are lists so Projector and Engine can both stay paired.</summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(AgentByScopeConverter))]
+    public Dictionary<string, List<string>> AgentByScope { get; set; } = [];
     public Dictionary<string, ShowAgentTokenDocument> Tokens { get; set; } = [];
     public Dictionary<string, List<ShowAgentCommandDocument>> Commands { get; set; } = [];
     public Dictionary<string, long> LastSequenceByScope { get; set; } = [];
@@ -243,3 +256,48 @@ internal sealed class ShowAgentCommandDocument
     public string MessageType { get; set; } = ""; public JsonElement Payload { get; set; }
 }
 internal sealed class ShowAgentAttemptDocument { public DateTimeOffset StartedAt { get; set; } public int Count { get; set; } }
+
+/// <summary>
+/// Accepts the legacy single-id-per-scope shape <c>"scope":"agent_id"</c> and the multi-agent
+/// shape <c>"scope":["agent_a","agent_b"]</c> so an existing Postgres blob keeps loading.
+/// </summary>
+internal sealed class AgentByScopeConverter : System.Text.Json.Serialization.JsonConverter<Dictionary<string, List<string>>>
+{
+    public override Dictionary<string, List<string>> Read(
+        ref System.Text.Json.Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var result = new Dictionary<string, List<string>>();
+        if (reader.TokenType != System.Text.Json.JsonTokenType.StartObject)
+            throw new JsonException("AgentByScope must be an object.");
+        while (reader.Read() && reader.TokenType != System.Text.Json.JsonTokenType.EndObject)
+        {
+            var key = reader.GetString()!;
+            reader.Read();
+            if (reader.TokenType == System.Text.Json.JsonTokenType.String)
+                result[key] = [reader.GetString()!];
+            else if (reader.TokenType == System.Text.Json.JsonTokenType.StartArray)
+            {
+                var ids = new List<string>();
+                while (reader.Read() && reader.TokenType != System.Text.Json.JsonTokenType.EndArray)
+                    ids.Add(reader.GetString()!);
+                result[key] = ids;
+            }
+            else throw new JsonException("AgentByScope values must be a string or string array.");
+        }
+        return result;
+    }
+
+    public override void Write(
+        System.Text.Json.Utf8JsonWriter writer, Dictionary<string, List<string>> value, JsonSerializerOptions options)
+    {
+        writer.WriteStartObject();
+        foreach (var (key, ids) in value)
+        {
+            writer.WritePropertyName(key);
+            writer.WriteStartArray();
+            foreach (var id in ids) writer.WriteStringValue(id);
+            writer.WriteEndArray();
+        }
+        writer.WriteEndObject();
+    }
+}

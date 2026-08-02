@@ -42,6 +42,8 @@ public class MudTestContext : TestContext
         // traffic register their own handler over the top of this one.
         Services.AddScoped(sp =>
             new SongPackageAuthoringClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(SongPackageAuthoringClient))));
+        Services.AddScoped(sp =>
+            new ShowAgentPairingClient(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ShowAgentPairingClient))));
 
         // Loosen JS interop to avoid failing on MudBlazor's internal JS calls during unit tests
         JSInterop.Mode = JSRuntimeMode.Loose;
