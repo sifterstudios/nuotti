@@ -6,6 +6,7 @@ using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Model;
 using Nuotti.Contracts.V1.Reducer;
 using System.Diagnostics;
+using System.Net.Http.Json;
 namespace Nuotti.Audience.Services;
 
 public class AudienceHubClient : IAsyncDisposable
@@ -16,6 +17,10 @@ public class AudienceHubClient : IAsyncDisposable
 
     HubConnection? _connection;
     HubConnection? _logConnection;
+
+    // The credential this phone got by joining. The hub derives what this connection may do from
+    // it, so without one a deployed backend admits nothing.
+    string? _joinToken;
 
     public string? BackendBaseUrl { get; }
     public string? SessionCode { get; private set; }
@@ -97,8 +102,10 @@ public class AudienceHubClient : IAsyncDisposable
         if (_connection is null)
         {
             Log($"[Audience] Creating HubConnection to {BackendBaseUrl}/hub");
+            var hubUri = new Uri(new Uri(BackendBaseUrl!),
+                $"/hub?session={Uri.EscapeDataString(SessionCode ?? string.Empty)}");
             _connection = new HubConnectionBuilder()
-                .WithUrl(new Uri(new Uri(BackendBaseUrl!), "/hub"))
+                .WithUrl(hubUri, options => options.AccessTokenProvider = () => Task.FromResult(_joinToken))
                 .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10) })
                 .Build();
 
@@ -232,9 +239,14 @@ public class AudienceHubClient : IAsyncDisposable
 
     public async Task CreateOrJoinAsync(string sessionCode, string? audienceName = null)
     {
-        await EnsureConnectedAsync();
         SessionCode = sessionCode;
         AudienceName = audienceName;
+
+        // Joining is an HTTP call now, and it happens before the hub connection is built: the
+        // token it returns is what the connection presents, and the participant id it returns is
+        // the same one the identity store already knows this device by.
+        await AcquireJoinTokenAsync(sessionCode, audienceName);
+        await EnsureConnectedAsync();
 
         // Add ourselves to the participants list
         var displayName = string.IsNullOrWhiteSpace(audienceName) ? "You" : audienceName;
@@ -289,15 +301,46 @@ public class AudienceHubClient : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Exchanges the session code for a scoped credential, keeping this phone's participant id.
+    /// </summary>
+    /// <remarks>
+    /// A failure here is not fatal on the local loop, where the backend still admits connections
+    /// it cannot identify. It is fatal on a deployed one, and the log line is what says so.
+    /// </remarks>
+    async Task AcquireJoinTokenAsync(string sessionCode, string? displayName)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"{BackendBaseUrl}/v1/sessions/{sessionCode}/join",
+                new { deviceSecret = DeviceSecret, displayName });
+            if (!response.IsSuccessStatusCode)
+            {
+                Log($"[Audience] Join refused: {(int)response.StatusCode}");
+                return;
+            }
+
+            using var doc = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            _joinToken = doc.RootElement.GetProperty("token").GetString();
+            ParticipantId = doc.RootElement.GetProperty("participantId").GetString();
+            Log($"[Audience] Joined session {sessionCode} as participant {ParticipantId}");
+        }
+        catch (Exception ex)
+        {
+            Log($"[Audience] Join failed: {ex.Message}");
+        }
+    }
+
     public async Task<int?> FetchMyAnswerAsync()
     {
-        if (string.IsNullOrWhiteSpace(SessionCode) || string.IsNullOrWhiteSpace(ParticipantId))
+        if (string.IsNullOrWhiteSpace(SessionCode) || string.IsNullOrWhiteSpace(_joinToken))
             return MyAnswerChoiceIndex;
 
         try
         {
-            var response = await _http.GetAsync(
-                $"{BackendBaseUrl}/status/{SessionCode}/answer?participantId={Uri.EscapeDataString(ParticipantId)}");
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{BackendBaseUrl}/status/{SessionCode}/answer");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _joinToken);
+            var response = await _http.SendAsync(request);
             if (!response.IsSuccessStatusCode) return MyAnswerChoiceIndex;
             var json = await response.Content.ReadAsStringAsync();
             using var doc = System.Text.Json.JsonDocument.Parse(json);

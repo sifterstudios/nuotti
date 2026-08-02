@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject SessionSelectionService SessionSvc
+@inject Nuotti.Performer.Services.WorkspaceSession Workspace
 @inject PerformerUiState LiveState
 @inject IConfiguration Configuration
 @using Nuotti.Contracts.V1.Enum
@@ -214,7 +215,10 @@ else
             isBusy = true;
             _ = client?.DisposeAsync().AsTask();
             var backendUri = new Uri(backendUrl!, UriKind.Absolute);
-            client = new PerformerClient(backendUri, sessionCode!);
+            // The hub decides what this connection may do from the member's own credential, so the
+            // Performer presents the one it already signed in with rather than claiming a role.
+            client = new PerformerClient(backendUri, sessionCode!,
+                Workspace.WorkspaceId, () => Task.FromResult(Workspace.SessionToken));
             client.ConnectedChanged += OnConnectedChanged;
             client.GameStateChanged += OnGameStateChanged;
             client.AnswerSubmitted += OnAnswerSubmitted;

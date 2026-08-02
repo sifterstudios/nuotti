@@ -12,9 +12,9 @@ namespace Nuotti.Backend.Endpoints;
 /// It is rate limited per IP because the session code is short and therefore guessable, and it
 /// refuses codes for sessions that do not exist so it cannot be used to enumerate them.
 /// </remarks>
-internal static class AudienceJoinEndpoints
+public static class AudienceJoinEndpoints
 {
-    public sealed record JoinRequest(string DeviceSecret);
+    public sealed record JoinRequest(string DeviceSecret, string? DisplayName = null);
 
     public sealed record JoinResponse(string ParticipantId, string SessionCode, string Token, DateTimeOffset ExpiresAt);
 
@@ -39,8 +39,17 @@ internal static class AudienceJoinEndpoints
             // wrong code to the caller.
             if (sessions.Resolve(sessionCode) is null) return Results.NotFound();
 
-            var ticket = await joins.JoinAsync(sessionCode, request.DeviceSecret, ct);
-            return Results.Ok(new JoinResponse(ticket.ParticipantId, ticket.SessionCode, ticket.Token, ticket.ExpiresAt));
+            try
+            {
+                var ticket = await joins.JoinAsync(sessionCode, request.DeviceSecret, request.DisplayName, ct);
+                return Results.Ok(new JoinResponse(ticket.ParticipantId, ticket.SessionCode, ticket.Token, ticket.ExpiresAt));
+            }
+            catch (ArgumentException ex)
+            {
+                // Display-name rules live in ParticipantNameRules and are enforced at join now,
+                // rather than one hub message later when the phone is already on the wall.
+                return Results.BadRequest(new { error = ex.Message });
+            }
         })
         .RequireRateLimiting("audience-join")
         .RequireCors("NuottiCors");

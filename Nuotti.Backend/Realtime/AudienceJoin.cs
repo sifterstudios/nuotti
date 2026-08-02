@@ -1,3 +1,4 @@
+using Nuotti.Backend.Participants;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 
@@ -20,12 +21,22 @@ public sealed record AudienceParticipantIdentity(string ParticipantId, string Se
 /// </remarks>
 public interface IAudienceJoinStore
 {
-    Task<AudienceJoinTicket> JoinAsync(string sessionCode, string deviceSecret, CancellationToken cancellationToken = default);
+    Task<AudienceJoinTicket> JoinAsync(string sessionCode, string deviceSecret, string? displayName = null,
+        CancellationToken cancellationToken = default);
     Task<AudienceParticipantIdentity?> AuthenticateAsync(string token, CancellationToken cancellationToken = default);
     Task RevokeSessionAsync(string sessionCode, CancellationToken cancellationToken = default);
 }
 
-public sealed class InMemoryAudienceJoinStore(TimeProvider? timeProvider = null) : IAudienceJoinStore
+/// <summary>
+/// Mints tokens for participants that <see cref="IParticipantIdentityStore"/> owns.
+/// </summary>
+/// <remarks>
+/// It deliberately does not keep its own device-to-participant map. Two stores minting ids from
+/// the same device secret would give one phone two identities, and its answers and score would
+/// land under whichever it happened to arrive by.
+/// </remarks>
+public sealed class InMemoryAudienceJoinStore(
+    IParticipantIdentityStore participants, TimeProvider? timeProvider = null) : IAudienceJoinStore
 {
     readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
 
@@ -34,22 +45,18 @@ public sealed class InMemoryAudienceJoinStore(TimeProvider? timeProvider = null)
     readonly ConcurrentDictionary<string, AudienceParticipantIdentity> _byTokenHash = new();
     readonly ConcurrentDictionary<string, DateTimeOffset> _expiry = new();
 
-    // (session, device secret) -> participant id, so a reconnecting phone keeps its identity,
-    // its name and its score rather than arriving as a stranger.
-    readonly ConcurrentDictionary<string, string> _participantsByDevice = new();
-
-    public Task<AudienceJoinTicket> JoinAsync(string sessionCode, string deviceSecret, CancellationToken cancellationToken = default)
+    public Task<AudienceJoinTicket> JoinAsync(string sessionCode, string deviceSecret, string? displayName = null,
+        CancellationToken cancellationToken = default)
     {
         var normalizedSession = sessionCode.Trim();
-        var deviceKey = DeviceKey(normalizedSession, deviceSecret);
-        var participantId = _participantsByDevice.GetOrAdd(deviceKey, _ => Guid.NewGuid().ToString("N"));
+        var participant = participants.JoinOrRestore(normalizedSession, deviceSecret, displayName);
 
         var raw = NewToken();
         var expires = _time.GetUtcNow().AddHours(8); // comfortably longer than any single show
-        _byTokenHash[Hash(raw)] = new AudienceParticipantIdentity(participantId, normalizedSession);
+        _byTokenHash[Hash(raw)] = new AudienceParticipantIdentity(participant.ParticipantId, normalizedSession);
         _expiry[Hash(raw)] = expires;
 
-        return Task.FromResult(new AudienceJoinTicket(participantId, normalizedSession, raw, expires));
+        return Task.FromResult(new AudienceJoinTicket(participant.ParticipantId, normalizedSession, raw, expires));
     }
 
     public Task<AudienceParticipantIdentity?> AuthenticateAsync(string token, CancellationToken cancellationToken = default)
@@ -72,12 +79,9 @@ public sealed class InMemoryAudienceJoinStore(TimeProvider? timeProvider = null)
             _byTokenHash.TryRemove(pair.Key, out _);
             _expiry.TryRemove(pair.Key, out _);
         }
-        foreach (var key in _participantsByDevice.Keys.Where(k => k.StartsWith(sessionCode + "\u001f", StringComparison.OrdinalIgnoreCase)).ToList())
-            _participantsByDevice.TryRemove(key, out _);
         return Task.CompletedTask;
     }
 
-    static string DeviceKey(string sessionCode, string deviceSecret) => $"{sessionCode}\u001f{deviceSecret}";
 
     static string NewToken() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
 

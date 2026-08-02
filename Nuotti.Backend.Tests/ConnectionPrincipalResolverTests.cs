@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Nuotti.Backend.Models;
+using Nuotti.Backend.Participants;
 using Nuotti.Backend.Realtime;
 using Nuotti.Backend.ShowAgents;
 using Nuotti.Backend.Workspaces;
@@ -20,7 +21,7 @@ public sealed class ConnectionPrincipalResolverTests
         var options = Options.Create(new NuottiOptions());
         var workspaces = new InMemoryWorkspaceAccessStore();
         var devices = new InMemoryShowAgentAccessStore();
-        var audience = new InMemoryAudienceJoinStore();
+        var audience = new InMemoryAudienceJoinStore(new InMemoryParticipantIdentityStore());
         return (new ConnectionPrincipalResolver(workspaces, devices, audience), workspaces, devices, audience);
     }
 
@@ -67,7 +68,7 @@ public sealed class ConnectionPrincipalResolverTests
         Assert.True(principal.Can(Capability.SubmitAnswer));
         Assert.True(principal.Can(Capability.Subscribe));
         Assert.False(principal.Can(Capability.IssueGameCommand));
-        Assert.False(principal.Can(Capability.RequestPlayback));
+        Assert.False(principal.Can(Capability.ReportDeviceStatus));
     }
 
     [Fact]
@@ -213,7 +214,7 @@ public sealed class ConnectionPrincipalResolverTests
     public async Task An_expired_audience_token_stops_working()
     {
         var clock = new FakeClock(DateTimeOffset.UtcNow);
-        var audience = new InMemoryAudienceJoinStore(clock);
+        var audience = new InMemoryAudienceJoinStore(new InMemoryParticipantIdentityStore(), clock);
         var resolver = new ConnectionPrincipalResolver(
             new InMemoryWorkspaceAccessStore(), new InMemoryShowAgentAccessStore(), audience);
         var ticket = await audience.JoinAsync("SESS", "device-secret-0123456789");

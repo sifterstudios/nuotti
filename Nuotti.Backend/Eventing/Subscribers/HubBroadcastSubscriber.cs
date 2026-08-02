@@ -14,12 +14,10 @@ public sealed class HubBroadcastSubscriber : IDisposable
 {
     readonly List<IDisposable> _subs = [];
     readonly IHubContext<QuizHub> _hub;
-    readonly IHubContext<WorkspaceHub> _workspaceHub;
 
-    public HubBroadcastSubscriber(IEventBus bus, IHubContext<QuizHub> hub, IHubContext<WorkspaceHub> workspaceHub)
+    public HubBroadcastSubscriber(IEventBus bus, IHubContext<QuizHub> hub)
     {
         _hub = hub;
-        _workspaceHub = workspaceHub;
 
         // The snapshot push. Clients receive the bare snapshot, not the event envelope, so the
         // payload is unchanged from when endpoints sent this themselves.
@@ -57,8 +55,8 @@ public sealed class HubBroadcastSubscriber : IDisposable
             StopTrack stop => ("Stop", stop),
             _ => (string.Empty, publication.Payload)
         };
-        return method.Length == 0 ? Task.CompletedTask : _workspaceHub.Clients
-            .Group(WorkspaceHub.GroupName(publication.WorkspaceId, publication.SessionCode))
+        return method.Length == 0 ? Task.CompletedTask : _hub.Clients
+            .Group(QuizHub.WorkspaceGroupName(publication.WorkspaceId, publication.SessionCode))
             .SendAsync(method, payload, ct);
     }
 

@@ -158,6 +158,7 @@ builder.Services.AddSingleton<ISharedSongCatalog, InMemorySharedSongCatalog>();
 // from a role it declares, which is what makes one hub safe to expose in every environment.
 builder.Services.AddSingleton<Nuotti.Backend.Realtime.IAudienceJoinStore, Nuotti.Backend.Realtime.InMemoryAudienceJoinStore>();
 builder.Services.AddSingleton<Nuotti.Backend.Realtime.IConnectionPrincipalResolver, Nuotti.Backend.Realtime.ConnectionPrincipalResolver>();
+builder.Services.Configure<Nuotti.Backend.Realtime.RealtimeOptions>(builder.Configuration.GetSection("Nuotti:Realtime"));
 builder.Services.AddSingleton<IAudienceCatalogSearch, AudienceCatalogSearch>();
 if (!string.IsNullOrWhiteSpace(databaseConnection))
 {
@@ -256,19 +257,18 @@ if (app.Environment.IsDevelopment())
     // Deployed environments expose only Workspace-scoped mutation/recovery routes.
     app.MapPhaseEndpoints();
     app.MapApiEndpoints();
-    app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
     app.MapHub<LogHub>("/log").RequireCors("NuottiCors");
 }
-app.MapHub<WorkspaceHub>(app.Environment.IsDevelopment() ? "/workspace-hub" : "/hub")
-    .RequireCors("NuottiCors");
+// One realtime surface, same path everywhere. What a connection may do is decided by the
+// credential it presents, so there is nothing left for an environment branch to protect.
+app.MapHub<QuizHub>("/hub").RequireCors("NuottiCors");
 app.MapHealthEndpoints();
 if (app.Environment.IsDevelopment()) app.MapStatusEndpoints();
-if (app.Environment.IsDevelopment())
-{
-    app.MapAudienceCatalogEndpoints();
-    app.MapParticipantEndpoints();
-    app.MapAudienceAnswerStatusEndpoints();
-}
+// Audience surfaces. These were local-only while they identified a participant by a query string
+// parameter; they now require the join token, which names both the participant and its session.
+app.MapAudienceCatalogEndpoints();
+app.MapParticipantEndpoints();
+app.MapAudienceAnswerStatusEndpoints();
 app.MapMetricsEndpoints();
 app.MapAboutEndpoints();
 app.MapTimeEndpoints();
@@ -277,6 +277,7 @@ app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
 app.MapAudienceJoinEndpoints();
 app.MapWorkspaceEndpoints();
+app.MapWorkspaceCommandEndpoints();
 app.MapShowAgentEndpoints();
 app.MapPrivateAssetEndpoints();
 app.MapSongPackageEndpoints();

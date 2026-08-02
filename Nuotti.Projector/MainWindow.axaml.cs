@@ -51,8 +51,12 @@ public partial class MainWindow : Window
     readonly DebugOverlay _debugOverlay;
     readonly AvaloniaList<string> _logs = new();
 
-    readonly string _backend = "http://localhost:5240";
-    readonly string _sessionCode = "dev";
+    // The venue rig learns both of these rather than hardcoding them: the backend from the
+    // environment it was installed into, the session from the pairing the band issued.
+    readonly string _backend = Environment.GetEnvironmentVariable("NUOTTI_BACKEND")?.TrimEnd('/')
+        ?? "http://localhost:5240";
+    readonly string _sessionCode;
+    readonly VenueDevicePairingClient _pairing;
 
     int[] _tally = new int[4];
 
@@ -94,6 +98,12 @@ public partial class MainWindow : Window
         _contentSafetyService = contentSafetyService;
         _localizationService = localizationService;
         _settingsService = settingsService;
+
+        // Pairing is read synchronously here because the session code is part of the hub URL. A
+        // machine that has never been paired still starts and shows what to do about it.
+        _pairing = new VenueDevicePairingClient(
+            new HttpClient { BaseAddress = new Uri(_backend) }, new VenueCredentialStore());
+        _sessionCode = _pairing.Current?.SessionCode ?? "unpaired";
 
         InitializeComponent();
 
@@ -212,8 +222,11 @@ public partial class MainWindow : Window
 
         _sessionCodeText.Text = _sessionCode;
 
+        // The hub derives this connection's role from the access token, so the projector no longer
+        // announces one. A device that cannot produce a token is refused rather than trusted.
         _connection = new HubConnectionBuilder()
-            .WithUrl($"{_backend}/hub")
+            .WithUrl($"{_backend}/hub?session={Uri.EscapeDataString(_sessionCode)}&deviceRole=projector",
+                options => options.AccessTokenProvider = async () => await _pairing.GetAccessTokenAsync())
             .WithAutomaticReconnect()
             .Build();
 
@@ -383,15 +396,51 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Redeems a pairing code when one has been supplied and this machine is not paired yet.
+    /// </summary>
+    /// <remarks>
+    /// The band generates the code from their own workspace, so pairing is the moment a venue
+    /// machine is admitted to a specific show by somebody who is allowed to admit it.
+    /// </remarks>
+    async Task<bool> EnsurePairedAsync()
+    {
+        if (_pairing.Current is not null) return true;
+
+        var code = Environment.GetEnvironmentVariable("NUOTTI_PAIRINGCODE");
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            AppendLocal("[pair] This projector is not paired. Generate a pairing code in the Performer app, "
+                + "then start the projector with NUOTTI_PAIRINGCODE set to it.");
+            return false;
+        }
+
+        var name = Environment.GetEnvironmentVariable("NUOTTI_DEVICENAME") ?? Environment.MachineName;
+        var paired = await _pairing.PairAsync(code.Trim(), name);
+        if (paired is null)
+        {
+            AppendLocal("[pair] Pairing failed. The code may have expired or already been used.");
+            return false;
+        }
+
+        AppendLocal($"[pair] Paired to session={paired.SessionCode}. Restart to display it.");
+        return true;
+    }
+
     async Task StartConnection()
     {
+        if (!await EnsurePairedAsync())
+        {
+            _connectionTextBlock.Text = "Not paired";
+            return;
+        }
+
         await _connection.StartAsync();
         AppendLocal("[hub] start ok");
 
         // Update debug overlay with connection ID
         _debugOverlay.UpdateConnectionId(_connection.ConnectionId ?? "Unknown");
 
-        await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector", null);
         AppendLocal($"[hub] joined as projector to session={_sessionCode}");
         _ = StartLogConnection();
     }
@@ -406,7 +455,6 @@ public partial class MainWindow : Window
             await _connection.StartAsync();
             AppendLocal("[hub] reconnect start ok");
 
-            await _connection.InvokeAsync("Join", _sessionCode, "projector", "projector", null);
             AppendLocal($"[hub] rejoined as projector to session={_sessionCode}");
 
             // Fetch latest state to resync

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -54,8 +55,19 @@ public sealed class AudienceIdentityCatalogGuessingTests(WebApplicationFactory<Q
                 new SongRef(new SongId($"pad-{i}"), $"Pad {i:D4}", "Pad Artist"))
         ]);
 
-        var search = await client.GetFromJsonAsync<SongRef[]>(
-            $"/api/sessions/{session}/catalog/search?q=Hit&limit=20");
+        // The audience surfaces now require the join token rather than a session code and a
+        // participant id in the query string, so the journey starts where a real phone starts.
+        const string deviceSecret = "device-aud-256-0123456789";
+        var ticket = await PostAsync<AudienceJoinEndpoints.JoinResponse>(client,
+            $"/v1/sessions/{session}/join", null, new { deviceSecret, displayName = "PlayerOne" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized,
+            (await SendAsync(client, HttpMethod.Get, $"/api/sessions/{session}/catalog/search?q=Hit", null)).StatusCode);
+
+        var searchResponse = await SendAsync(client, HttpMethod.Get,
+            $"/api/sessions/{session}/catalog/search?q=Hit&limit=20", ticket.Token);
+        searchResponse.EnsureSuccessStatusCode();
+        var search = await searchResponse.Content.ReadFromJsonAsync<SongRef[]>();
         Assert.NotNull(search);
         Assert.Contains(search!, s => s.Title == "Shared Hit");
         Assert.Contains(search!, s => s.Title == "Private Hit");
@@ -78,18 +90,22 @@ public sealed class AudienceIdentityCatalogGuessingTests(WebApplicationFactory<Q
             restoredSignal.TrySetResult(doc.RootElement.GetProperty("ParticipantId").GetString());
         });
         await hub.StartAsync();
-        await hub.InvokeAsync("Join", session, "audience", "PlayerOne", "device-aud-256");
+        await hub.InvokeAsync("Join", session, "audience", "PlayerOne", deviceSecret);
         var participantId = await restoredSignal.Task.WaitAsync(TimeSpan.FromSeconds(30));
         Assert.False(string.IsNullOrWhiteSpace(participantId));
+
+        // One participant, whichever door the phone came through. Two identity stores minting ids
+        // from the same device secret would split its answers and its score between them.
+        Assert.Equal(ticket.ParticipantId, participantId);
 
         Assert.True(participants.TryModerateName(session, participantId!, "StageSafe", out var moderated));
         Assert.Equal("StageSafe", moderated!.DisplayName);
 
-        var restored = participants.JoinOrRestore(session, "device-aud-256", "ignored-because-moderated");
+        var restored = participants.JoinOrRestore(session, deviceSecret, "ignored-because-moderated");
         Assert.Equal(participantId, restored.ParticipantId);
         Assert.Equal("StageSafe", restored.DisplayName);
         Assert.NotEqual(participantId,
-            participants.JoinOrRestore("OTHER", "device-aud-256", "OtherRoom").ParticipantId);
+            participants.JoinOrRestore("OTHER", deviceSecret, "OtherRoom").ParticipantId);
 
         var state = _factory.Services.GetRequiredService<IGameStateStore>();
         await PostPhaseAsync(client, "start-game", session, new StartGame
@@ -126,8 +142,11 @@ public sealed class AudienceIdentityCatalogGuessingTests(WebApplicationFactory<Q
         Assert.Equal(2, mid!.Answers[participantId!]);
         Assert.Equal(new[] { 0, 0, 1 }, mid.Tallies.ToArray());
 
-        var answerResp = await client.GetFromJsonAsync<AudienceAnswerStatusEndpoints.MyAnswerResponse>(
-            $"/status/{session}/answer?participantId={participantId}");
+        // The answer read is scoped to the token's own participant, so one phone can no longer
+        // read what the phone next to it has already answered while the round is open.
+        var answerResponse = await SendAsync(client, HttpMethod.Get, $"/status/{session}/answer", ticket.Token);
+        answerResponse.EnsureSuccessStatusCode();
+        var answerResp = await answerResponse.Content.ReadFromJsonAsync<AudienceAnswerStatusEndpoints.MyAnswerResponse>();
         Assert.Equal(2, answerResp!.ChoiceIndex);
 
         // Idempotent waiting retry: same CommandId through the hub is accepted without double-counting.

@@ -19,19 +19,35 @@ public sealed class PerformerClient : IAsyncDisposable
     public event Action<GameStateSnapshot>? GameStateChanged;
     public event Action<AnswerSubmitted>? AnswerSubmitted;
 
-    public PerformerClient(Uri backendBaseUri, string sessionCode)
+    readonly string? _workspaceId;
+    readonly Func<Task<string?>>? _accessToken;
+
+    /// <param name="workspaceId">
+    /// The workspace this session belongs to. The hub grants game-command capabilities only to a
+    /// signed-in member who has this workspace selected, so a connection without it can watch but
+    /// not drive.
+    /// </param>
+    /// <param name="accessToken">The signed-in member's session token, read at connect time.</param>
+    public PerformerClient(Uri backendBaseUri, string sessionCode,
+        string? workspaceId = null, Func<Task<string?>>? accessToken = null)
     {
         _backendBaseUri = backendBaseUri;
         _sessionCode = sessionCode;
+        _workspaceId = workspaceId;
+        _accessToken = accessToken;
     }
 
     public async Task EnsureConnectedAsync(CancellationToken cancellationToken = default)
     {
         if (_hub is null)
         {
+            var query = $"?sessionCode={Uri.EscapeDataString(_sessionCode)}"
+                + (string.IsNullOrWhiteSpace(_workspaceId) ? string.Empty
+                    : $"&workspaceId={Uri.EscapeDataString(_workspaceId)}");
             _hub = new HubConnectionBuilder()
-                .WithUrl(new Uri(_backendBaseUri, "/hub"), options =>
+                .WithUrl(new Uri(_backendBaseUri, "/hub" + query), options =>
                 {
+                    if (_accessToken is not null) options.AccessTokenProvider = _accessToken;
                     if (HttpMessageHandlerDecorator is not null)
                     {
                         options.HttpMessageHandlerFactory = inner => HttpMessageHandlerDecorator(inner ?? new HttpClientHandler());
