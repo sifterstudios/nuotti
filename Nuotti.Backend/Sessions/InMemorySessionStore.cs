@@ -14,9 +14,13 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
     readonly ConcurrentDictionary<string, SessionState> _sessions = new ConcurrentDictionary<string, SessionState>(); // session -> state
     readonly ConcurrentDictionary<string, (string session, string role)> _byConnection = new ConcurrentDictionary<string, (string session, string role)>(); // connId -> (session,role)
 
-    public InMemorySessionStore(IOptions<NuottiOptions> options, IGameStateStore gameStateStore, TimeProvider? timeProvider = null)
+    // Optional so the existing test call sites keep working without a logger.
+    readonly ILogger<InMemorySessionStore>? _logger;
+
+    public InMemorySessionStore(IOptions<NuottiOptions> options, IGameStateStore gameStateStore, TimeProvider? timeProvider = null, ILogger<InMemorySessionStore>? logger = null)
     {
         _gameStateStore = gameStateStore;
+        _logger = logger;
         _time = timeProvider ?? TimeProvider.System;
         _idleTimeout = TimeSpan.FromSeconds(Math.Max(1, options.Value.SessionIdleTimeoutSeconds));
         _scanInterval = TimeSpan.FromSeconds(Math.Max(1, options.Value.SessionEvictionIntervalSeconds));
@@ -83,7 +87,9 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
     void Scan(object? _)
     {
         var now = _time.GetUtcNow();
-        Console.WriteLine($"[Scan] Scanning {_sessions.Count} sessions");
+        // Was Console.WriteLine, which no log level could suppress and which wrote plain text
+        // into an otherwise JSON log stream. It fires on every eviction sweep, so at Debug.
+        _logger?.LogDebug("Scanning {SessionCount} sessions for idle eviction", _sessions.Count);
         foreach (var kvp in _sessions)
         {
             var sess = kvp.Key;

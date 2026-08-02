@@ -129,18 +129,25 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5210
 
+      # Serilog's minimum level. Information is far too chatty to operate against - warnings and
+      # errors get buried - so the deployed stack runs at Warning. Set NUOTTI_LOG_LEVEL in .env
+      # to Information or Debug temporarily when diagnosing something.
+      # Microsoft, Microsoft.AspNetCore and System are already pinned to Warning in
+      # ServiceDefaults, independently of this.
+      Logging__LogLevel__Default: "${NUOTTI_LOG_LEVEL:-Warning}"
+
       # Program.cs reads the CORS allowlist from the config key "Nuotti:AllowedOrigins".
       # The double underscore is required: a NUOTTI_-prefixed variable lands on the key
       # "AllowedOrigins" instead and the allowlist ends up empty, which denies every
       # cross-origin request.
-      Nuotti__AllowedOrigins: "https://${NUOTTI_DOMAIN},https://audience.${NUOTTI_DOMAIN},https://performer.${NUOTTI_DOMAIN}"
+      Nuotti__AllowedOrigins: "https://${NUOTTI_DOMAIN:?set NUOTTI_DOMAIN in .env},https://audience.${NUOTTI_DOMAIN:?set NUOTTI_DOMAIN in .env},https://performer.${NUOTTI_DOMAIN:?set NUOTTI_DOMAIN in .env}"
 
       ConnectionStrings__nuotti: "Host=postgres;Port=5432;Database=nuotti;Username=nuotti;Password=${POSTGRES_PASSWORD}"
       ConnectionStrings__realtime: "redis:6379"
       # BlobEndpoint is the PUBLIC url, because it is baked into the SAS URIs the
       # browser follows. An internal name like http://azurite:10000 would produce
       # grants no client can reach.
-      ConnectionStrings__assets: "DefaultEndpointsProtocol=https;AccountName=${AZURITE_ACCOUNT};AccountKey=${AZURITE_ACCOUNT_KEY};BlobEndpoint=https://assets.${NUOTTI_DOMAIN}/${AZURITE_ACCOUNT};"
+      ConnectionStrings__assets: "DefaultEndpointsProtocol=https;AccountName=${AZURITE_ACCOUNT};AccountKey=${AZURITE_ACCOUNT_KEY};BlobEndpoint=https://assets.${NUOTTI_DOMAIN:?set NUOTTI_DOMAIN in .env}/${AZURITE_ACCOUNT};"
 
       # Magic-link email via Mailgun. With these four set, the Backend sends sign-in and
       # invitation links itself; leave them unset and it falls back to posting the token
@@ -155,7 +162,7 @@ services:
       Nuotti__Mailgun__BaseUrl: "${MAILGUN_BASE_URL:-https://api.eu.mailgun.net}"
       # Where the recipient lands. The Backend issues a bare token and never a URL, so
       # this is the only place that knows what a magic link points at.
-      Nuotti__Mailgun__SignInUrl: "https://performer.${NUOTTI_DOMAIN}/signin"
+      Nuotti__Mailgun__SignInUrl: "https://performer.${NUOTTI_DOMAIN:?set NUOTTI_DOMAIN in .env}/signin"
 
       # Alternative to Mailgun: post the raw token to an internal webhook of your own.
       # Nuotti__MagicLinkDeliveryUrl: "https://mail.${NUOTTI_DOMAIN}/hooks/magic-link"
@@ -190,7 +197,7 @@ services:
       ASPNETCORE_URLS: http://+:5240
       # Program.cs: builder.Configuration["BackendUrl"]. Both the REST clients and the
       # SignalR connection to /hub are built from this.
-      BackendUrl: "https://api.${NUOTTI_DOMAIN}"
+      BackendUrl: "https://api.${NUOTTI_DOMAIN:?set NUOTTI_DOMAIN in .env}"
     volumes:
       - /mnt/user/appdata/nuotti/logs:/root/.config/Nuotti/Logs
       # ASP.NET Data Protection key ring. Blazor Server protects circuit state and

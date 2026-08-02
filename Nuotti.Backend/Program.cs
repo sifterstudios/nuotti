@@ -135,7 +135,9 @@ else
     builder.Services.AddSingleton<IMagicLinkDelivery, HttpMagicLinkDelivery>();
 builder.Services.AddSingleton<ISessionStore>(sp => new InMemorySessionStore(
     sp.GetRequiredService<IOptions<NuottiOptions>>(),
-    sp.GetRequiredService<IGameStateStore>()));
+    sp.GetRequiredService<IGameStateStore>(),
+    timeProvider: null,
+    logger: sp.GetService<ILogger<InMemorySessionStore>>()));
 builder.Services.AddSingleton<IGameStateStore, InMemoryGameStateStore>();
 builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
 builder.Services.AddSingleton<ISessionWorkspaceBinder, InMemorySessionWorkspaceBinder>();

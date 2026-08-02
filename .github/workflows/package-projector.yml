@@ -1,0 +1,55 @@
+name: Package Venue Projector
+
+# The Projector is venue-local: an Avalonia desktop app the band runs on the machine wired to
+# the screen, which dials out to the Backend over SignalR. It is ExcludeFromManifest in the
+# AppHost and deliberately absent from the Unraid stack, so without this workflow the only way
+# to run it at a venue was to clone the repo and install the .NET SDK on that machine.
+#
+# Unlike the Show Agent, which is Windows-only because of its hardware adapter, Avalonia runs
+# everywhere - so all three desktop platforms are built.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  package:
+    # GitHub-hosted runners on purpose: this must not queue behind the self-hosted Unraid runner
+    # that Build and Push and Test Suite already share, and a self-contained publish wants a host
+    # matching the target platform.
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: macos-latest
+            rid: osx-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish self-contained Projector (${{ matrix.rid }})
+        run: >
+          dotnet publish Nuotti.Projector/Nuotti.Projector.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -o artifacts/projector
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuotti-projector-${{ matrix.rid }}
+          path: artifacts/projector
+          if-no-files-found: error
