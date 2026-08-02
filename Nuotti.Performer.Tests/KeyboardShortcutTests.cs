@@ -32,7 +32,7 @@ public class KeyboardShortcutTests : MudTestContext
     }
 
     [Fact]
-    public void E2E_keyboard_triggers_next_song_same_as_clicks()
+    public async Task E2E_keyboard_triggers_next_song_same_as_clicks()
     {
         var handler = new CapturingHandler
         {
@@ -56,7 +56,7 @@ public class KeyboardShortcutTests : MudTestContext
 
         var state = new PerformerUiState(new FactoryFromHandler(handler));
         state.SetSession("dev", new Uri("http://localhost"));
-        state.RefreshCountsAsync().GetAwaiter().GetResult();
+        await state.RefreshCountsAsync();
         state.UpdateGameState(new GameStateSnapshot(
             sessionCode: "dev",
             phase: Phase.Guessing,
@@ -86,7 +86,7 @@ public class KeyboardShortcutTests : MudTestContext
     }
 
     [Fact]
-    public void Unit_global_handler_respects_modal_focus()
+    public async Task Unit_global_handler_respects_modal_focus()
     {
         var handler = new CapturingHandler
         {
@@ -109,7 +109,7 @@ public class KeyboardShortcutTests : MudTestContext
 
         var state = new PerformerUiState(new FactoryFromHandler(handler));
         state.SetSession("dev", new Uri("http://localhost"));
-        state.RefreshCountsAsync().GetAwaiter().GetResult();
+        await state.RefreshCountsAsync();
         state.UpdateGameState(new GameStateSnapshot(
             sessionCode: "dev",
             phase: Phase.Guessing,

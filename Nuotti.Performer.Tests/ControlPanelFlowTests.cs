@@ -32,7 +32,7 @@ public class ControlPanelFlowTests : MudTestContext
     }
 
     [Fact]
-    public void E2E_cannot_send_two_next_song_commands_rapidly()
+    public async Task E2E_cannot_send_two_next_song_commands_rapidly()
     {
         var handler = new CapturingHandler
         {
@@ -55,7 +55,7 @@ public class ControlPanelFlowTests : MudTestContext
         var state = new PerformerUiState(new FactoryFromHandler(handler));
         state.SetSession("dev", new Uri("http://localhost"));
         // Ensure engine count > 0
-        state.RefreshCountsAsync().GetAwaiter().GetResult();
+        await state.RefreshCountsAsync();
         // Put UI in Guessing phase with a current song to enable Next Song
         state.UpdateGameState(new GameStateSnapshot(
             sessionCode: "dev",
@@ -111,7 +111,7 @@ public class ControlPanelFlowTests : MudTestContext
 
         var state = new PerformerUiState(new FactoryFromHandler(handler));
         state.SetSession("dev", new Uri("http://localhost"));
-        state.RefreshCountsAsync().GetAwaiter().GetResult();
+        await state.RefreshCountsAsync();
         // Put UI in Play phase with a current song to enable End Song
         state.UpdateGameState(new GameStateSnapshot(
             sessionCode: "dev",

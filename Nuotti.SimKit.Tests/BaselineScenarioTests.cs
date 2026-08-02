@@ -9,7 +9,7 @@ namespace Nuotti.SimKit.Tests;
 public class BaselineScenarioTests
 {
     [Fact]
-    public void Baseline_yaml_parses_and_phase_flow_reaches_intermission()
+    public async Task Baseline_yaml_parses_and_phase_flow_reaches_intermission()
     {
         // Arrange: baseline YAML content (kept in sync with Script/Baselines/baseline-single-song.yaml)
         var yaml = @"audienceCount: 20
@@ -63,7 +63,7 @@ script:
 
         var factory = new NoopHubClientFactory();
         var projector = new ProjectorActor(factory, new Uri("http://localhost:5000"), "BASE01", expectedPhases);
-        projector.StartAsync().GetAwaiter().GetResult();
+        await projector.StartAsync();
 
         int songIndex = 0;
         // Feed snapshots with the expected phases
@@ -79,14 +79,14 @@ script:
                 tallies: [0, 0],
                 scores: null,
                 songStartedAtUtc: null);
-            projector.OnStateAsync(snapshot).GetAwaiter().GetResult();
+            await projector.OnStateAsync(snapshot);
         }
 
         // Verify the sequence matched and ended in Intermission
         Assert.Equal(expectedPhases, projector.ReceivedPhases);
         Assert.Equal(Phase.Intermission, projector.ReceivedPhases[^1]);
 
-        projector.StopAsync().GetAwaiter().GetResult();
+        await projector.StopAsync();
     }
 
     [Fact]

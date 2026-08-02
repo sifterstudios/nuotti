@@ -64,7 +64,7 @@ public class CommandPaletteTests : MudTestContext
 
         var state = new PerformerUiState(new FactoryFromHandler(handler));
         state.SetSession("dev", new Uri("http://localhost"));
-        state.RefreshCountsAsync().GetAwaiter().GetResult();
+        await state.RefreshCountsAsync();
         // Enable hint in Guessing phase
         state.UpdateGameState(new GameStateSnapshot(
             sessionCode: "dev",
@@ -121,7 +121,7 @@ public class CommandPaletteTests : MudTestContext
     }
 
     [Fact]
-    public void Palette_respects_disabled_actions_per_phase()
+    public async Task Palette_respects_disabled_actions_per_phase()
     {
         var handler = new CapturingHandler
         {
@@ -139,7 +139,7 @@ public class CommandPaletteTests : MudTestContext
 
         var state = new PerformerUiState(new FactoryFromHandler(handler));
         state.SetSession("dev", new Uri("http://localhost"));
-        state.RefreshCountsAsync().GetAwaiter().GetResult();
+        await state.RefreshCountsAsync();
         // In Lobby phase, Next Song should be disabled
         state.UpdateGameState(new GameStateSnapshot(
             sessionCode: "dev",

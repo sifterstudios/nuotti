@@ -8,7 +8,7 @@ namespace Nuotti.SimKit.Tests;
 public class MultiSongScenarioTests
 {
     [Fact]
-    public void Multi_song_flow_with_hints_and_tallies_reset_on_NextSong()
+    public async Task Multi_song_flow_with_hints_and_tallies_reset_on_NextSong()
     {
         // Arrange: expected projector phases across three songs
         var expectedPhases = new List<Phase>
@@ -43,7 +43,7 @@ public class MultiSongScenarioTests
 
         var factory = new NoopHubClientFactory();
         var projector = new ProjectorActor(factory, new Uri("http://localhost:5000"), "MULTI01", expectedPhases);
-        projector.StartAsync().GetAwaiter().GetResult();
+        await projector.StartAsync();
 
         // Act/Assert: feed snapshots and assert tallies cleared at each Start after NextSong
         int songIndex = -1; // will be incremented on each NextSong -> Start
@@ -74,7 +74,7 @@ public class MultiSongScenarioTests
                 scores: null,
                 songStartedAtUtc: null);
 
-            projector.OnStateAsync(snapshot).GetAwaiter().GetResult();
+            await projector.OnStateAsync(snapshot);
 
             if (phase == Phase.Start)
             {
@@ -87,7 +87,7 @@ public class MultiSongScenarioTests
         Assert.Equal(expectedPhases, projector.ReceivedPhases);
         Assert.Equal(Phase.Intermission, projector.ReceivedPhases[^1]);
 
-        projector.StopAsync().GetAwaiter().GetResult();
+        await projector.StopAsync();
     }
 
     sealed class NoopHubClientFactory : IHubClientFactory
