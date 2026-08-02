@@ -1,15 +1,18 @@
-# Line endings.
+# Line endings: LF everywhere, which is what the repository already stores.
 #
-# .editorconfig mandates end_of_line = crlf for *.cs, but nothing enforced it on checkout, so
-# on Linux the files arrived as LF and `dotnet format --verify-no-changes` demanded CRLF on
-# every line of every file. That is why CI's lint step could never pass.
+# .editorconfig used to demand CRLF for *.cs while nothing enforced it on checkout, so on Linux
+# the files arrived as LF and `dotnet format --verify-no-changes` objected to every line of every
+# file. That is why CI's lint step could never pass.
 #
-# Store LF in the repository, hand CRLF to the working tree for C# so the formatter and
-# .editorconfig agree. Everything else stays LF.
+# Handing CRLF to the working tree fixes a fresh clone but not a reused one: git only converts
+# line endings when it actually writes a file, so a long-lived checkout - such as a self-hosted
+# runner's _work directory - keeps whatever bytes it already had, and the tree ends up mixed.
+# Matching .editorconfig to the LF that git stores removes the failure mode instead of papering
+# over it, and *.cs was the last holdout: js, ts and svelte were already lf.
 
 * text=auto eol=lf
 
-*.cs text eol=crlf
+*.cs text eol=lf
 
 # Verify snapshot files. VerifyChecks.Run enforces these once a .gitattributes exists, and the
 # snapshots must stay LF regardless of the C# rule above or every one of them would churn.
