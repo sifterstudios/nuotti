@@ -11,7 +11,7 @@
 # Nuotti.Projector and Nuotti.AudioEngine are venue-local and are NOT deployed here.
 #
 # Prerequisites:
-#   1. mkdir -p /mnt/user/appdata/nuotti/{logs,performer-dpkeys,grafana,loki,alloy,observability}
+#   1. mkdir -p /mnt/user/appdata/nuotti/{logs,performer-dpkeys,observability}
 #   2. Copy deploy/observability/* into /mnt/user/appdata/nuotti/observability/ (see README).
 #   3. Put a .env next to this compose file (see .env.unraid.example). Unraid's Compose
 #      Manager: "Edit Stack" -> the .env tab. Every ${VAR} below is read from that file.
@@ -34,6 +34,14 @@ volumes:
     name: nuotti-redis-data
   nuotti-azurite-data:
     name: nuotti-azurite-data
+  # Docker-managed so Grafana (uid 472) / Loki (uid 10001) can write without Unraid
+  # appdata chown games. Configs stay as bind mounts under observability/.
+  nuotti-grafana-data:
+    name: nuotti-grafana-data
+  nuotti-loki-data:
+    name: nuotti-loki-data
+  nuotti-alloy-data:
+    name: nuotti-alloy-data
 
 services:
   # ---------------------------------------------------------------------------
@@ -252,7 +260,7 @@ services:
     command: ["-config.file=/etc/loki/local-config.yaml"]
     volumes:
       - /mnt/user/appdata/nuotti/observability/loki-config.yml:/etc/loki/local-config.yaml:ro
-      - /mnt/user/appdata/nuotti/loki:/loki
+      - nuotti-loki-data:/loki
     networks:
       - nuotti
 
@@ -270,7 +278,7 @@ services:
     volumes:
       - /mnt/user/appdata/nuotti/observability/alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /mnt/user/appdata/nuotti/alloy:/var/lib/alloy/data
+      - nuotti-alloy-data:/var/lib/alloy/data
     depends_on:
       - loki
     networks:
@@ -290,7 +298,7 @@ services:
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
     volumes:
       - /mnt/user/appdata/nuotti/observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - /mnt/user/appdata/nuotti/grafana:/var/lib/grafana
+      - nuotti-grafana-data:/var/lib/grafana
     ports:
       - "5580:3000"   # LAN only — http://<unraid-ip>:5580 — do NOT tunnel
     depends_on:

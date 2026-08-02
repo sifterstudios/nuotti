@@ -27,7 +27,7 @@ deploys them.
 SSH into Unraid:
 
 ```bash
-mkdir -p /mnt/user/appdata/nuotti/{logs,performer-dpkeys,grafana,loki,alloy,observability/grafana/provisioning/datasources}
+mkdir -p /mnt/user/appdata/nuotti/{logs,performer-dpkeys,observability/grafana/provisioning/datasources}
 cat > /mnt/user/appdata/nuotti/audience-appsettings.json <<'JSON'
 {"BackendUrl":"https://api.nuotti.app"}
 JSON
@@ -46,12 +46,8 @@ cp deploy/observability/grafana/provisioning/datasources/loki.yml \
   /mnt/user/appdata/nuotti/observability/grafana/provisioning/datasources/loki.yml
 ```
 
-Grafana and Loki run as non-root users. If either container exits on permission errors:
-
-```bash
-chown -R 472:472 /mnt/user/appdata/nuotti/grafana
-chown -R 10001:10001 /mnt/user/appdata/nuotti/loki
-```
+Grafana / Loki / Alloy data lives in Docker named volumes (`nuotti-grafana-data`, etc.), not
+under appdata, so you do not need to `chown` anything for those containers.
 
 The Audience image is domain-agnostic; this file is the only thing that points it at your
 backend. Replace `nuotti.app` with your own domain here and everywhere below.
