@@ -13,6 +13,7 @@ using Nuotti.Backend.Participants;
 using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
 using Nuotti.Backend.Workspaces;
+using Nuotti.Backend.Trials;
 using Nuotti.Backend.ShowAgents;
 using Nuotti.Backend.Assets;
 using Nuotti.Backend.SongPackages;
@@ -44,6 +45,15 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+    options.AddPolicy("trial-apply", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
             Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
             AutoReplenishment = true
@@ -98,9 +108,12 @@ builder.Services.AddCors(options =>
                 {
                     if (string.IsNullOrWhiteSpace(origin)) return false;
                     if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-                    var isLocalhost = string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
+                    var isLocalHost =
+                        string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(uri.Host, "127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(uri.Host, "::1", StringComparison.OrdinalIgnoreCase);
                     var isHttp = uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
-                    return isLocalhost && isHttp; // any port
+                    return isLocalHost && isHttp; // any port
                 })
                 .AllowAnyHeader()
                 .AllowAnyMethod()
@@ -227,6 +240,7 @@ var auditLogger = new Serilog.LoggerConfiguration()
 builder.Services.AddSingleton<Serilog.ILogger>(provider => auditLogger);
 builder.Services.AddSingleton<Nuotti.Backend.Audit.AuditLogService>();
 builder.Services.AddSingleton<Nuotti.Backend.Retention.ISessionResultsStore, Nuotti.Backend.Retention.InMemorySessionResultsStore>();
+builder.Services.AddSingleton<ITrialApplicationStore, InMemoryTrialApplicationStore>();
 
 // Command processing: the only path by which a session's state changes.
 builder.Services.AddSingleton<ISessionCommandProcessor, SessionCommandProcessor>();
@@ -278,6 +292,7 @@ if (app.Environment.IsDevelopment()) app.MapDiagnosticsEndpoints();
 app.MapDevEndpoints();
 app.MapInfrastructureProofEndpoints();
 app.MapAudienceJoinEndpoints();
+app.MapTrialEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapWorkspaceCommandEndpoints();
 app.MapShowAgentEndpoints();
