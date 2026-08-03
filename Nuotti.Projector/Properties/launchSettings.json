@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "Venue (local API)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "NUOTTI_BACKEND": "http://localhost:5240"
+      }
+    },
+    "Venue (production API)": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "NUOTTI_BACKEND": "https://api.nuotti.app"
+      }
+    }
+  }
+}
