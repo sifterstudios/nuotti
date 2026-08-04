@@ -545,6 +545,18 @@ public partial class MainWindow : Window
     {
         if (!await EnsurePairedAsync()) return false;
 
+        // Do not open the hub until a lease is in hand. StartAsync with a null AccessTokenProvider
+        // result is what produces "no credential this session recognises" on the backend.
+        if (await _pairing.GetAccessTokenAsync() is null)
+        {
+            AppendLocal("[hub] skipped start: no access token yet");
+            if (_pairing.Current is null)
+                ShowPairingScreen("This Venue machine is no longer paired to a session. Enter a new code.");
+            else
+                _connectionTextBlock.Text = "Waiting for API — lease refresh failed";
+            return false;
+        }
+
         await _connection.StartAsync();
         AppendLocal("[hub] start ok");
 

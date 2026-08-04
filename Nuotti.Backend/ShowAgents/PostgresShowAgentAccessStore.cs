@@ -78,12 +78,16 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
     {
         if (!state.AgentByScope.TryGetValue(Scope(workspaceId, sessionCode), out var ids) || ids.Count == 0)
             return Array.Empty<ShowAgentStatus>();
-        return ids.Select(id =>
-        {
-            var agent = state.Agents[id];
-            return new ShowAgentStatus(agent.Id, agent.Name, workspaceId, sessionCode,
-                agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
-        }).ToArray();
+        // Skip orphaned scope entries rather than throwing: a KeyNotFound here used to surface as
+        // a 500/502 on the Performer's status poll and cascade into venue reconnect failures.
+        return ids
+            .Where(id => state.Agents.ContainsKey(id))
+            .Select(id =>
+            {
+                var agent = state.Agents[id];
+                return new ShowAgentStatus(agent.Id, agent.Name, workspaceId, sessionCode,
+                    agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
+            }).ToArray();
     }, cancellationToken);
 
     public Task<bool> RevokeAsync(string workspaceId, string sessionCode, CancellationToken cancellationToken = default) =>
@@ -146,7 +150,11 @@ public sealed class PostgresShowAgentAccessStore(NpgsqlDataSource dataSource, Ti
     {
         await EnsureSchemaAsync(ct);
         await using var command = dataSource.CreateCommand("SELECT state::text FROM nuotti_show_agent_access WHERE singleton=true");
-        return read(JsonSerializer.Deserialize<ShowAgentAccessDocument>((string)(await command.ExecuteScalarAsync(ct))!)!);
+        var raw = await command.ExecuteScalarAsync(ct) as string;
+        var state = string.IsNullOrWhiteSpace(raw)
+            ? new ShowAgentAccessDocument()
+            : JsonSerializer.Deserialize<ShowAgentAccessDocument>(raw) ?? new ShowAgentAccessDocument();
+        return read(state);
     }
 
     async Task<T> MutateAsync<T>(Func<ShowAgentAccessDocument, T> mutate, CancellationToken ct)

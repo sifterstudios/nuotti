@@ -86,8 +86,9 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
         // The pair response does not say which workspace or session the code belonged to; the
         // token exchange does. Doing it now means the very first connection already knows which
         // show it is joining.
-        var lease = await ExchangeAsync(paired.Credential, ct);
-        if (lease is null) return null;
+        var exchange = await ExchangeAsync(paired.Credential, ct);
+        if (exchange.Outcome != ExchangeOutcome.Ok || exchange.Lease is null) return null;
+        var lease = exchange.Lease;
 
         var credential = new VenueDeviceCredential(paired.AgentId, paired.Credential, lease.WorkspaceId, lease.SessionCode);
         store.Save(credential);
@@ -102,6 +103,11 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
     /// <summary>
     /// A currently valid hub access token, refreshing the short-lived lease when needed.
     /// </summary>
+    /// <remarks>
+    /// Only a definitive refusal (401/404) means the pairing is dead. A gateway blip or 5xx must
+    /// not wipe the stored credential — that is what turns a transient API outage into two hub
+    /// connections that present nothing and get refused forever.
+    /// </remarks>
     public async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
@@ -112,8 +118,8 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
             var credential = store.Load();
             if (credential is null) return null;
 
-            var lease = await ExchangeAsync(credential.Credential, ct);
-            if (lease is null)
+            var exchange = await ExchangeAsync(credential.Credential, ct);
+            if (exchange.Outcome == ExchangeOutcome.Revoked)
             {
                 // The band revoked this device, or the session is over. Forget the credential so
                 // the projector asks to be paired again instead of retrying a dead lease forever.
@@ -122,6 +128,10 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
                 return null;
             }
 
+            if (exchange.Outcome != ExchangeOutcome.Ok || exchange.Lease is null)
+                return null;
+
+            var lease = exchange.Lease;
             _accessToken = lease.AccessToken;
             _expiresAt = lease.ExpiresAt;
             if (lease.SessionCode != credential.SessionCode || lease.WorkspaceId != credential.WorkspaceId)
@@ -134,11 +144,18 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
         }
     }
 
-    async Task<TokenResponse?> ExchangeAsync(string credential, CancellationToken ct)
+    async Task<(ExchangeOutcome Outcome, TokenResponse? Lease)> ExchangeAsync(string credential, CancellationToken ct)
     {
         using var response = await http.PostAsJsonAsync("/v1/show-agent/token", new { credential }, Json, ct);
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.NotFound) return null;
-        if (!response.IsSuccessStatusCode) return null;
-        return await response.Content.ReadFromJsonAsync<TokenResponse>(Json, ct);
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.NotFound)
+            return (ExchangeOutcome.Revoked, null);
+        if (!response.IsSuccessStatusCode)
+            return (ExchangeOutcome.TransientFailure, null);
+        var lease = await response.Content.ReadFromJsonAsync<TokenResponse>(Json, ct);
+        return lease is null
+            ? (ExchangeOutcome.TransientFailure, null)
+            : (ExchangeOutcome.Ok, lease);
     }
+
+    enum ExchangeOutcome { Ok, Revoked, TransientFailure }
 }

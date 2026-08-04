@@ -227,15 +227,24 @@ public class QuizHub(
         var sessionCode = query?["sessionCode"].ToString();
         if (string.IsNullOrWhiteSpace(sessionCode)) sessionCode = query?["session"].ToString();
 
+        var deviceRole = query?["deviceRole"].ToString();
+        var workspaceId = query?["workspaceId"].ToString();
         var principal = await principals!.ResolveAsync(new RealtimeConnectionRequest(
-            token, sessionCode, query?["workspaceId"].ToString(), query?["deviceRole"].ToString()),
+            token, sessionCode, workspaceId, deviceRole),
             Context.ConnectionAborted);
 
         if (principal is null)
         {
             if (realtimeOptions?.Value.AllowUnauthenticatedConnections == true) return true;
-            logger.LogWarning("Rejected realtime connection with no usable credential. conn={ConnectionId}",
-                Context.ConnectionId);
+            // Distinguish "never sent a token" from "sent one this store does not recognise" so a
+            // venue reconnect storm is diagnosable from the warning alone.
+            logger.LogWarning(
+                "Rejected realtime connection. conn={ConnectionId} hasToken={HasToken} session={Session} workspace={Workspace} deviceRole={DeviceRole}",
+                Context.ConnectionId,
+                !string.IsNullOrWhiteSpace(token),
+                sessionCode,
+                workspaceId,
+                deviceRole);
             return false;
         }
 

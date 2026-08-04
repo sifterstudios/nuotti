@@ -112,12 +112,14 @@ public sealed class InMemoryShowAgentAccessStore(TimeProvider? timeProvider = nu
         {
             if (!_agentIdsByScope.TryGetValue(Scope(workspaceId, sessionCode), out var ids) || ids.Count == 0)
                 return Task.FromResult<IReadOnlyList<ShowAgentStatus>>([]);
-            return Task.FromResult<IReadOnlyList<ShowAgentStatus>>(ids.Select(id =>
-            {
-                var agent = _agents[id];
-                return new ShowAgentStatus(agent.Id, agent.Name, workspaceId, sessionCode,
-                    agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
-            }).ToArray());
+            return Task.FromResult<IReadOnlyList<ShowAgentStatus>>(ids
+                .Where(id => _agents.ContainsKey(id))
+                .Select(id =>
+                {
+                    var agent = _agents[id];
+                    return new ShowAgentStatus(agent.Id, agent.Name, workspaceId, sessionCode,
+                        agent.State, agent.Detail, agent.LastSeenAt, agent.Revoked);
+                }).ToArray());
         }
     }
 

@@ -81,6 +81,20 @@ public sealed class VenueDevicePairingClientTests : IDisposable
     }
 
     [Fact]
+    public async Task A_transient_token_failure_keeps_the_pairing_so_the_hub_can_retry()
+    {
+        // A 502 from the API used to be treated like revocation: wipe the pairing, then connect to
+        // the hub with nothing. That is exactly the "no credential this session recognises" storm.
+        var handler = new StubHandler().Post("/v1/show-agent/token", null, HttpStatusCode.BadGateway);
+        var store = new VenueCredentialStore(_credentialPath);
+        store.Save(new VenueDeviceCredential("agent-1", "cred-1", "ws-1", "SHOW42"));
+        var client = Build(handler);
+
+        Assert.Null(await client.GetAccessTokenAsync());
+        Assert.NotNull(store.Load());
+    }
+
+    [Fact]
     public async Task An_unpaired_projector_asks_for_nothing_and_reports_no_token()
     {
         var handler = new StubHandler();
