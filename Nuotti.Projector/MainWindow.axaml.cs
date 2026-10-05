@@ -37,10 +37,6 @@ public partial class MainWindow : Window
     bool _logUnavailable;
     readonly TextBlock _connectionTextBlock;
     readonly TextBlock _sessionCodeText;
-    readonly TextBlock _questionText;
-    readonly TextBlock[] _choiceTexts;
-    readonly TextBlock[] _choiceCounts;
-    readonly Border[] _rows;
     readonly ListBox _logList;
     readonly Button _themeToggleButton;
     readonly Button _monitorButton;
@@ -64,8 +60,6 @@ public partial class MainWindow : Window
     string _sessionCode;
     readonly VenueDevicePairingClient _pairing;
     VenueEngineHost? _engineHost;
-
-    int[] _tally = new int[4];
 
     // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18, F19, F21 & F22
     private readonly SettingsService _settingsService;
@@ -124,7 +118,6 @@ public partial class MainWindow : Window
 
         _connectionTextBlock = this.FindControl<TextBlock>("ConnectionStatus")!;
         _sessionCodeText = this.FindControl<TextBlock>("SessionCodeText")!;
-        _questionText = this.FindControl<TextBlock>("QuestionText")!;
         _logList = this.FindControl<ListBox>("LogList")!;
         _themeToggleButton = this.FindControl<Button>("ThemeToggleButton")!;
         _monitorButton = this.FindControl<Button>("MonitorButton")!;
@@ -210,27 +203,6 @@ public partial class MainWindow : Window
 
         // Update theme toggle button icon based on current theme
         UpdateThemeToggleButton();
-        _choiceTexts = new[]
-        {
-            this.FindControl<TextBlock>("Choice0Text")!,
-            this.FindControl<TextBlock>("Choice1Text")!,
-            this.FindControl<TextBlock>("Choice2Text")!,
-            this.FindControl<TextBlock>("Choice3Text")!,
-        };
-        _choiceCounts = new[]
-        {
-            this.FindControl<TextBlock>("Choice0Count")!,
-            this.FindControl<TextBlock>("Choice1Count")!,
-            this.FindControl<TextBlock>("Choice2Count")!,
-            this.FindControl<TextBlock>("Choice3Count")!,
-        };
-        _rows = new[]
-        {
-            this.FindControl<Border>("Row0")!,
-            this.FindControl<Border>("Row1")!,
-            this.FindControl<Border>("Row2")!,
-            this.FindControl<Border>("Row3")!,
-        };
 
         _sessionCodeText.Text = _sessionCode;
 
@@ -242,20 +214,12 @@ public partial class MainWindow : Window
             .WithAutomaticReconnect()
             .Build();
 
-        // F5 - Subscribe to GameStateChanged instead of individual events
+        // Display path: GameStateChanged → PhasePresenter → ViewSpec → Render.
+        // QuestionPushed is not a presentation input; Choices arrive via QuestionOffered on the snapshot.
         _connection.On<GameStateSnapshot>("GameStateChanged", snapshot =>
         {
             AppendLocal($"GameStateChanged: Phase={snapshot.Phase}, Song={snapshot.CurrentSong?.Title}");
             Dispatcher.UIThread.Post(() => _gameStateService.UpdateFromSnapshot(snapshot));
-        });
-
-        // Keep legacy event handlers for backward compatibility
-        _connection.On<QuestionPushed>("QuestionPushed", q =>
-        {
-            AppendLocal($"QuestionPushed: {q.Text}");
-            // F18 - Apply content safety to incoming questions
-            var safeQuestion = ApplyQuestionSafety(q);
-            Dispatcher.UIThread.Post(() => SetQuestion(safeQuestion));
         });
         _connection.On<AnswerSubmitted>("AnswerSubmitted", a =>
         {
@@ -644,68 +608,6 @@ public partial class MainWindow : Window
         AvaloniaXamlLoader.Load(this);
     }
 
-    void SetQuestion(QuestionPushed q)
-    {
-        _questionText.Text = q.Text;
-        _tally = new int[4];
-        for (int i = 0; i < 4; i++)
-        {
-            if (q.Options != null && i < q.Options.Length)
-            {
-                _choiceTexts[i].Text = q.Options[i];
-                _rows[i].IsVisible = true;
-            }
-            else
-            {
-                _choiceTexts[i].Text = string.Empty;
-                _rows[i].IsVisible = false;
-            }
-            _choiceCounts[i].Text = "0";
-            // Reset to default background using application resources with theme support
-            if (Application.Current?.Resources.TryGetResource("OptionBackgroundBrush", Application.Current?.ActualThemeVariant, out var optionBgObj) == true && optionBgObj is IBrush optionBg)
-            {
-                _rows[i].Background = optionBg;
-            }
-            else
-            {
-                _rows[i].Background = new SolidColorBrush(Color.Parse("#F5F5F5"));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Mirrors the tallies held in GameStateService into the legacy count labels. This used to
-    /// increment its own counter per AnswerSubmitted, giving the Projector two independent tally
-    /// stores for the same number; it now reads the one source of truth.
-    /// </summary>
-    void RefreshTallyDisplay(ViewSpec spec)
-    {
-        for (int i = 0; i < _tally.Length && i < spec.Choices.Count; i++)
-        {
-            _choiceCounts[i].Text = spec.Choices[i].CountText;
-            _tally[i] = int.TryParse(spec.Choices[i].CountText, out var count) ? count : 0;
-        }
-        HighlightLeaders();
-    }
-
-    void HighlightLeaders()
-    {
-        int max = _tally.Max();
-        IBrush? successBrush = null;
-        IBrush? defaultBrush = null;
-        if (Application.Current?.Resources.TryGetResource("SuccessBrush", Application.Current?.ActualThemeVariant, out var successObj) == true && successObj is IBrush s)
-            successBrush = s;
-        if (Application.Current?.Resources.TryGetResource("OptionBackgroundBrush", Application.Current?.ActualThemeVariant, out var defaultObj) == true && defaultObj is IBrush d)
-            defaultBrush = d;
-        successBrush ??= new SolidColorBrush(Color.Parse("#46B283"));
-        defaultBrush ??= new SolidColorBrush(Color.Parse("#F5F5F5"));
-
-        for (int i = 0; i < _tally.Length; i++)
-        {
-            _rows[i].Background = _tally[i] == max && max > 0 ? successBrush : defaultBrush;
-        }
-    }
-
     private void ToggleTheme(object? sender, RoutedEventArgs e)
     {
         var currentTheme = ThemeHelper.GetCurrentThemeVariant();
@@ -1084,9 +986,6 @@ public partial class MainWindow : Window
     {
         _sessionCodeText.Text = spec.SessionCodeDisplay;
 
-        // Keep the legacy count labels in step.
-        RefreshTallyDisplay(spec);
-
         if (!spec.Visible) return;
 
         if (!_phaseViews.TryGetValue(spec.View, out var phaseView))
@@ -1455,30 +1354,6 @@ Monitor Hotplug:
     public LocalizationService GetLocalizationService()
     {
         return _localizationService;
-    }
-
-    // F18 - Content safety for incoming SignalR messages
-    private QuestionPushed ApplyQuestionSafety(QuestionPushed question)
-    {
-        // Check and log any content safety issues
-        var safeText = _contentSafetyService.SanitizeText(question.Text, ContentType.General);
-        if (safeText.WasModified)
-        {
-            AppendLocal($"[content-safety] Question text sanitized: {safeText.Warnings}");
-        }
-
-        for (int i = 0; i < question.Options.Length; i++)
-        {
-            var choiceResult = _contentSafetyService.SanitizeChoice(question.Options[i], i);
-            if (choiceResult.WasModified)
-            {
-                AppendLocal($"[content-safety] Question option {i + 1} sanitized: {choiceResult.Warnings}");
-            }
-        }
-
-        // For now, return the original question since creating a new one requires base class properties
-        // In a production system, we would modify the question in place or have a different approach
-        return question;
     }
 
     // F19 - Theming API functionality
