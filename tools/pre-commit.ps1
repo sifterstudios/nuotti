@@ -22,17 +22,19 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     Push-Location web
     try {
         if (Test-Path node_modules) {
-            $eslintResult = npx eslint . --ext .js,.ts,.svelte --max-warnings 0 2>&1
+            # Use package.json scripts so the pinned local eslint/prettier run (ESLint 9
+            # flat config; --ext is gone). Do not invoke bare npx — it can pull a newer major.
+            npm run lint
             if ($LASTEXITCODE -ne 0) {
-                Write-Host "ESLint errors found. Run 'npx eslint . --fix' to fix." -ForegroundColor Red
+                Write-Host "ESLint errors found. Run 'npm run lint' in web/ to see details." -ForegroundColor Red
                 $errors++
             } else {
                 Write-Host "ESLint OK" -ForegroundColor Green
             }
 
-            $prettierResult = npx prettier --check . 2>&1
+            npm run format:check
             if ($LASTEXITCODE -ne 0) {
-                Write-Host "Prettier formatting errors found. Run 'npx prettier --write .' to fix." -ForegroundColor Red
+                Write-Host "Prettier formatting errors found. Run 'npm run format' in web/ to fix." -ForegroundColor Red
                 $errors++
             } else {
                 Write-Host "Prettier OK" -ForegroundColor Green

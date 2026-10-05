@@ -69,13 +69,13 @@ This document outlines the master plan for implementing comprehensive testing in
 
 **Deliverables**:
 - Create `.editorconfig` at repository root
-- Create `web/.eslintrc.json` and `web/.prettierrc.json`
+- Create `web/eslint.config.js` (ESLint 9 flat config) and `web/.prettierrc.json`
 - Create `tools/pre-commit.ps1` and `tools/pre-commit.sh`
 - Update `.github/workflows/test.yml` to include linting checks
 
 **Files Created/Modified**:
 - `.editorconfig`
-- `web/.eslintrc.json`
+- `web/eslint.config.js`
 - `web/.prettierrc.json`
 - `tools/pre-commit.ps1`
 - `tools/pre-commit.sh`
@@ -425,15 +425,15 @@ This document outlines the master plan for implementing comprehensive testing in
 
 ---
 
-#### ⏳ I22 — Smoke script
-**Status**: Pending  
+#### ✅ I22 — Smoke script
+**Status**: Done  
 **Issue**: #188  
 **Description**: Create PowerShell/Bash script for local dev sanity check.
 
 **Deliverables**:
 - Create `tools/smoke-test.ps1` and `tools/smoke-test.sh`
-- Run quick subset of tests (unit + integration)
 - Verify backend starts and responds to health checks
+- Create session → upload manifest → push question (Performer role) → read status
 - Exit with non-zero code on failure
 
 **Files Created/Modified**:
@@ -444,8 +444,8 @@ This document outlines the master plan for implementing comprehensive testing in
 
 ---
 
-#### ⏳ I23 — Test documentation
-**Status**: Pending  
+#### ✅ I23 — Test documentation
+**Status**: Done  
 **Issue**: #191  
 **Description**: Create comprehensive test documentation with run instructions and troubleshooting.
 
@@ -498,8 +498,8 @@ This document outlines the master plan for implementing comprehensive testing in
 ### Phase 6: Load & Quality (⏳ Pending)
 - ⏳ I18: SimKit load/chaos (depends on I1, I11, I19)
 - ⏳ I21: Flaky test mitigation (depends on I1)
-- ⏳ I22: Smoke script (depends on I1)
-- ⏳ I23: Test documentation (depends on all)
+- ✅ I22: Smoke script (depends on I1)
+- ✅ I23: Test documentation (depends on all)
 
 ---
 

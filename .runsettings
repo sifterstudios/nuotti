@@ -4,7 +4,9 @@
     <DataCollectors>
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
-          <Format>json,cobertura,opencover</Format>
+          <!-- Drop opencover: DeterministicReport is unsupported by that reporter and only
+               produced warning spam. cobertura + json cover CI and local tooling. -->
+          <Format>json,cobertura</Format>
           <Exclude>[*.Tests]*,[*.Test]*</Exclude>
           <IncludeDirectory>../</IncludeDirectory>
           <SingleHit>false</SingleHit>
@@ -34,4 +36,3 @@
        testsettings, which cannot be combined with the XPlat Code Coverage collector, so CI's
        test steps failed before running a single test. -->
 </RunSettings>
-

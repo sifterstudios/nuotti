@@ -79,7 +79,7 @@ $question = @{
     text = "What is the answer?"
     options = @("Option A", "Option B", "Option C")
     sessionCode = $Session
-    issuedByRole = 2  # Performer
+    issuedByRole = 0  # Performer (Role: Performer=0, Projector=1, Audience=2, Engine=3)
     issuedById = "smoke-test"
 } | ConvertTo-Json
 

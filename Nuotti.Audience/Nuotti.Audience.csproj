@@ -10,14 +10,15 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />
         <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
         <PackageReference Include="MudBlazor" Version="8.15.0" />
-        <!-- OpenTelemetry for Blazor WASM: use HTTP/protobuf exporter (no gRPC in browser) -->
-        <PackageReference Include="OpenTelemetry" Version="1.14.0" />
-        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
-        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.14.0" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.9.0" />
-        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
+        <!-- OpenTelemetry for Blazor WASM: use HTTP/protobuf exporter (no gRPC in browser).
+             1.15.3+ required for GHSA-g94r-2vxg-569j / GHSA-4625-4j76-fww9. -->
+        <PackageReference Include="OpenTelemetry" Version="1.19.1" />
+        <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
       <PackageReference Include="Serilog" Version="4.2.0" />
-      <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
+      <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0" />
       <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
   </ItemGroup>
 

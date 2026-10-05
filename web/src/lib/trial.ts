@@ -19,12 +19,10 @@ export type TrialApplicationResponse = {
 };
 
 export type TrialSubmitResult =
-  | { ok: true; data: TrialApplicationResponse }
-  | { ok: false; message: string; status?: number };
+  { ok: true; data: TrialApplicationResponse } | { ok: false; message: string; status?: number };
 
 function apiBase(): string {
-  const fromDefine =
-    typeof __PUBLIC_API_BASE__ === "string" ? __PUBLIC_API_BASE__.trim() : "";
+  const fromDefine = typeof __PUBLIC_API_BASE__ === "string" ? __PUBLIC_API_BASE__.trim() : "";
   if (fromDefine) return fromDefine.replace(/\/$/, "");
 
   const fromEnv = (import.meta.env.PUBLIC_API_BASE as string | undefined)?.trim() ?? "";
@@ -36,7 +34,7 @@ function apiBase(): string {
 }
 
 export async function submitTrialApplication(
-  payload: TrialApplicationPayload,
+  payload: TrialApplicationPayload
 ): Promise<TrialSubmitResult> {
   const base = apiBase();
   const url = `${base}/v1/trial/applications`;
@@ -59,9 +57,7 @@ export async function submitTrialApplication(
           detail?: string;
           errors?: Record<string, string[]>;
         };
-        const fieldError = problem.errors
-          ? Object.values(problem.errors).flat()[0]
-          : undefined;
+        const fieldError = problem.errors ? Object.values(problem.errors).flat()[0] : undefined;
         message = fieldError || problem.detail || problem.title || message;
       } catch {
         /* keep default */
@@ -74,8 +70,7 @@ export async function submitTrialApplication(
   } catch {
     return {
       ok: false,
-      message:
-        "Could not reach Nuotti. Check that the Backend is running, then try again.",
+      message: "Could not reach Nuotti. Check that the Backend is running, then try again.",
     };
   }
 }

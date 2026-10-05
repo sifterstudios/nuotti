@@ -26,17 +26,19 @@ if command -v node &> /dev/null; then
     cd web || exit 1
     
     if [ -d "node_modules" ]; then
-        if npx eslint . --ext .js,.ts,.svelte --max-warnings 0; then
+        # Use package.json scripts so the pinned local eslint/prettier run (ESLint 9
+        # flat config; --ext is gone). Do not invoke bare npx — it can pull a newer major.
+        if npm run lint; then
             echo "ESLint OK"
         else
-            echo "ESLint errors found. Run 'npx eslint . --fix' to fix."
+            echo "ESLint errors found. Run 'npm run lint' in web/ to see details."
             ERRORS=$((ERRORS + 1))
         fi
-        
-        if npx prettier --check .; then
+
+        if npm run format:check; then
             echo "Prettier OK"
         else
-            echo "Prettier formatting errors found. Run 'npx prettier --write .' to fix."
+            echo "Prettier formatting errors found. Run 'npm run format' in web/ to fix."
             ERRORS=$((ERRORS + 1))
         fi
     else

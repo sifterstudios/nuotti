@@ -69,12 +69,22 @@ Nuotti is a multi‑project .NET solution for running interactive quizzes and li
 Key capabilities suggested by the codebase:
 - Real‑time communication via SignalR hubs (e.g., QuizHub).
 - Session management and an event bus, with an in‑memory implementation for local development.
-- A Blazor WebAssembly audience app (built with MudBlazor).
+- A Blazor WebAssembly **Audience** app (MudBlazor) for participants joining a live Session.
+- A SvelteKit **`web/`** static site for marketing and exclusive trial signup — not the Audience client.
 - A projector/host display app (Avalonia desktop).
 - A CLI simulation kit for driving scripted interactions against the backend.
 
 This repository targets .NET 10 (the SDK version is pinned in `global.json`) and uses modern
 ASP.NET Core features.
+
+### Frontend surfaces
+
+| Surface | Stack | Role |
+|---------|-------|------|
+| `Nuotti.Audience` | Blazor WASM + MudBlazor | Participant join / guess UI |
+| `Nuotti.Performer` | Blazor Server + MudBlazor | Performer control surface |
+| `web/` | SvelteKit (static) | Marketing site + trial request form |
+| `Nuotti.Projector` | Avalonia | Venue big-screen display |
 
 ### Built With
 
@@ -91,13 +101,13 @@ ASP.NET Core features.
 Top‑level notable projects and folders:
 - Nuotti — .NET Aspire AppHost that orchestrates the full local stack (backend, clients, and backing services).
 - Nuotti.Backend — ASP.NET Core backend with endpoints, sessions, eventing, rate limiting, and hub broadcasting.
-- Nuotti.Audience — Blazor WebAssembly UI for participants.
+- Nuotti.Audience — Blazor WebAssembly UI for participants (live Session).
 - Nuotti.Projector — Avalonia display surface for the show/host/projector.
 - Nuotti.AudioEngine — Audio playback/engine components.
 - Nuotti.Contracts — Shared messages, models, events, reducers, and web shared types.
 - Nuotti.SimKit — CLI simulator (`nuotti-sim`) for scripted interactions against the backend.
 - ServiceDefaults — Shared Aspire service configuration (telemetry, health checks, resilience).
-- web — SvelteKit static web app.
+- web — SvelteKit static marketing / trial site (not the Audience participant app).
 - tests — Cross‑cutting unit, integration, and end‑to‑end test projects.
 - Nuotti.*.Tests — Per‑project test suites (contracts, backend, projector, and more).
 - docs — Documentation and design notes.
@@ -113,7 +123,7 @@ Follow these instructions to set up a local development environment.
 
 - .NET SDK 10 (the exact release‑candidate version is pinned in `global.json`)
   - Verify: `dotnet --version` should print the pinned 10.x version
-- Node.js 20+ (only if you plan to work on the `web` SvelteKit app)
+- Node.js 22+ (only if you plan to work on the `web` SvelteKit app)
 - Docker (only if you want the one‑command Aspire stack, which starts Postgres, Redis, and an Azure Storage emulator)
 
 ### Installation
