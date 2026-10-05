@@ -10,6 +10,7 @@ using Nuotti.Contracts.V1.Event;
 using Nuotti.Contracts.V1.Message;
 using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Protocol;
 namespace Nuotti.Backend;
 
 /// <summary>
@@ -340,6 +341,9 @@ public class QuizHub(
         }
 
         var role = Context.Items.TryGetValue(RoleKey, out var roleObj) ? roleObj as string : null;
+        var actorId = Context.Items.TryGetValue(ParticipantKey, out var pid) && pid is string id && id.Length > 0
+            ? id
+            : Context.ConnectionId;
         logger.LogInformation("RequestPlay: conn={ConnectionId} session={Session} role={Role} url={Url}", Context.ConnectionId, session, role, cmd.FileUrl);
         await log.BroadcastAsync(new LogEvent(
             Timestamp: DateTimeOffset.UtcNow,
@@ -351,7 +355,17 @@ public class QuizHub(
             Role: role
         ));
 
-        await Clients.Group(RealtimeGroups.Session(session)).SendAsync("RequestPlay", cmd);
+        // Fan-out through SessionCommandProcessor → IEventBus → HubWireContract ("PlayTrack"),
+        // not a hub-side Clients.SendAsync bypass named "RequestPlay".
+        var play = cmd with
+        {
+            SessionCode = session,
+            IssuedByRole = Role.Performer,
+            IssuedById = actorId ?? Context.ConnectionId
+        };
+        var result = await processor.ApplyAsync(session, Actor.Verified(Role.Performer, play.IssuedById), play);
+        if (result.Outcome == Outcome.Rejected && result.Problem is not null)
+            await SendProblemAsync(result.Problem);
     }
 
     // Audience submits an answer. Pass Guid.Empty to mint a fresh CommandId; otherwise retry with the same id.

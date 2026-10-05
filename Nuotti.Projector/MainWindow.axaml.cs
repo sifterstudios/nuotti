@@ -258,11 +258,8 @@ public partial class MainWindow : Window
             // hand-incrementing a local counter.
             Dispatcher.UIThread.Post(() => _gameStateService.Apply(a));
         });
-        _connection.On<PlayTrack>("RequestPlay", p =>
-        {
-            AppendLocal($"RequestPlay received: url={p.FileUrl}");
-            _ = ForwardPlayToBackend(p);
-        });
+        // PlayTrack Fan-out is owned by HubWireContract → VenueEngineHost; Projector does not
+        // re-POST play (that used to listen for the RequestPlay hub bypass and loop via HTTP).
 
         // F10 - Handle engine status changes for Now Playing banner
         _connection.On<EngineStatusChanged>("EngineStatusChanged", status =>
@@ -541,23 +538,6 @@ public partial class MainWindow : Window
             Design.NuottiThemeVariant.HighContrast => "♿", // Accessibility symbol for high contrast
             _ => "🌙" // Light theme
         };
-    }
-
-    private async Task ForwardPlayToBackend(PlayTrack p)
-    {
-        try
-        {
-            using var client = new HttpClient();
-            var resp = await client.PostAsJsonAsync($"{_backend}/api/play/{_sessionCode}", p);
-            if (!resp.IsSuccessStatusCode)
-            {
-                Dispatcher.UIThread.Post(() => _connectionTextBlock.Text = $"Play POST failed: {(int)resp.StatusCode}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Dispatcher.UIThread.Post(() => _connectionTextBlock.Text = $"Play POST error: {ex.Message}");
-        }
     }
 
     async Task StartLogConnection()
