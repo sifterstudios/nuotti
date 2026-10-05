@@ -135,6 +135,14 @@ public class RoundTripTests
             SessionCode = "SESS-42",
             EmittedAtUtc = fixedNow
         });
+        yield return Case(new GuessingWindowOpened(30)
+        {
+            WindowSeconds = 30,
+            CorrelationId = guid,
+            CausedByCommandId = guid,
+            SessionCode = "SESS-42",
+            EmittedAtUtc = fixedNow
+        });
     }
 
     static object[] Case<T>(T instance) => [typeof(T), instance!];
