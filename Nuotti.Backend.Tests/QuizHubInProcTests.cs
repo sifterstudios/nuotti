@@ -428,7 +428,8 @@ public class QuizHubInProcTests
         // Audience app: any phone in the room could start audio on the venue rig. The Performer
         // drives playback.
         var store = CreateSessionStore();
-        var hub = Harness.Hub(store, new CapturingEventBus());
+        var bus = new CapturingEventBus();
+        var hub = Harness.Hub(store, bus);
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("aud-1"));
@@ -446,15 +447,15 @@ public class QuizHubInProcTests
         await hub.RequestPlay("test-session", cmd);
 
         Assert.Contains(clients.CallerProxy.Sent, x => x.method == "Problem");
-        Assert.False(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var group)
-            && group.Sent.Any(x => x.method == "RequestPlay"));
+        Assert.Empty(bus.Published.OfType<PlayTrack>());
     }
 
     [Fact]
-    public async Task RequestPlay_allows_the_performer_and_broadcasts_to_session()
+    public async Task RequestPlay_allows_the_performer_and_fans_out_PlayTrack_on_the_bus()
     {
         var store = CreateSessionStore();
-        var hub = Harness.Hub(store, new CapturingEventBus());
+        var bus = new CapturingEventBus();
+        var hub = Harness.Hub(store, bus);
         var clients = new FakeClients();
         var groups = new CapturingGroupManager();
         hub.SetContext(new TestContext("perf-1"));
@@ -471,8 +472,10 @@ public class QuizHubInProcTests
         };
         await hub.RequestPlay("test-session", cmd);
 
-        Assert.True(clients.GroupProxies.TryGetValue(RealtimeGroups.Session("test-session"), out var groupProxy));
-        Assert.Contains(groupProxy.Sent, x => x.method == "RequestPlay" && x.args[0] is PlayTrack p && p.FileUrl == cmd.FileUrl);
+        var play = Assert.Single(bus.Published.OfType<PlayTrack>());
+        Assert.Equal(cmd.FileUrl, play.FileUrl);
+        Assert.DoesNotContain(clients.GroupProxies.SelectMany(g => g.Value.Sent),
+            x => x.method == "RequestPlay");
     }
 
     [Fact]

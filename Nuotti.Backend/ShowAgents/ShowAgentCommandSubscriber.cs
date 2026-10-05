@@ -12,16 +12,10 @@ public sealed class ShowAgentCommandSubscriber : IDisposable
     {
         _subscription = bus.Subscribe<SessionMessagePublisher.WorkspacePublication>(async (publication, ct) =>
         {
-            var messageType = publication.Payload switch
-            {
-                PlayTrack => "PlayTrack",
-                StopTrack => "StopTrack",
-                PreparePlayback => "Prepare",
-                _ => null
-            };
-            if (messageType is not null)
-                await store.AppendCommandAsync(publication.WorkspaceId, publication.SessionCode,
-                    messageType, publication.Payload, ct);
+            if (!HubWireContract.TryShowAgentCommand(publication.Payload, out var messageType))
+                return;
+            await store.AppendCommandAsync(publication.WorkspaceId, publication.SessionCode,
+                messageType, publication.Payload, ct);
         });
     }
 
