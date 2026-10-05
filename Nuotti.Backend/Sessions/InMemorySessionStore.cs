@@ -41,12 +41,9 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
         if (_sessions.TryGetValue(info.session, out var state))
         {
             state.Remove(info.role, connectionId);
-            if (state.IsEmpty)
-            {
-                _sessions.TryRemove(info.session, out _);
-                // Match idle Scan: an empty session is no longer hot — drop the snapshot cache.
-                _gameStateStore.Remove(info.session);
-            }
+            // Keep an empty Session in the map so idle Scan can expire presence + hot
+            // snapshot together after SessionIdleTimeoutSeconds. Dropping it here would
+            // orphan the snapshot and break short reconnect/resync windows.
         }
     }
 
@@ -82,7 +79,7 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
                 _byConnection.TryRemove(conn, out _);
             }
         }
-        // Align with idle Scan / last-disconnect: Clear drops the hot snapshot too.
+        // Align with idle Scan: explicit Clear drops the hot snapshot too.
         _gameStateStore.Remove(session);
     }
 

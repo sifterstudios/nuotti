@@ -160,7 +160,8 @@ else
 builder.Services.AddSingleton<InMemoryGameStateStore>();
 builder.Services.AddSingleton<IGameStateStore>(sp => sp.GetRequiredService<InMemoryGameStateStore>());
 // Presence + hot GameStateSnapshot share one Session identity: the session store holds the
-// game store so idle Scan, Clear, and last-disconnect all drop the cache together.
+// game store so idle Scan and Clear drop the cache together. Last-disconnect only starts the
+// idle clock so short reconnects can still resync.
 builder.Services.AddSingleton<InMemorySessionStore>(sp => new InMemorySessionStore(
     sp.GetRequiredService<IOptions<NuottiOptions>>(),
     sp.GetRequiredService<InMemoryGameStateStore>(),

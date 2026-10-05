@@ -105,7 +105,7 @@ public class SessionStoreTests
     }
 
     [Fact]
-    public void Clear_and_last_disconnect_also_drop_the_hot_snapshot()
+    public void Clear_drops_the_hot_snapshot_immediately()
     {
         var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var game = new InMemoryGameStateStore();
@@ -115,11 +115,29 @@ public class SessionStoreTests
         game.Set("s1", GameReducer.Initial("s1") with { Choices = ["x"] });
         store.Clear("s1");
         Assert.False(game.TryGet("s1", out _));
+    }
+
+    [Fact]
+    public void Last_disconnect_keeps_the_hot_snapshot_until_idle_eviction()
+    {
+        var now = DateTimeOffset.Parse("2025-01-01T00:00:00Z");
+        var time = new FakeTimeProvider(now);
+        var game = new InMemoryGameStateStore();
+        using var store = CreateStore(time, game, idleSeconds: 30);
 
         store.Touch("s2", "audience", "a2");
         game.Set("s2", GameReducer.Initial("s2") with { Choices = ["y"] });
         store.Remove("a2");
+        Assert.True(game.TryGet("s2", out _));
+
+        time.Advance(TimeSpan.FromSeconds(29));
+        store.EvictIdleNow();
+        Assert.True(game.TryGet("s2", out _));
+
+        time.Advance(TimeSpan.FromSeconds(2));
+        store.EvictIdleNow();
         Assert.False(game.TryGet("s2", out _));
+        Assert.Equal(0, store.GetCounts("s2").Audiences);
     }
 
     [Fact]
