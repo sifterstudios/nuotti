@@ -44,6 +44,8 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
             if (state.IsEmpty)
             {
                 _sessions.TryRemove(info.session, out _);
+                // Match idle Scan: an empty session is no longer hot — drop the snapshot cache.
+                _gameStateStore.Remove(info.session);
             }
         }
     }
@@ -80,6 +82,8 @@ public sealed class InMemorySessionStore : ISessionStore, IDisposable
                 _byConnection.TryRemove(conn, out _);
             }
         }
+        // Align with idle Scan / last-disconnect: Clear drops the hot snapshot too.
+        _gameStateStore.Remove(session);
     }
 
     public void EvictIdleNow() => Scan(null);

@@ -1,26 +1,36 @@
 using Microsoft.Extensions.Options;
+using Nuotti.Backend.Commands;
+using Nuotti.Backend.Idempotency;
 using Nuotti.Backend.Models;
+using Nuotti.Backend.Persistence;
 using Nuotti.Backend.Sessions;
+using Nuotti.Backend.Tests.TestSupport;
+using Nuotti.Contracts.V1.Enum;
+using Nuotti.Contracts.V1.Message.Phase;
 using Nuotti.Contracts.V1.Model;
+using Nuotti.Contracts.V1.Protocol;
+using Nuotti.Contracts.V1.Reducer;
+using Xunit;
+
 namespace Nuotti.Backend.Tests;
 
 public class SessionStoreTests
 {
-    static InMemorySessionStore CreateStore(FakeTimeProvider time, int idleSeconds = 60)
+    static InMemorySessionStore CreateStore(FakeTimeProvider time, IGameStateStore game, int idleSeconds = 60)
     {
         var options = Options.Create(new NuottiOptions
         {
             SessionIdleTimeoutSeconds = idleSeconds,
             SessionEvictionIntervalSeconds = 3600 // large; we will trigger eviction manually
         });
-        return new InMemorySessionStore(options, new MockGameStateStore(), time);
+        return new InMemorySessionStore(options, game, time);
     }
 
     [Fact]
     public void Touch_AddsConnections_And_Remove_UpdatesCounts()
     {
         var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
-        using var store = CreateStore(time);
+        using var store = CreateStore(time, new InMemoryGameStateStore());
 
         store.Touch("dev", "performer", "p1");
         store.Touch("dev", "projector", "pr1");
@@ -57,7 +67,7 @@ public class SessionStoreTests
     {
         var now = DateTimeOffset.Parse("2025-01-01T00:00:00Z");
         var time = new FakeTimeProvider(now);
-        using var store = CreateStore(time, idleSeconds: 60);
+        using var store = CreateStore(time, new InMemoryGameStateStore(), idleSeconds: 60);
 
         store.Touch("s1", "audience", "a1");
         Assert.Equal(1, store.GetCounts("s1").Audiences);
@@ -76,14 +86,92 @@ public class SessionStoreTests
         Assert.Equal(0, counts.Projector);
         Assert.Equal(0, counts.Engine);
     }
-}
 
-internal sealed class MockGameStateStore : IGameStateStore
-{
-    public bool TryGet(string session, out GameStateSnapshot snapshot) { snapshot = default!; return false; }
-    public GameStateSnapshot GetOrCreate(string session, Func<string, GameStateSnapshot> factory) => factory(session);
-    public void Set(string session, GameStateSnapshot snapshot) { }
-    public void Remove(string session) { }
+    [Fact]
+    public void Idle_eviction_drops_the_hot_GameStateSnapshot()
+    {
+        var now = DateTimeOffset.Parse("2025-01-01T00:00:00Z");
+        var time = new FakeTimeProvider(now);
+        var game = new InMemoryGameStateStore();
+        using var store = CreateStore(time, game, idleSeconds: 30);
+
+        store.Touch("s1", "audience", "a1");
+        game.Set("s1", GameReducer.Initial("s1") with { Phase = Phase.Guessing, Choices = ["a", "b"] });
+
+        time.Advance(TimeSpan.FromSeconds(31));
+        store.EvictIdleNow();
+
+        Assert.False(game.TryGet("s1", out _));
+    }
+
+    [Fact]
+    public void Clear_and_last_disconnect_also_drop_the_hot_snapshot()
+    {
+        var time = new FakeTimeProvider(DateTimeOffset.UtcNow);
+        var game = new InMemoryGameStateStore();
+        using var store = CreateStore(time, game);
+
+        store.Touch("s1", "audience", "a1");
+        game.Set("s1", GameReducer.Initial("s1") with { Choices = ["x"] });
+        store.Clear("s1");
+        Assert.False(game.TryGet("s1", out _));
+
+        store.Touch("s2", "audience", "a2");
+        game.Set("s2", GameReducer.Initial("s2") with { Choices = ["y"] });
+        store.Remove("a2");
+        Assert.False(game.TryGet("s2", out _));
+    }
+
+    [Fact]
+    public async Task After_idle_eviction_ApplyAsync_rehydrates_from_durable()
+    {
+        var now = DateTimeOffset.Parse("2025-01-01T00:00:00Z");
+        var time = new FakeTimeProvider(now);
+        var game = new InMemoryGameStateStore();
+        using var sessions = CreateStore(time, game, idleSeconds: 10);
+        var durable = new InMemoryDurableSessionCommitStore();
+        var bus = new CapturingEventBus();
+        var processor = new SessionCommandProcessor(
+            game,
+            new InMemoryIdempotencyStore(Options.Create(new NuottiOptions())),
+            bus,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<SessionCommandProcessor>.Instance,
+            durable: durable);
+
+        const string workspace = "ws-1";
+        const string session = "SHOW1";
+        var seeded = GameReducer.Initial(session) with
+        {
+            Phase = Phase.Start,
+            Choices = ["a", "b", "c"]
+        };
+        await durable.CommitAsync(
+            workspace, session, Guid.NewGuid(), SessionSequence.None, seeded, [],
+            DurableCommitPrecondition.SessionMustNotExist);
+        game.Set(session, seeded);
+        sessions.Touch(session, "performer", "p1");
+
+        time.Advance(TimeSpan.FromSeconds(11));
+        sessions.EvictIdleNow();
+        Assert.False(game.TryGet(session, out _));
+
+        var result = await processor.ApplyAsync(
+            session,
+            Actor.Verified(Role.Performer, "p1"),
+            new OpenAnswers(30)
+            {
+                SessionCode = session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "p1"
+            },
+            workspaceId: workspace);
+
+        Assert.Equal(Outcome.Applied, result.Outcome);
+        Assert.Equal(Phase.Guessing, result.State!.Phase);
+        Assert.Equal(["a", "b", "c"], result.State.Choices);
+        Assert.True(game.TryGet(session, out var hot));
+        Assert.Equal(Phase.Guessing, hot.Phase);
+    }
 }
 
 internal sealed class FakeTimeProvider(DateTimeOffset start) : TimeProvider
