@@ -1,11 +1,11 @@
 using System;
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Nuotti.AudioEngine;
 
 namespace Nuotti.Projector.Services;
 
@@ -61,6 +61,8 @@ public sealed class VenueCredentialStore
 /// workspace, and the backend decides what that credential is allowed to do. The session code is
 /// learned from the pairing rather than configured, so the venue machine no longer needs to be
 /// told which show it is running.
+/// Token exchange shares <see cref="ShowAgentTokenExchange"/> with the headless Show Agent so
+/// revoked-vs-transient semantics cannot diverge.
 /// </remarks>
 public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialStore store)
 {
@@ -70,7 +72,6 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
     DateTimeOffset _expiresAt = DateTimeOffset.MinValue;
 
     sealed record PairResponse(string AgentId, string Credential, string AccessToken, DateTimeOffset AccessTokenExpiresAt);
-    sealed record TokenResponse(string AccessToken, DateTimeOffset ExpiresAt, string WorkspaceId, string SessionCode);
 
     public VenueDeviceCredential? Current => store.Load();
 
@@ -86,9 +87,8 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
         // The pair response does not say which workspace or session the code belonged to; the
         // token exchange does. Doing it now means the very first connection already knows which
         // show it is joining.
-        var exchange = await ExchangeAsync(paired.Credential, ct);
-        if (exchange.Outcome != ExchangeOutcome.Ok || exchange.Lease is null) return null;
-        var lease = exchange.Lease;
+        var (outcome, lease) = await ShowAgentTokenExchange.ExchangeAsync(http, paired.Credential, ct);
+        if (outcome != ShowAgentLeaseOutcome.Ok || lease is null) return null;
 
         var credential = new VenueDeviceCredential(paired.AgentId, paired.Credential, lease.WorkspaceId, lease.SessionCode);
         store.Save(credential);
@@ -118,8 +118,8 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
             var credential = store.Load();
             if (credential is null) return null;
 
-            var exchange = await ExchangeAsync(credential.Credential, ct);
-            if (exchange.Outcome == ExchangeOutcome.Revoked)
+            var (outcome, lease) = await ShowAgentTokenExchange.ExchangeAsync(http, credential.Credential, ct);
+            if (outcome == ShowAgentLeaseOutcome.Revoked)
             {
                 // The band revoked this device, or the session is over. Forget the credential so
                 // the projector asks to be paired again instead of retrying a dead lease forever.
@@ -128,10 +128,9 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
                 return null;
             }
 
-            if (exchange.Outcome != ExchangeOutcome.Ok || exchange.Lease is null)
+            if (outcome != ShowAgentLeaseOutcome.Ok || lease is null)
                 return null;
 
-            var lease = exchange.Lease;
             _accessToken = lease.AccessToken;
             _expiresAt = lease.ExpiresAt;
             if (lease.SessionCode != credential.SessionCode || lease.WorkspaceId != credential.WorkspaceId)
@@ -143,19 +142,4 @@ public sealed class VenueDevicePairingClient(HttpClient http, VenueCredentialSto
             _gate.Release();
         }
     }
-
-    async Task<(ExchangeOutcome Outcome, TokenResponse? Lease)> ExchangeAsync(string credential, CancellationToken ct)
-    {
-        using var response = await http.PostAsJsonAsync("/v1/show-agent/token", new { credential }, Json, ct);
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.NotFound)
-            return (ExchangeOutcome.Revoked, null);
-        if (!response.IsSuccessStatusCode)
-            return (ExchangeOutcome.TransientFailure, null);
-        var lease = await response.Content.ReadFromJsonAsync<TokenResponse>(Json, ct);
-        return lease is null
-            ? (ExchangeOutcome.TransientFailure, null)
-            : (ExchangeOutcome.Ok, lease);
-    }
-
-    enum ExchangeOutcome { Ok, Revoked, TransientFailure }
 }

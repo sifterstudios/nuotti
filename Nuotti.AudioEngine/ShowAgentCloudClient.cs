@@ -37,15 +37,19 @@ public sealed class ShowAgentCloudClient(HttpClient http, IShowAgentCredentialSt
             && _lease.WorkspaceId.Length > 0) return _lease;
         var credential = credentials.Load();
         if (string.IsNullOrWhiteSpace(credential)) return null;
-        using var response = await http.PostAsJsonAsync("/v1/show-agent/token", new { credential }, Json, ct);
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
+
+        var (outcome, lease) = await ShowAgentTokenExchange.ExchangeAsync(http, credential, ct);
+        if (outcome == ShowAgentLeaseOutcome.Revoked)
         {
             credentials.Delete();
             _lease = null;
             return null;
         }
-        response.EnsureSuccessStatusCode();
-        _lease = (await response.Content.ReadFromJsonAsync<CloudAgentLease>(Json, ct))!;
+
+        if (outcome != ShowAgentLeaseOutcome.Ok || lease is null)
+            return null;
+
+        _lease = lease;
         return _lease;
     }
 
