@@ -59,7 +59,7 @@ public partial class MainWindow : Window
         ?? "http://localhost:5240";
     string _sessionCode;
     readonly VenueDevicePairingClient _pairing;
-    VenueEngineHost? _engineHost;
+    VenueConnectionLifecycle? _lifecycle;
 
     // New services for F2, F3, F5, F11, F12, F15, F16, F17, F18, F19, F21 & F22
     private readonly SettingsService _settingsService;
@@ -214,6 +214,36 @@ public partial class MainWindow : Window
             .WithAutomaticReconnect()
             .Build();
 
+        _lifecycle = new VenueConnectionLifecycle(
+            _connection,
+            _pairing,
+            _reconnectService,
+            _backend,
+            () => _sessionCode,
+            code => _sessionCode = code,
+            new VenueConnectionCallbacks
+            {
+                Log = AppendLocal,
+                NeedPairing = ShowPairingScreen,
+                ConnectionStatus = text => Dispatcher.UIThread.Post(() => _connectionTextBlock.Text = text),
+                SessionCodeChanged = code => Dispatcher.UIThread.Post(() => _sessionCodeText.Text = code),
+                HubStarted = id => Dispatcher.UIThread.Post(() => _debugOverlay.UpdateConnectionId(id ?? "Unknown")),
+                EngineStarted = ok => Dispatcher.UIThread.Post(() =>
+                {
+                    if (ok && _connectionTextBlock.Text == "Connected")
+                        _connectionTextBlock.Text = "Connected (display + audio)";
+                    else if (!ok)
+                        _connectionTextBlock.Text = "Connected (display only — audio failed)";
+                }),
+                ResyncProgress = (title, detail) => Dispatcher.UIThread.Post(() => _reconnectOverlay.Show(title, detail)),
+                ResyncSucceeded = OnResyncSucceeded,
+                ResyncFailed = detail => Dispatcher.UIThread.Post(() =>
+                {
+                    _connectionTextBlock.Text = detail;
+                    _reconnectOverlay.Show("Reconnection Failed", detail);
+                })
+            });
+
         // Display path: GameStateChanged → PhasePresenter → ViewSpec → Render.
         // QuestionPushed is not a presentation input; Choices arrive via QuestionOffered on the snapshot.
         _connection.On<GameStateSnapshot>("GameStateChanged", snapshot =>
@@ -354,24 +384,24 @@ public partial class MainWindow : Window
         };
         _connection.Closed += async (_) =>
         {
-            _connectionTextBlock.Text = "Disconnected";
+            Dispatcher.UIThread.Post(() =>
+            {
+                _connectionTextBlock.Text = "Disconnected";
+                _reconnectOverlay.Show("Connection Lost", "Attempting to reconnect...");
+            });
             _playbackPresenter.Freeze(_playbackClock.Elapsed);
-            _reconnectOverlay.Show("Connection Lost", "Attempting to reconnect...");
             try
             {
-                RenderCurrent();
+                Dispatcher.UIThread.Post(() => RenderCurrent());
             }
             catch (Exception renderEx)
             {
                 AppendLocal($"[hub] holding render failed: {renderEx.Message}");
             }
 
-            // A revoked device has had its stored credential deleted by the pairing client. There
-            // is nothing to reconnect with, so ask to be paired again rather than reconnect-loop
-            // against a hub that will keep refusing.
             if (_pairing.Current is null)
             {
-                _reconnectOverlay.Hide();
+                Dispatcher.UIThread.Post(() => _reconnectOverlay.Hide());
                 ShowPairingScreen("This Venue machine is no longer paired to a session. Enter a new code.");
                 return;
             }
@@ -379,35 +409,13 @@ public partial class MainWindow : Window
             var delayMs = Random.Shared.Next(0, 5) * 1000;
             AppendLocal($"[hub] disconnected; reconnecting in {delayMs} ms");
             await Task.Delay(delayMs);
-
             await StartConnectionWithStateResync();
         };
     }
 
-    /// <summary>
-    /// Makes sure this machine is paired, showing the pairing screen until it is.
-    /// </summary>
-    /// <remarks>
-    /// The band generates the code from inside their own workspace, so pairing is the moment a
-    /// venue machine is admitted to a specific show by somebody entitled to admit it. An unpaired
-    /// projector has nothing to display, so the pairing screen is the whole screen.
-    /// </remarks>
-    async Task<bool> EnsurePairedAsync()
-    {
-        if (_pairing.Current is not null) return true;
-
-        // An operator running many rooms can still preseed the code, but it is no longer the only
-        // way in: typing it on the projector itself is.
-        var preseeded = Environment.GetEnvironmentVariable("NUOTTI_PAIRINGCODE");
-        if (!string.IsNullOrWhiteSpace(preseeded) && await TryPairAsync(preseeded.Trim())) return true;
-
-        ShowPairingScreen("Enter the eight-digit code from the Performer app to pair this Venue machine.");
-        return false;
-    }
-
     void ShowPairingScreen(string message)
     {
-        _ = StopEngineHostAsync();
+        _ = _lifecycle?.StopEngineAsync() ?? Task.CompletedTask;
         Dispatcher.UIThread.Post(() =>
         {
             _pairingStatusText.Text = message;
@@ -431,7 +439,7 @@ public partial class MainWindow : Window
         _pairingStatusText.Text = "Pairing...";
         try
         {
-            if (!await TryPairAsync(code))
+            if (_lifecycle is null || !await _lifecycle.TryPairAsync(code))
             {
                 _pairingStatusText.Text = "That code was refused. It may have expired or already been used.";
                 _pairingCodeInput.Text = string.Empty;
@@ -439,8 +447,6 @@ public partial class MainWindow : Window
             }
 
             _pairingOverlay.IsVisible = false;
-            // The hub URL carries no session code - the lease names it - so the existing
-            // connection can simply be started rather than rebuilt.
             if (await StartConnection()) _connectionTextBlock.Text = "Connected";
         }
         catch (Exception ex)
@@ -454,114 +460,28 @@ public partial class MainWindow : Window
         }
     }
 
-    async Task StartEngineHostAsync()
-    {
-        if (_engineHost?.IsStarted == true) return;
-        if (_pairing.Current is null) return;
-
-        await StopEngineHostAsync();
-        try
-        {
-            _engineHost = new VenueEngineHost(
-                _backend,
-                _sessionCode,
-                async () => await _pairing.GetAccessTokenAsync());
-            await _engineHost.StartAsync();
-            AppendLocal("[engine] Venue audio engine connected");
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (_connectionTextBlock.Text == "Connected")
-                    _connectionTextBlock.Text = "Connected (display + audio)";
-            });
-        }
-        catch (Exception ex)
-        {
-            AppendLocal($"[engine] failed to start: {ex.Message}");
-            Dispatcher.UIThread.Post(() =>
-                _connectionTextBlock.Text = "Connected (display only — audio failed)");
-            try { if (_engineHost is not null) await _engineHost.DisposeAsync(); }
-            catch { }
-            _engineHost = null;
-        }
-    }
-
-    async Task StopEngineHostAsync()
-    {
-        if (_engineHost is null) return;
-        try { await _engineHost.DisposeAsync(); }
-        catch (Exception ex) { AppendLocal($"[engine] stop failed: {ex.Message}"); }
-        _engineHost = null;
-    }
-
-    async Task<bool> TryPairAsync(string code)
-    {
-        var name = Environment.GetEnvironmentVariable("NUOTTI_DEVICENAME") ?? Environment.MachineName;
-        var paired = await _pairing.PairAsync(code, name);
-        if (paired is null) return false;
-
-        _sessionCode = paired.SessionCode;
-        Dispatcher.UIThread.Post(() => _sessionCodeText.Text = _sessionCode);
-        AppendLocal($"[pair] Paired to session={paired.SessionCode}");
-        return true;
-    }
-
     async Task<bool> StartConnection()
     {
-        if (!await EnsurePairedAsync()) return false;
-
-        // Do not open the hub until a lease is in hand. StartAsync with a null AccessTokenProvider
-        // result is what produces "no credential this session recognises" on the backend.
-        if (await _pairing.GetAccessTokenAsync() is null)
-        {
-            AppendLocal("[hub] skipped start: no access token yet");
-            if (_pairing.Current is null)
-                ShowPairingScreen("This Venue machine is no longer paired to a session. Enter a new code.");
-            else
-                _connectionTextBlock.Text = "Waiting for API — lease refresh failed";
-            return false;
-        }
-
-        await _connection.StartAsync();
-        AppendLocal("[hub] start ok");
-
-        // Update debug overlay with connection ID
-        _debugOverlay.UpdateConnectionId(_connection.ConnectionId ?? "Unknown");
-
-        AppendLocal($"[hub] joined as projector to session={_sessionCode}");
-        await StartEngineHostAsync();
-        _ = StartLogConnection();
-        return true;
+        if (_lifecycle is null) return false;
+        var ok = await _lifecycle.StartAsync();
+        if (ok) _ = StartLogConnection();
+        return ok;
     }
 
-    // F11 - Enhanced connection with state resync
     async Task StartConnectionWithStateResync()
     {
-        try
+        if (_lifecycle is null) return;
+        await _lifecycle.ResyncAsync();
+    }
+
+    void OnResyncSucceeded(GameStateSnapshot? latestState)
+    {
+        Dispatcher.UIThread.Post(() =>
         {
-            _reconnectOverlay.Show("Reconnecting...", "Restoring connection...");
-
-            await _connection.StartAsync();
-            AppendLocal("[hub] reconnect start ok");
-
-            AppendLocal($"[hub] rejoined as projector to session={_sessionCode}");
-            await StartEngineHostAsync();
-
-            // Fetch latest state to resync
-            _reconnectOverlay.Show("Reconnecting...", "Syncing latest state...");
-            var latestState = await _reconnectService.FetchLatestStateAsync(_sessionCode);
-
             if (latestState != null)
-            {
                 _gameStateService.UpdateFromSnapshot(latestState);
-                AppendLocal("[hub] state resynced successfully");
-            }
-            else
-            {
-                AppendLocal("[hub] state resync failed, continuing with current state");
-            }
 
             _playbackPresenter.ResumeFromHold(_playbackClock.Elapsed);
-            // Prefer anchor reconcile when a playback instance is still active after resync.
             if (_gameStateService.CurrentState.Phase == Phase.Play)
             {
                 _playbackPresenter.Reconcile(
@@ -579,23 +499,12 @@ public partial class MainWindow : Window
                     _playbackClock.Elapsed,
                     DateTimeOffset.UtcNow);
             }
+
             _connectionTextBlock.Text = "Connected";
             _reconnectOverlay.Hide();
             RenderCurrent();
-
             _ = StartLogConnection();
-            AppendLocal("[hub] reconnected successfully");
-        }
-        catch (Exception ex)
-        {
-            _connectionTextBlock.Text = $"Reconnection failed: {ex.Message}";
-            _reconnectOverlay.Show("Reconnection Failed", "Will retry automatically...");
-            AppendLocal($"[hub] reconnect error: {ex.Message}");
-
-            // Retry after a longer delay
-            await Task.Delay(5000);
-            await StartConnectionWithStateResync();
-        }
+        });
     }
 
     public async Task StopConnection()
@@ -898,7 +807,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        _ = StopEngineHostAsync();
+        _ = _lifecycle?.DisposeAsync().AsTask() ?? Task.CompletedTask;
         _cursorService?.Dispose();
         _reconnectService?.Dispose();
         _performanceService?.Dispose();
