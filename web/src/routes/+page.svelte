@@ -1,4 +1,5 @@
 ﻿<script lang="ts">
+  import { resolve } from "$app/paths";
   import TrialForm from "$lib/TrialForm.svelte";
 
   const features = [
@@ -18,8 +19,16 @@
 
   const steps = [
     { code: "01", label: "Request access", detail: "Tell us about your band and typical rooms." },
-    { code: "02", label: "Get a magic link", detail: "We open your trial Workspace when a spot frees." },
-    { code: "03", label: "Run a dry show", detail: "Prep a setlist, pair venue gear, put phones in the room." },
+    {
+      code: "02",
+      label: "Get a magic link",
+      detail: "We open your trial Workspace when a spot frees.",
+    },
+    {
+      code: "03",
+      label: "Run a dry show",
+      detail: "Prep a setlist, pair venue gear, put phones in the room.",
+    },
   ];
 
   function scrollToTrial() {
@@ -37,7 +46,7 @@
 
 <div class="page">
   <header class="top">
-    <a class="brand" href="/">Nuotti</a>
+    <a class="brand" href={resolve("/")}>Nuotti</a>
     <nav>
       <a href="#features">Features</a>
       <a href="#how">How it works</a>
@@ -51,8 +60,8 @@
       <h1>Nuotti</h1>
       <p class="tagline">Live music quizzes your audience actually plays.</p>
       <p class="lede">
-        Progressive hints, timed guesses, and a venue display — built for bands that
-        already own the room. Limited trial spots for acts ready to run a real show.
+        Progressive hints, timed guesses, and a venue display — built for bands that already own the
+        room. Limited trial spots for acts ready to run a real show.
       </p>
       <div class="cta-row">
         <button type="button" class="primary" onclick={scrollToTrial}>
@@ -122,8 +131,8 @@
       <p class="eyebrow">Apply</p>
       <h2>Request exclusive trial access</h2>
       <p class="lede">
-        Spots are invite-only while we harden the product with real event bands.
-        Tell us who you are — we'll follow up with a magic-link when your trial opens.
+        Spots are invite-only while we harden the product with real event bands. Tell us who you are
+        — we'll follow up with a magic-link when your trial opens.
       </p>
     </div>
     <div class="trial-panel">
@@ -143,8 +152,7 @@
     border-left: 4px solid var(--cyan);
     background:
       radial-gradient(1200px 600px at 85% -10%, rgba(0, 255, 245, 0.09), transparent 55%),
-      linear-gradient(180deg, rgba(0, 255, 245, 0.05), transparent 28%),
-      var(--bg);
+      linear-gradient(180deg, rgba(0, 255, 245, 0.05), transparent 28%), var(--bg);
   }
 
   .top {
@@ -286,9 +294,7 @@
 
   .stage-frame {
     border: 1px solid var(--line);
-    background:
-      linear-gradient(180deg, rgba(0, 255, 245, 0.08), transparent 40%),
-      var(--panel);
+    background: linear-gradient(180deg, rgba(0, 255, 245, 0.08), transparent 40%), var(--panel);
     padding: 1.25rem 1.25rem 1.35rem;
     display: grid;
     gap: 1rem;

@@ -28,32 +28,35 @@ gotchas for developing here.
 - **Backend** (REST + SignalR, the core of the product): `dotnet run --project Nuotti.Backend`
   serves `http://localhost:5240` in `Development`. With no connection strings it transparently
   falls back to **in-memory** stores/event bus — no Postgres/Redis/Azure Storage required.
-- **Web** (SvelteKit static frontend) in `web/`: `npm run dev` (Vite; default port 5173).
+- **Web** (SvelteKit static frontend / marketing + trial) in `web/`: `npm run dev` (Vite; default
+  port 5173). This is **not** the Audience participant app — that is Blazor WASM
+  `Nuotti.Audience`.
 - The Aspire AppHost `Nuotti/Nuotti.csproj` orchestrates everything but requires Docker plus
   Postgres/Redis/an Azure Storage emulator **and** an Avalonia desktop Projector, so it is not
   suitable for headless cloud runs. Start the individual projects instead.
 - Quick end-to-end sanity check (create session → upload manifest → push question → read state):
-  see `tools/smoke-test.sh`, but note it pushes a question with `issuedByRole: 2` (Audience),
-  which the backend now rejects with `403 "Only Performer may execute this command."` Use
-  `issuedByRole: "Performer"` (Role enum: Performer=0, Projector=1, Audience=2, Engine=3).
+  `./tools/smoke-test.sh` (or `pwsh tools/smoke-test.ps1`). Push-question must use
+  `issuedByRole: 0` / `"Performer"` (Role enum: Performer=0, Projector=1, Audience=2, Engine=3).
+  Audience (`2`) is rejected with `403 "Only Performer may execute this command."`
 
 ### Tests
 
 - Run test projects directly, e.g. `dotnet test tests/Nuotti.UnitTests/Nuotti.UnitTests.csproj`.
-  Do **not** pass `--settings:.runsettings`: it references a legacy `TestSettings.testsettings`
-  through an unexpanded `$(MSBuildProjectDirectory)`, which the .NET 10 RC test platform treats as
-  embedded test settings and aborts the run (0 tests). Only coverage collection is lost this way.
+- CI uses `--settings:.runsettings` for coverage. That file is safe: the legacy MSTest
+  `TestSettings.testsettings` block was removed. Prefer matching CI locally when collecting
+  coverage: `dotnet test --settings:.runsettings --collect:"XPlat Code Coverage"`.
+- Frontend lint (from `web/`): `npm run lint` and `npm run format:check`. Tools are pinned
+  `devDependencies` with ESLint 9 flat config (`eslint.config.js`). Do not use bare
+  `npx eslint` / `npx prettier` — they can pull a newer major and break.
 
-### Known caveats (pre-existing; not environment issues)
+### Line endings
 
-- `Nuotti.SimKit.InProc` (and `Nuotti.SimKit.InProc.Tests`) do not compile: `InProcCommandEmitter.cs`
-  and `InProcHubClient.cs` reference `Outcome` without `using Nuotti.Contracts.V1.Protocol;`. This is
-  isolated — Backend/Contracts/Audience/Performer/Projector/AudioEngine/SimKit and the CI test
-  projects all build and test fine.
-- `dotnet format --verify-no-changes` reports whitespace/line-ending diffs on Linux checkouts:
-  `.editorconfig` mandates `end_of_line = crlf` for `*.cs`, but there is no `.gitattributes`, so
-  files are checked out with LF. This is a line-ending artifact, not real formatting drift.
-- Web ESLint/Prettier are not runnable as configured: the required tools and plugins (`eslint`,
-  `prettier`, `@typescript-eslint/*`, `eslint-plugin-svelte`, `svelte-eslint-parser`,
-  `prettier-plugin-svelte`) are **not** declared in `web/package.json`, so `npx eslint`/`npx prettier`
-  pull bare latest versions and fail (flat-config / missing-plugin errors).
+- `.editorconfig` and `.gitattributes` both enforce **LF** for `*.cs` (and most text). CRLF is
+  reserved for Windows scripts (`*.ps1`, `*.cmd`, `*.bat`). `dotnet format --verify-no-changes`
+  should not report line-ending churn on a normal checkout.
+
+### Doc / contract checks
+
+- `tools/check-docs.ps1` and `tools/check-contracts.ps1` require PowerShell (`pwsh`). CI runs
+  them when available; locally: `pwsh -File tools/check-docs.ps1` /
+  `pwsh -File tools/check-contracts.ps1`.

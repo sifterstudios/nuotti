@@ -23,7 +23,7 @@
       contactName.trim().length > 0 &&
       email.trim().length > 0 &&
       city.trim().length > 0 &&
-      audienceSize !== "",
+      audienceSize !== ""
   );
 
   async function onSubmit(event: Event) {
@@ -131,8 +131,7 @@
           maxlength="1000"
           rows="3"
           bind:value={note}
-          placeholder="Venue types, show format, how often you play…"
-        ></textarea>
+          placeholder="Venue types, show format, how often you play…"></textarea>
       </label>
     </div>
 
@@ -144,8 +143,7 @@
       {status === "submitting" ? "Sending…" : "Request exclusive trial access"}
     </button>
     <p class="fine">
-      Spots are limited. No password yet — we'll send a magic link when your trial
-      opens.
+      Spots are limited. No password yet — we'll send a magic link when your trial opens.
     </p>
   </form>
 {/if}
@@ -266,7 +264,8 @@
   }
 
   select {
-    background-image: linear-gradient(45deg, transparent 50%, var(--cyan) 50%),
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--cyan) 50%),
       linear-gradient(135deg, var(--cyan) 50%, transparent 50%);
     background-position:
       calc(100% - 18px) 50%,

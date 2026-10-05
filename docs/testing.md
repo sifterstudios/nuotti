@@ -32,6 +32,7 @@ The Nuotti solution includes several test projects:
 
 ### Simulation Tests
 - **`Nuotti.SimKit.Tests`** - SimKit actor and orchestration tests
+- **`Nuotti.SimKit.InProc.Tests`** - In-process SimKit fidelity tests (no HTTP/SignalR transport)
 
 ## Running Tests
 
@@ -39,7 +40,7 @@ The Nuotti solution includes several test projects:
 
 - .NET SDK 10.0 (see `global.json`)
 - For E2E tests: Playwright browsers (installed automatically on first run)
-- For frontend tests: Node.js 20+ (for linting/formatting checks)
+- For frontend tests: Node.js 22+ (for linting/formatting checks in `web/`)
 
 ### Run All Tests
 
@@ -328,10 +329,17 @@ dotnet format --verify-no-changes
 # C# formatting
 dotnet format --verify-no-changes
 
-# Frontend (from web directory)
+# Frontend (from web directory) — use npm scripts so pinned ESLint 9 / Prettier run
 cd web
-npx eslint . --ext .js,.ts,.svelte
-npx prettier --check .
+npm run lint
+npm run format:check
+```
+
+### Doc and contract checks
+```bash
+# Requires PowerShell (pwsh). Also run from CI when available on the runner.
+pwsh -File tools/check-docs.ps1
+pwsh -File tools/check-contracts.ps1
 ```
 
 ## Getting Help

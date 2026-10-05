@@ -53,7 +53,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install frontend dependencies
         working-directory: web
@@ -70,6 +70,16 @@ jobs:
       - name: Run Prettier check
         working-directory: web
         run: npm run format:check
+
+      - name: Check docs and contracts
+        # Self-hosted Unraid runners typically have pwsh; skip cleanly if not installed.
+        run: |
+          if command -v pwsh >/dev/null 2>&1; then
+            pwsh -File tools/check-docs.ps1
+            pwsh -File tools/check-contracts.ps1
+          else
+            echo "pwsh not found; skipping check-docs / check-contracts"
+          fi
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
