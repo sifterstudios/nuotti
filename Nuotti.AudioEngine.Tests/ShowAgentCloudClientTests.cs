@@ -47,6 +47,28 @@ public sealed class ShowAgentCloudClientTests
     }
 
     [Fact]
+    public async Task NotFound_is_treated_as_revocation_and_forgets_the_credential()
+    {
+        var store = new MemoryCredentialStore { Value = "gone" };
+        var handler = new RecordingHandler(new HttpResponseMessage(HttpStatusCode.NotFound));
+        var client = new ShowAgentCloudClient(new HttpClient(handler) { BaseAddress = new Uri("https://backend.test") }, store);
+
+        Assert.Null(await client.EnsureLeaseAsync());
+        Assert.Null(store.Value);
+    }
+
+    [Fact]
+    public async Task A_transient_token_failure_keeps_the_credential()
+    {
+        var store = new MemoryCredentialStore { Value = "still-good" };
+        var handler = new RecordingHandler(new HttpResponseMessage(HttpStatusCode.BadGateway));
+        var client = new ShowAgentCloudClient(new HttpClient(handler) { BaseAddress = new Uri("https://backend.test") }, store);
+
+        Assert.Null(await client.EnsureLeaseAsync());
+        Assert.Equal("still-good", store.Value);
+    }
+
+    [Fact]
     public void Playback_payload_uses_web_json_names()
     {
         using var document = System.Text.Json.JsonDocument.Parse(
