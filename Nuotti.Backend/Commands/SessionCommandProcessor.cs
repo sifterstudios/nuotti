@@ -191,47 +191,46 @@ public sealed class SessionCommandProcessor(
         if (effects.BroadcastSnapshot && stateChanged)
             publications.Add(StateChanged(session, next, command, correlation));
 
-        if (durable is not null && effects.CheckIdempotency)
+        var plan = SessionCommitPlan.Build(
+            effects.CheckIdempotency,
+            publications,
+            next,
+            stateChanged,
+            persisted?.LastSequence ?? SessionSequence.None,
+            durableConfigured: durable is not null,
+            workspaceId,
+            command.CommandId);
+
+        if (plan.UsePrimaryDurableCommit)
         {
-            var expectedSequence = persisted?.LastSequence ?? SessionSequence.None;
-            // Relays (PlayTrack, PreparePlayback, …) are at-least-once and not outbox-durable —
-            // commit only durable events, then publish relays live so Show Agent still receives them.
-            var durablePublications = publications.Where(SessionMessagePublisher.IsDurable).ToList();
-            var liveRelays = publications.Where(p => !SessionMessagePublisher.IsDurable(p)).ToList();
-            var commit = await durable.CommitAsync(
-                workspaceId, session, command.CommandId, expectedSequence, next, durablePublications,
+            var commit = await durable!.CommitAsync(
+                workspaceId, session, plan.CommandIdForDurableCommit, plan.ExpectedSequence,
+                plan.HotSnapshot, plan.DurablePublications,
                 cancellationToken: ct);
             if (commit.WasDuplicate) return commit.Result;
             if (commit.WasStale)
                 throw new StaleCommitException();
-            store.Set(session, next);
+            store.Set(session, plan.HotSnapshot);
             if (outbox is not null) await outbox.DispatchPendingAsync(cancellationToken: ct);
-            foreach (var relay in liveRelays) await PublishAsync(relay, ct, workspaceId);
+            foreach (var relay in plan.LivePublications) await PublishAsync(relay, ct, workspaceId);
         }
         else
         {
-            if (stateChanged) store.Set(session, next);
-            foreach (var publication in publications) await PublishAsync(publication, ct, workspaceId);
-            // At-least-once relays that also change state (QuestionPushed → QuestionOffered) must
-            // still advance the Workspace durable snapshot; otherwise the next phase command
-            // reloads a Choices-less record and wipes memory. Use a fresh CommandId so retries
-            // remain at-least-once on the wire (docs/adr/0002).
-            if (durable is not null && stateChanged && workspaceId != "legacy")
+            if (plan.StateChanged) store.Set(session, plan.HotSnapshot);
+            foreach (var publication in plan.LivePublications) await PublishAsync(publication, ct, workspaceId);
+            if (plan.SideCommitDurableWithFreshCommandId)
             {
-                var durableOnly = publications.Where(SessionMessagePublisher.IsDurable).ToList();
-                if (durableOnly.Count > 0)
-                {
-                    var latest = await durable.LoadAsync(workspaceId, session, ct);
-                    var expectedSequence = latest?.LastSequence ?? SessionSequence.None;
-                    await durable.CommitAsync(
-                        workspaceId, session, Guid.NewGuid(), expectedSequence, next, durableOnly,
-                        cancellationToken: ct);
-                }
+                var latest = await durable!.LoadAsync(workspaceId, session, ct);
+                var expectedSequence = latest?.LastSequence ?? SessionSequence.None;
+                await durable.CommitAsync(
+                    workspaceId, session, plan.CommandIdForDurableCommit, expectedSequence,
+                    plan.HotSnapshot, plan.DurablePublications,
+                    cancellationToken: ct);
             }
         }
 
-        Complete(activity, command, stateChanged ? next : null);
-        if (command is EndGame && results is not null && stateChanged)
+        Complete(activity, command, plan.StateChanged ? plan.HotSnapshot : null);
+        if (command is EndGame && results is not null && plan.StateChanged)
         {
             var sequence = durable is null
                 ? 0L
@@ -240,12 +239,12 @@ public sealed class SessionCommandProcessor(
                 workspaceId,
                 session,
                 DateTimeOffset.UtcNow,
-                next.Scores,
+                plan.HotSnapshot.Scores,
                 sequence,
                 command.CommandId,
-                SongCount: Math.Max(next.SongIndex + 1, next.Catalog.Count)), ct);
+                SongCount: Math.Max(plan.HotSnapshot.SongIndex + 1, plan.HotSnapshot.Catalog.Count)), ct);
         }
-        return CommandResult.Applied(stateChanged ? next : null);
+        return CommandResult.Applied(plan.StateChanged ? plan.HotSnapshot : null);
     }
 
     /// <summary>
