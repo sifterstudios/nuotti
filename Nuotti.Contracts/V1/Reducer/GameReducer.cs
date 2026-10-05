@@ -178,6 +178,25 @@ public static class GameReducer
                     // the reducer trusts the event and records the index it carries.
                     return (state with { HintIndex = hint.HintIndex }, null);
                 }
+            case GuessingWindowOpened window:
+                {
+                    // OpenAnswers emits this beside GamePhaseChanged → Guessing. The clock and
+                    // live-answer clear used to be an imperative mutation after Reduce in the
+                    // processor; folding them here keeps GameReducer the sole owner of snapshot
+                    // transitions so event-only replay reconstructs the Window.
+                    var seconds = window.WindowSeconds;
+                    var openedAt = window.EmittedAtUtc;
+                    return (state with
+                    {
+                        GuessingWindowSeconds = seconds,
+                        GuessingWindowOpenedAtUtc = openedAt,
+                        GuessingWindowDeadlineUtc = openedAt.AddSeconds(seconds),
+                        // New Window clears live answers; Lock-held answers remain for Reveal.
+                        Answers = System.Collections.Frozen.FrozenDictionary<string, int>.Empty,
+                        AnswerReceivedAtUtc = System.Collections.Frozen.FrozenDictionary<string, DateTime>.Empty,
+                        Tallies = state.Choices.Count == 0 ? state.Tallies : new int[state.Choices.Count]
+                    }, null);
+                }
             case CatalogUpdated catalogUpdated:
                 {
                     return (state with { Catalog = catalogUpdated.Catalog }, null);

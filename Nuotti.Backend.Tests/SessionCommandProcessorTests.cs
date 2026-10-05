@@ -177,6 +177,45 @@ public class SessionCommandProcessorTests
     }
 
     [Fact]
+    public async Task OpenAnswers_emits_GuessingWindowOpened_and_stamps_the_window_via_the_reducer()
+    {
+        var processor = Harness.Processor(out var store, out var bus);
+        store.Set(Session, GameReducer.Initial(Session) with
+        {
+            Phase = PhaseEnum.Start,
+            Choices = ["A", "B"],
+            Tallies = [1, 0],
+            Answers = new Dictionary<string, int> { ["aud-1"] = 0 }
+        });
+
+        var before = DateTime.UtcNow;
+        var result = await processor.ApplyAsync(Session, Performer,
+            new OpenAnswers(45)
+            {
+                SessionCode = Session,
+                IssuedByRole = Role.Performer,
+                IssuedById = "perf-1"
+            });
+        var after = DateTime.UtcNow;
+
+        Assert.Equal(Outcome.Applied, result.Outcome);
+        Assert.Equal(PhaseEnum.Guessing, result.State!.Phase);
+        Assert.Equal(45, result.State.GuessingWindowSeconds);
+        Assert.NotNull(result.State.GuessingWindowOpenedAtUtc);
+        Assert.NotNull(result.State.GuessingWindowDeadlineUtc);
+        Assert.InRange(result.State.GuessingWindowOpenedAtUtc!.Value, before.AddSeconds(-1), after.AddSeconds(1));
+        Assert.Equal(
+            result.State.GuessingWindowOpenedAtUtc.Value.AddSeconds(45),
+            result.State.GuessingWindowDeadlineUtc);
+        Assert.Empty(result.State.Answers);
+        Assert.Equal(new[] { 0, 0 }, result.State.Tallies);
+
+        Assert.Single(bus.Published.OfType<GamePhaseChanged>());
+        var window = Assert.Single(bus.Published.OfType<GuessingWindowOpened>());
+        Assert.Equal(45, window.WindowSeconds);
+    }
+
+    [Fact]
     public async Task An_answer_updates_tallies_but_does_not_broadcast_a_snapshot()
     {
         var processor = Harness.Processor(out var store, out var bus);

@@ -186,22 +186,6 @@ public sealed class SessionCommandProcessor(
         }
 
         var stateChanged = !ReferenceEquals(next, state);
-        if (command is OpenAnswers openAnswers)
-        {
-            var seconds = OpenAnswers.ClampWindowSeconds(openAnswers.WindowSeconds);
-            var openedAt = DateTime.UtcNow;
-            next = next with
-            {
-                GuessingWindowSeconds = seconds,
-                GuessingWindowOpenedAtUtc = openedAt,
-                GuessingWindowDeadlineUtc = openedAt.AddSeconds(seconds),
-                // New Window clears live answers; Lock-held answers remain for Reveal.
-                Answers = System.Collections.Frozen.FrozenDictionary<string, int>.Empty,
-                AnswerReceivedAtUtc = System.Collections.Frozen.FrozenDictionary<string, DateTime>.Empty,
-                Tallies = next.Choices.Count == 0 ? next.Tallies : new int[next.Choices.Count]
-            };
-            stateChanged = true;
-        }
 
         var publications = effects.Events.ToList();
         if (effects.BroadcastSnapshot && stateChanged)
@@ -291,6 +275,23 @@ public sealed class SessionCommandProcessor(
                         CorrelationId = correlation
                     }
                 ]);
+
+            // OpenAnswers must be matched before IPhaseChange: it both moves to Guessing and
+            // opens a Window whose clock the Reducer owns (GuessingWindowOpened).
+            case OpenAnswers open:
+                {
+                    var seconds = OpenAnswers.ClampWindowSeconds(open.WindowSeconds);
+                    return new Effects([
+                        Phase(state.Phase, open.TargetPhase, session, command, correlation),
+                        new GuessingWindowOpened(seconds)
+                        {
+                            WindowSeconds = seconds,
+                            SessionCode = session,
+                            CausedByCommandId = command.CommandId,
+                            CorrelationId = correlation
+                        }
+                    ]);
+                }
 
             // StartPlayback must be matched before IPhaseChange: it both moves Reveal→Play and
             // relays a cache-resolved PlayTrack so the Show Agent can start backing/click.

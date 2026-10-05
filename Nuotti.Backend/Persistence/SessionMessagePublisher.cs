@@ -18,6 +18,7 @@ public static class SessionMessagePublisher
     static readonly Entry[] Entries =
     [
         Of<GamePhaseChanged>(), Of<CorrectAnswerRevealed>(), Of<HintGiven>(),
+        Of<GuessingWindowOpened>(),
         Of<CatalogUpdated>(), Of<QuestionOffered>(), Of<AnswerSubmitted>(), Of<GameStateChanged>(),
         Of<CurrentSongSet>(),
         Of<QuestionPushed>(false), Of<PlayTrack>(false), Of<StopTrack>(false),

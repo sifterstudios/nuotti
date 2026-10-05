@@ -125,6 +125,10 @@ export interface EventBase {
     emittedAtUtc: string; // ISO 8601
 }
 
+export interface GuessingWindowOpened extends EventBase {
+    windowSeconds: number;
+}
+
 // Phase-related markers (serialized in C# as public getters)
 export interface IPhaseRestricted {
     allowedPhases: Phase[];
